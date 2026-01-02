@@ -90,9 +90,12 @@ export function TimelineScreen({
     setTab,
     posts,
     loading,
+    loadingMore,
+    hasMore,
     error,
     apiError,
     refresh,
+    loadMore,
     retryBlocked,
     retryCountdown,
   } = useTimeline({
@@ -195,6 +198,9 @@ export function TimelineScreen({
         onBookmark={onBookmark}
         getActionState={getActionState}
         initActionState={initActionState}
+        onLoadMore={loadMore}
+        loadingMore={loadingMore}
+        hasMore={hasMore}
       />
     </box>
   );

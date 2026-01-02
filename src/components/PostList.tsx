@@ -30,6 +30,12 @@ interface PostListProps {
     liked: boolean,
     bookmarked: boolean
   ) => void;
+  /** Called when user scrolls near the bottom to load more posts */
+  onLoadMore?: () => void;
+  /** Whether more posts are currently being loaded */
+  loadingMore?: boolean;
+  /** Whether there are more posts available to load */
+  hasMore?: boolean;
 }
 
 /**
@@ -48,6 +54,9 @@ export function PostList({
   onBookmark,
   getActionState,
   initActionState,
+  onLoadMore,
+  loadingMore = false,
+  hasMore = true,
 }: PostListProps) {
   const scrollRef = useRef<ScrollBoxRenderable>(null);
   // Save scroll position so we can restore when refocused
@@ -164,6 +173,17 @@ export function PostList({
     }
   }, [selectedIndex, posts.length]);
 
+  // Trigger load more when approaching the end of the list
+  useEffect(() => {
+    if (!onLoadMore || loadingMore || !hasMore || posts.length === 0) return;
+
+    // Load more when within 5 items of the end
+    const threshold = 5;
+    if (selectedIndex >= posts.length - threshold) {
+      onLoadMore();
+    }
+  }, [selectedIndex, posts.length, onLoadMore, loadingMore, hasMore]);
+
   if (posts.length === 0) {
     return (
       <box style={{ padding: 2 }}>
@@ -194,6 +214,16 @@ export function PostList({
           />
         );
       })}
+      {loadingMore ? (
+        <box style={{ padding: 1, paddingLeft: 2 }}>
+          <text fg="#888888">Loading more posts...</text>
+        </box>
+      ) : null}
+      {!hasMore && posts.length > 0 ? (
+        <box style={{ padding: 1, paddingLeft: 2 }}>
+          <text fg="#666666">No more posts</text>
+        </box>
+      ) : null}
     </scrollbox>
   );
 }
