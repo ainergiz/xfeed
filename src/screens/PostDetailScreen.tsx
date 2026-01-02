@@ -36,6 +36,8 @@ interface PostDetailScreenProps {
   onLike?: () => void;
   /** Called when user presses 'b' to toggle bookmark */
   onBookmark?: () => void;
+  /** Called when user presses 'm' to move bookmark to folder */
+  onMoveToFolder?: () => void;
   /** Whether the tweet is currently liked */
   isLiked?: boolean;
   /** Whether the tweet is currently bookmarked */
@@ -80,6 +82,7 @@ export function PostDetailScreen({
   onProfileOpen,
   onLike,
   onBookmark,
+  onMoveToFolder,
   isLiked = false,
   isBookmarked = false,
   actionMessage,
@@ -198,6 +201,12 @@ export function PostDetailScreen({
         break;
       case "l":
         onLike?.();
+        break;
+      case "m":
+        // Move bookmark to folder (only if bookmarked)
+        if (isBookmarked) {
+          onMoveToFolder?.();
+        }
         break;
       case "p":
         // Open author profile
@@ -430,6 +439,12 @@ export function PostDetailScreen({
       <text fg={isBookmarked ? X_BLUE : "#666666"}>
         {isBookmarked ? " ⚑" : " bookmark"}{" "}
       </text>
+      {isBookmarked && (
+        <>
+          <text fg="#ffffff">m</text>
+          <text fg="#666666"> folder </text>
+        </>
+      )}
       <text fg="#ffffff">l</text>
       <text fg={isLiked ? "#E0245E" : "#666666"}>
         {isLiked ? " ♥" : " like"}{" "}

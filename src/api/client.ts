@@ -3262,6 +3262,199 @@ export class TwitterClient {
   }
 
   /**
+   * Get the authenticated user's bookmark folders
+   */
+  async getBookmarkFolders(): Promise<import("./types").BookmarkFoldersResult> {
+    const variables = {};
+    const features = this.buildBookmarksFeatures();
+
+    const params = new URLSearchParams({
+      variables: JSON.stringify(variables),
+      features: JSON.stringify(features),
+    });
+
+    const tryOnce = async () => {
+      let lastError: string | undefined;
+      let had404 = false;
+      const queryId = await this.getQueryId("BookmarkFoldersSlice");
+
+      const url = `${TWITTER_API_BASE}/${queryId}/BookmarkFoldersSlice?${params.toString()}`;
+
+      try {
+        const response = await this.fetchWithTimeout(url, {
+          method: "GET",
+          headers: this.getHeaders(),
+        });
+
+        if (response.status === 404) {
+          had404 = true;
+          lastError = `HTTP ${response.status}`;
+          return {
+            success: false as const,
+            error: lastError,
+            had404,
+          };
+        }
+
+        if (!response.ok) {
+          const text = await response.text();
+          return {
+            success: false as const,
+            error: `HTTP ${response.status}: ${text.slice(0, 200)}`,
+            had404,
+          };
+        }
+
+        const data = (await response.json()) as {
+          data?: {
+            viewer?: {
+              user_results?: {
+                result?: {
+                  bookmark_collections_slice?: {
+                    items?: Array<{
+                      id?: string;
+                      name?: string;
+                    }>;
+                  };
+                };
+              };
+            };
+          };
+          errors?: Array<{ message: string }>;
+        };
+
+        if (data.errors && data.errors.length > 0) {
+          return {
+            success: false as const,
+            error: data.errors.map((e) => e.message).join(", "),
+            had404,
+          };
+        }
+
+        const items =
+          data.data?.viewer?.user_results?.result?.bookmark_collections_slice
+            ?.items ?? [];
+        const folders: import("./types").BookmarkFolder[] = items
+          .filter((item) => item.id && item.name)
+          .map((item) => ({
+            id: item.id as string,
+            name: item.name as string,
+          }));
+
+        return { success: true as const, folders, had404 };
+      } catch (error) {
+        return {
+          success: false as const,
+          error: error instanceof Error ? error.message : String(error),
+          had404,
+        };
+      }
+    };
+
+    const firstAttempt = await tryOnce();
+    if (firstAttempt.success) {
+      return { success: true, folders: firstAttempt.folders };
+    }
+
+    if (firstAttempt.had404) {
+      await this.refreshQueryIds();
+      const secondAttempt = await tryOnce();
+      if (secondAttempt.success) {
+        return { success: true, folders: secondAttempt.folders };
+      }
+      return { success: false, error: secondAttempt.error ?? "Unknown error" };
+    }
+
+    return { success: false, error: firstAttempt.error ?? "Unknown error" };
+  }
+
+  /**
+   * Move a bookmarked tweet to a specific folder
+   * @param tweetId The ID of the tweet to move
+   * @param folderId The ID of the target folder (bookmark_collection_id)
+   */
+  async moveBookmarkToFolder(
+    tweetId: string,
+    folderId: string
+  ): Promise<ActionResult> {
+    await this.ensureClientUserId();
+
+    const variables = {
+      tweet_id: tweetId,
+      bookmark_collection_id: folderId,
+    };
+
+    const tryOnce = async (): Promise<ActionResult & { had404?: boolean }> => {
+      const queryId = await this.getQueryId("bookmarkTweetToFolder");
+      const path = `/i/api/graphql/${queryId}/bookmarkTweetToFolder`;
+      const url = `https://x.com${path}`;
+
+      // Generate proper transaction ID for this specific request
+      const transactionId = await this.generateTransactionId("POST", path);
+
+      try {
+        const headers = {
+          ...this.getHeaders(),
+          "x-client-transaction-id": transactionId,
+        };
+
+        const response = await this.fetchWithTimeout(url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ variables, queryId }),
+        });
+
+        if (response.status === 404) {
+          return { success: false, error: "HTTP 404", had404: true };
+        }
+
+        if (!response.ok) {
+          const text = await response.text();
+          return {
+            success: false,
+            error: `HTTP ${response.status}: ${text.slice(0, 200)}`,
+          };
+        }
+
+        const data = (await response.json()) as {
+          data?: Record<string, unknown>;
+          errors?: Array<{ message: string; code?: number }>;
+        };
+
+        if (data.errors && data.errors.length > 0) {
+          return {
+            success: false,
+            error: data.errors.map((e) => e.message).join(", "),
+          };
+        }
+
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    };
+
+    const firstAttempt = await tryOnce();
+    if (firstAttempt.success) {
+      return { success: true };
+    }
+
+    if (firstAttempt.had404) {
+      await this.refreshQueryIds();
+      const secondAttempt = await tryOnce();
+      if (secondAttempt.success) {
+        return { success: true };
+      }
+      return { success: false, error: secondAttempt.error ?? "Unknown error" };
+    }
+
+    return { success: false, error: firstAttempt.error ?? "Unknown error" };
+  }
+
+  /**
    * Execute a simple action mutation (like, bookmark, etc.)
    * These mutations take only a tweet_id and return a simple success/error response.
    * Note: No features object - Twitter's action mutations only need variables and queryId.
@@ -3348,6 +3541,8 @@ export class TwitterClient {
 // Re-export types for convenience
 export type {
   ActionResult,
+  BookmarkFolder,
+  BookmarkFoldersResult,
   CreateTweetResponse,
   CurrentUserResult,
   GetTweetResult,
