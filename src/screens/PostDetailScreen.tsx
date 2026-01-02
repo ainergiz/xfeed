@@ -1,5 +1,6 @@
 /**
- * PostDetailScreen - Full post view with expand/collapse functionality
+ * PostDetailScreen - Full post view with thread context
+ * Shows parent tweet (if reply), main tweet, and replies below
  */
 
 import type { ScrollBoxRenderable } from "@opentui/core";
@@ -7,9 +8,13 @@ import type { ScrollBoxRenderable } from "@opentui/core";
 import { useKeyboard } from "@opentui/react";
 import { useState, useRef, useEffect, useCallback } from "react";
 
+import type { TwitterClient } from "@/api/client";
 import type { TweetData } from "@/api/types";
 
+import { PostCard } from "@/components/PostCard";
 import { QuotedPostCard } from "@/components/QuotedPostCard";
+import { useListNavigation } from "@/hooks/useListNavigation";
+import { usePostDetail } from "@/hooks/usePostDetail";
 import { formatCount, truncateText } from "@/lib/format";
 import {
   previewMedia,
@@ -23,11 +28,43 @@ const X_BLUE = "#1DA1F2";
 const COLOR_SUCCESS = "#17BF63";
 const COLOR_WARNING = "#FFAD1F";
 
+/**
+ * Generate element ID for reply cards (for scroll targeting)
+ */
+function getReplyCardId(tweetId: string): string {
+  return `reply-${tweetId}`;
+}
+
+/**
+ * Recursively find a child element by ID within a scrollbox
+ */
+function findChildById(
+  children: { id?: string; getChildren?: () => unknown[] }[],
+  targetId: string
+): { y: number; height: number } | null {
+  for (const child of children) {
+    if (child.id === targetId) {
+      return child as { y: number; height: number };
+    }
+    if (typeof child.getChildren === "function") {
+      const nested = child.getChildren() as {
+        id?: string;
+        getChildren?: () => unknown[];
+      }[];
+      const found = findChildById(nested, targetId);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 // Maximum lines for truncated content view
 // Keeps initial view compact; user can expand with 'e'
 const MAX_TRUNCATED_LINES = 10;
 
 interface PostDetailScreenProps {
+  /** Twitter API client for fetching thread data */
+  client: TwitterClient;
   tweet: TweetData;
   focused?: boolean;
   onBack?: () => void;
@@ -44,6 +81,10 @@ interface PostDetailScreenProps {
   isBookmarked?: boolean;
   /** External action message to display (from parent) */
   actionMessage?: string | null;
+  /** Called when user selects a reply to view */
+  onReplySelect?: (reply: TweetData) => void;
+  /** Get action state for a tweet */
+  getActionState?: (tweetId: string) => { liked: boolean; bookmarked: boolean };
 }
 
 /**
@@ -76,6 +117,7 @@ function needsTruncation(text: string, maxLines: number): boolean {
 }
 
 export function PostDetailScreen({
+  client,
   tweet,
   focused = false,
   onBack,
@@ -86,14 +128,35 @@ export function PostDetailScreen({
   isLiked = false,
   isBookmarked = false,
   actionMessage,
+  onReplySelect,
+  getActionState,
 }: PostDetailScreenProps) {
+  // Fetch thread context (parent tweet and replies)
+  const { parentTweet, replies, loadingParent, loadingReplies } = usePostDetail(
+    { client, tweet }
+  );
   const [isExpanded, setIsExpanded] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [mediaIndex, setMediaIndex] = useState(0);
   const [linkIndex, setLinkIndex] = useState(0);
   const [linkMetadata, setLinkMetadata] = useState<LinkMetadata | null>(null);
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
+  const [repliesMode, setRepliesMode] = useState(false);
   const scrollRef = useRef<ScrollBoxRenderable>(null);
+
+  // Reset state when viewing a different tweet (e.g., navigating to a reply)
+  useEffect(() => {
+    setRepliesMode(false);
+    setIsExpanded(false);
+    setMediaIndex(0);
+    setLinkIndex(0);
+    setLinkMetadata(null);
+    setStatusMessage(null);
+    // Scroll to top when tweet changes
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo(0);
+    }
+  }, [tweet.id]);
 
   const hasMedia = tweet.media && tweet.media.length > 0;
   const mediaCount = tweet.media?.length ?? 0;
@@ -109,6 +172,61 @@ export function PostDetailScreen({
   const displayText = showTruncated
     ? truncateText(tweet.text, MAX_TRUNCATED_LINES)
     : tweet.text;
+
+  const hasReplies = replies.length > 0;
+  const isReply = !!tweet.inReplyToStatusId;
+
+  // List navigation for replies
+  const {
+    selectedIndex: selectedReplyIndex,
+    setSelectedIndex: setSelectedReplyIndex,
+  } = useListNavigation({
+    itemCount: replies.length,
+    enabled: focused && repliesMode && hasReplies,
+    onSelect: (index) => {
+      const reply = replies[index];
+      if (reply && onReplySelect) {
+        onReplySelect(reply);
+      }
+    },
+  });
+
+  // Scroll selected reply into view when navigating in replies mode
+  useEffect(() => {
+    const scrollbox = scrollRef.current;
+    if (!scrollbox || !repliesMode || replies.length === 0) return;
+
+    const selectedReply = replies[selectedReplyIndex];
+    if (!selectedReply) return;
+
+    const targetId = getReplyCardId(selectedReply.id);
+    // Use recursive search since PostCards are nested inside boxes
+    const children = scrollbox.getChildren() as {
+      id?: string;
+      getChildren?: () => unknown[];
+    }[];
+    const target = findChildById(children, targetId);
+    if (!target) return;
+
+    // Calculate the element's position relative to the scrollbox viewport
+    const relativeY = target.y - scrollbox.y;
+    const viewportHeight = scrollbox.viewport.height;
+
+    // Scroll margins to keep selected item visible with context
+    const topMargin = Math.max(2, Math.floor(viewportHeight / 8));
+    const bottomMargin = Math.max(4, Math.floor(viewportHeight / 4));
+
+    // If element is below viewport, scroll down
+    if (relativeY + target.height > viewportHeight - bottomMargin) {
+      scrollbox.scrollBy(
+        relativeY + target.height - viewportHeight + bottomMargin
+      );
+    }
+    // If element is above viewport, scroll up
+    else if (relativeY < topMargin) {
+      scrollbox.scrollBy(relativeY - topMargin);
+    }
+  }, [selectedReplyIndex, repliesMode, replies]);
 
   // When expanding, ensure scroll starts at top
   useEffect(() => {
@@ -184,6 +302,29 @@ export function PostDetailScreen({
   useKeyboard((key) => {
     if (!focused) return;
 
+    // Handle replies mode navigation separately
+    if (repliesMode && hasReplies) {
+      // Exit replies mode with escape or h
+      if (key.name === "escape" || key.name === "h") {
+        setRepliesMode(false);
+        return;
+      }
+      // j/k/g/G/return are handled by useListNavigation
+      // Other keys should work normally
+      if (
+        key.name === "j" ||
+        key.name === "k" ||
+        key.name === "g" ||
+        key.name === "G" ||
+        key.name === "down" ||
+        key.name === "up" ||
+        key.name === "return" ||
+        key.name === "u"
+      ) {
+        return;
+      }
+    }
+
     switch (key.name) {
       case "escape":
       case "backspace":
@@ -248,6 +389,18 @@ export function PostDetailScreen({
           setLinkIndex((prev) => prev + 1);
         }
         break;
+      case "r":
+        // Toggle replies mode if there are replies
+        if (hasReplies) {
+          setRepliesMode((prev) => {
+            if (!prev) {
+              // Entering replies mode - reset selection to first reply
+              setSelectedReplyIndex(0);
+            }
+            return !prev;
+          });
+        }
+        break;
     }
   });
 
@@ -262,10 +415,41 @@ export function PostDetailScreen({
         flexDirection: "row",
       }}
     >
-      <text fg="#666666">{"<- "}</text>
-      <text fg="#888888">Back (Esc)</text>
+      <text fg="#888888">
+        {repliesMode ? "<- Back (Esc) | " : "<- Back (Esc)"}
+      </text>
+      {repliesMode && <text fg={X_BLUE}>Navigating replies</text>}
     </box>
   );
+
+  // Parent tweet section (if this is a reply)
+  const parentContent =
+    isReply && (loadingParent || parentTweet) ? (
+      <box
+        style={{
+          marginBottom: 1,
+          paddingLeft: 1,
+          paddingRight: 1,
+          borderStyle: "single",
+          borderColor: "#444444",
+        }}
+      >
+        {loadingParent ? (
+          <text fg="#666666">Loading parent tweet...</text>
+        ) : parentTweet ? (
+          <box style={{ flexDirection: "column" }}>
+            <box style={{ flexDirection: "row" }}>
+              <text fg="#666666">Replying to </text>
+              <text fg={X_BLUE}>@{parentTweet.author.username}</text>
+              <text fg="#888888"> · {parentTweet.author.name}</text>
+            </box>
+            <box style={{ marginTop: 1 }}>
+              <text fg="#aaaaaa">{truncateText(parentTweet.text, 3)}</text>
+            </box>
+          </box>
+        ) : null}
+      </box>
+    ) : null;
 
   // Author info
   const authorContent = (
@@ -400,6 +584,54 @@ export function PostDetailScreen({
     </box>
   ) : null;
 
+  // Replies section
+  const repliesContent = (
+    <box style={{ marginTop: 1, paddingLeft: 1, paddingRight: 1 }}>
+      <box style={{ flexDirection: "column" }}>
+        <box style={{ flexDirection: "row" }}>
+          <text fg="#ffffff">Replies</text>
+          {hasReplies && (
+            <>
+              <text fg="#666666"> ({replies.length}) </text>
+              {!repliesMode && (
+                <>
+                  <text fg={X_BLUE}>r</text>
+                  <text fg="#666666"> to navigate</text>
+                </>
+              )}
+            </>
+          )}
+        </box>
+
+        {loadingReplies ? (
+          <box>
+            <text fg="#666666">Loading replies...</text>
+          </box>
+        ) : hasReplies ? (
+          <box style={{ flexDirection: "column" }}>
+            {replies.map((reply, idx) => {
+              const state = getActionState?.(reply.id);
+              return (
+                <PostCard
+                  key={reply.id}
+                  id={getReplyCardId(reply.id)}
+                  post={reply}
+                  isSelected={repliesMode && idx === selectedReplyIndex}
+                  isLiked={state?.liked}
+                  isBookmarked={state?.bookmarked}
+                />
+              );
+            })}
+          </box>
+        ) : (
+          <box>
+            <text fg="#666666">No replies yet</text>
+          </box>
+        )}
+      </box>
+    </box>
+  );
+
   // Status message (for media operations and action feedback)
   const displayMessage = actionMessage ?? statusMessage;
   const isError = displayMessage?.startsWith("Error:");
@@ -418,6 +650,7 @@ export function PostDetailScreen({
         paddingRight: 1,
         paddingTop: 1,
         flexDirection: "row",
+        flexWrap: "wrap",
       }}
     >
       <text fg="#ffffff">h/Esc</text>
@@ -465,38 +698,25 @@ export function PostDetailScreen({
           )}
         </>
       )}
+      {hasReplies && !repliesMode && (
+        <>
+          <text fg="#ffffff"> r</text>
+          <text fg="#666666"> replies</text>
+        </>
+      )}
     </box>
   );
 
-  // Main layout
-  if (isExpanded) {
-    // Expanded: content in scrollbox to allow scrolling long posts
-    return (
-      <box style={{ flexDirection: "column", height: "100%" }}>
-        {headerContent}
-        <scrollbox
-          ref={scrollRef}
-          focused={focused}
-          style={{ flexGrow: 1, height: "100%" }}
-        >
-          {authorContent}
-          {postContent}
-          {quotedContent}
-          {statsContent}
-          {mediaContent}
-          {linksContent}
-        </scrollbox>
-        {statusContent}
-        {footerContent}
-      </box>
-    );
-  }
-
-  // Collapsed: fixed layout, no scrolling
+  // Main layout - always use scrollbox for thread content
   return (
     <box style={{ flexDirection: "column", height: "100%" }}>
       {headerContent}
-      <box style={{ flexGrow: 1, flexDirection: "column" }}>
+      <scrollbox
+        ref={scrollRef}
+        focused={focused && !repliesMode}
+        style={{ flexGrow: 1, height: "100%" }}
+      >
+        {parentContent}
         {authorContent}
         {postContent}
         {truncationIndicator}
@@ -504,7 +724,8 @@ export function PostDetailScreen({
         {statsContent}
         {mediaContent}
         {linksContent}
-      </box>
+        {repliesContent}
+      </scrollbox>
       {statusContent}
       {footerContent}
     </box>
