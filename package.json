@@ -1,0 +1,30 @@
+{
+  "name": "xfeed",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": "./src/index.tsx",
+  "scripts": {
+    "start": "bun src/index.tsx",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint src && oxfmt --check src",
+    "lint:fix": "oxlint --fix src && oxfmt --write src"
+  },
+  "dependencies": {
+    "@opentui/core": "^0.1.63",
+    "@opentui/react": "^0.1.63",
+    "react": "^19.2.0",
+    "cac": "^6.7.14",
+    "@steipete/sweet-cookie": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^22",
+    "oxfmt": "^0.21.0",
+    "oxlint": "^1.36.0",
+    "typescript": "^5.8",
+    "ultracite": "7.0.4"
+  },
+  "engines": {
+    "bun": ">= 1.0"
+  }
+}
