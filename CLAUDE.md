@@ -36,6 +36,10 @@ bun test src/api/client.test.ts          # Single file works fine
 bun test -t "getTweet"                    # Filter by test name
 ```
 
+### Pull Requests
+
+PRs must reference a GitHub issue (e.g., `#123` or `Fixes #123`) in the title or body. CI will fail without an issue reference.
+
 ## Architecture
 
 ### Layers
