@@ -845,6 +845,24 @@ export class TwitterClient {
   }
 
   /**
+   * Decode HTML entities in tweet text
+   * Twitter API returns text with HTML entities encoded
+   */
+  private decodeHtmlEntities(text: string): string {
+    return text
+      .replace(/&gt;/g, ">")
+      .replace(/&lt;/g, "<")
+      .replace(/&amp;/g, "&")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&apos;/g, "'")
+      .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+      .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) =>
+        String.fromCharCode(Number.parseInt(hex, 16))
+      );
+  }
+
+  /**
    * Check if a URL points to media (should be hidden from tweet text)
    */
   private isMediaUrl(expandedUrl: string | undefined): boolean {
@@ -882,23 +900,19 @@ export class TwitterClient {
   }
 
   /**
-   * Strip media URLs from tweet text
-   * Twitter includes t.co links in full_text for media, but hides them in UI
+   * Strip all URLs from tweet text (media and external links)
+   * Twitter includes t.co links in full_text, but hides them in UI
    * Media URLs can be in entities.urls (pointing to pic.twitter.com) OR entities.media
+   * External URLs are stripped but still available in TweetData.urls for rendering
    */
-  private stripMediaUrlsFromText(
-    text: string,
-    result: GraphqlTweetResult
-  ): string {
+  private stripUrlsFromText(text: string, result: GraphqlTweetResult): string {
     const allIndices: [number, number][] = [];
 
-    // Check entities.urls for URLs pointing to media (pic.twitter.com, etc)
+    // Collect ALL URL indices from entities.urls (both media and external)
     const rawUrls = result.legacy?.entities?.urls;
     if (rawUrls) {
       for (const u of rawUrls) {
-        if (this.isMediaUrl(u.expanded_url)) {
-          allIndices.push(u.indices);
-        }
+        allIndices.push(u.indices);
       }
     }
 
@@ -917,7 +931,7 @@ export class TwitterClient {
     // Sort by index descending to remove from end first (preserves earlier indices)
     allIndices.sort((a, b) => b[0] - a[0]);
 
-    // Remove each media URL from text (working backwards to preserve indices)
+    // Remove each URL from text (working backwards to preserve indices)
     let result_text = text;
     for (const [start, end] of allIndices) {
       // Also trim trailing whitespace before the URL
@@ -950,8 +964,9 @@ export class TwitterClient {
     if (!rawText) {
       return undefined;
     }
-    // Strip media URLs (t.co links to pic.twitter.com etc) from displayed text
-    const text = this.stripMediaUrlsFromText(rawText, result);
+    // Strip all URLs (t.co links) and decode HTML entities for display
+    const strippedText = this.stripUrlsFromText(rawText, result);
+    const text = this.decodeHtmlEntities(strippedText);
 
     // Handle quoted tweets recursively
     let quotedTweet: TweetData | undefined;
