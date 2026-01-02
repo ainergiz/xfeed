@@ -8,6 +8,7 @@ import { useState, useCallback } from "react";
 
 import type { TwitterClient } from "@/api/client";
 import type { TweetData } from "@/api/types";
+import type { TweetActionState } from "@/hooks/useActions";
 
 import { PostList } from "@/components/PostList";
 import { useUserProfile } from "@/hooks/useUserProfile";
@@ -21,6 +22,20 @@ interface ProfileScreenProps {
   focused?: boolean;
   onBack?: () => void;
   onPostSelect?: (post: TweetData) => void;
+  /** Called when user presses 'l' to toggle like */
+  onLike?: (post: TweetData) => void;
+  /** Called when user presses 'b' to toggle bookmark */
+  onBookmark?: (post: TweetData) => void;
+  /** Get current action state for a tweet */
+  getActionState?: (tweetId: string) => TweetActionState;
+  /** Initialize action state from API data */
+  initActionState?: (
+    tweetId: string,
+    liked: boolean,
+    bookmarked: boolean
+  ) => void;
+  /** Action feedback message */
+  actionMessage?: string | null;
 }
 
 export function ProfileScreen({
@@ -29,6 +44,11 @@ export function ProfileScreen({
   focused = false,
   onBack,
   onPostSelect,
+  onLike,
+  onBookmark,
+  getActionState,
+  initActionState,
+  actionMessage,
 }: ProfileScreenProps) {
   const { user, tweets, loading, error, refresh } = useUserProfile({
     client,
@@ -128,9 +148,11 @@ export function ProfileScreen({
       <text fg="#ffffff">h/Esc</text>
       <text fg="#666666"> back </text>
       <text fg="#ffffff">j/k</text>
-      <text fg="#666666"> navigate </text>
-      <text fg="#ffffff">Enter</text>
-      <text fg="#666666"> view </text>
+      <text fg="#666666"> nav </text>
+      <text fg="#ffffff">l</text>
+      <text fg="#666666"> like </text>
+      <text fg="#ffffff">b</text>
+      <text fg="#666666"> bookmark </text>
       <text fg="#ffffff">r</text>
       <text fg="#666666"> refresh</text>
     </box>
@@ -176,12 +198,23 @@ export function ProfileScreen({
     <box style={{ flexDirection: "column", height: "100%" }}>
       {isCollapsed ? compactHeader : fullHeader}
       {separator}
+      {actionMessage ? (
+        <box style={{ paddingLeft: 1 }}>
+          <text fg={actionMessage.startsWith("Error:") ? "#E0245E" : "#17BF63"}>
+            {actionMessage}
+          </text>
+        </box>
+      ) : null}
       {tweets.length > 0 ? (
         <PostList
           posts={tweets}
           focused={focused}
           onPostSelect={onPostSelect}
           onSelectedIndexChange={handleSelectedIndexChange}
+          onLike={onLike}
+          onBookmark={onBookmark}
+          getActionState={getActionState}
+          initActionState={initActionState}
         />
       ) : (
         <box style={{ padding: 1, flexGrow: 1 }}>

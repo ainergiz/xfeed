@@ -1,6 +1,6 @@
 /**
  * Vim-style list navigation hook
- * Provides j/k navigation, g/G jump to top/bottom, Enter to select
+ * Provides j/k navigation, g/G jump to top/bottom, Enter/u to select
  */
 
 import { useKeyboard } from "@opentui/react";
@@ -9,7 +9,7 @@ import { useState, useCallback } from "react";
 export interface UseListNavigationOptions {
   /** Total number of items in the list */
   itemCount: number;
-  /** Callback when Enter is pressed on current selection */
+  /** Callback when Enter or u is pressed on current selection */
   onSelect?: (index: number) => void;
   /** Whether this component should handle keyboard input */
   enabled?: boolean;
@@ -95,6 +95,7 @@ export function useListNavigation({
         jumpToBottom();
         break;
       case "return":
+      case "u":
         onSelect?.(selectedIndex);
         break;
     }

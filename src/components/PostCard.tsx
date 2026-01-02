@@ -18,9 +18,19 @@ interface PostCardProps {
   post: TweetData;
   isSelected: boolean;
   id?: string;
+  /** Whether the tweet is liked by the current user */
+  isLiked?: boolean;
+  /** Whether the tweet is bookmarked by the current user */
+  isBookmarked?: boolean;
 }
 
-export function PostCard({ post, isSelected, id }: PostCardProps) {
+export function PostCard({
+  post,
+  isSelected,
+  id,
+  isLiked,
+  isBookmarked,
+}: PostCardProps) {
   const displayText = truncateText(post.text, MAX_TEXT_LINES);
   const timeAgo = formatRelativeTime(post.createdAt);
   const hasMedia = post.media && post.media.length > 0;
@@ -67,6 +77,18 @@ export function PostCard({ post, isSelected, id }: PostCardProps) {
           {formatCount(post.retweetCount)} reposts {"  "}
           {formatCount(post.likeCount)} likes
         </text>
+        {isLiked ? (
+          <text fg="#E0245E">
+            {"  "}
+            {"\u2665"} liked
+          </text>
+        ) : null}
+        {isBookmarked ? (
+          <text fg={X_BLUE}>
+            {"  "}
+            {"\u2691"} saved
+          </text>
+        ) : null}
       </box>
 
       {/* Media indicators - colored labels */}

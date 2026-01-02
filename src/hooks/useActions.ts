@@ -78,9 +78,13 @@ export function useActions({
   const initState = useCallback(
     (tweetId: string, liked: boolean, bookmarked: boolean) => {
       setStates((prev) => {
+        // Only initialize if no state exists yet for this tweet
+        // This preserves user actions (like/bookmark) when navigating back
+        if (prev.has(tweetId)) {
+          return prev;
+        }
         const newMap = new Map(prev);
-        const current = prev.get(tweetId) ?? DEFAULT_STATE;
-        newMap.set(tweetId, { ...current, liked, bookmarked });
+        newMap.set(tweetId, { ...DEFAULT_STATE, liked, bookmarked });
         return newMap;
       });
     },

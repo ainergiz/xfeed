@@ -38,7 +38,7 @@ export function App({ client, user: _user }: AppProps) {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   // Actions hook for like/bookmark mutations
-  const { toggleLike, toggleBookmark, getState } = useActions({
+  const { toggleLike, toggleBookmark, getState, initState } = useActions({
     client,
     onError: (error) => setActionMessage(`Error: ${error}`),
     onSuccess: (message) => setActionMessage(message),
@@ -99,9 +99,10 @@ export function App({ client, user: _user }: AppProps) {
   const handlePostSelect = useCallback(
     (post: TweetData) => {
       setSelectedPost(post);
+      initState(post.id, post.favorited ?? false, post.bookmarked ?? false);
       navigate("post-detail");
     },
-    [navigate]
+    [navigate, initState]
   );
 
   // Return from post detail to previous view
@@ -132,9 +133,10 @@ export function App({ client, user: _user }: AppProps) {
   const handlePostSelectFromProfile = useCallback(
     (post: TweetData) => {
       setSelectedPost(post);
+      initState(post.id, post.favorited ?? false, post.bookmarked ?? false);
       navigate("post-detail");
     },
-    [navigate]
+    [navigate, initState]
   );
 
   useKeyboard((key) => {
@@ -196,6 +198,11 @@ export function App({ client, user: _user }: AppProps) {
             focused={currentView === "timeline" && !showSplash}
             onPostCountChange={handlePostCountChange}
             onPostSelect={handlePostSelect}
+            onLike={toggleLike}
+            onBookmark={toggleBookmark}
+            getActionState={getState}
+            initActionState={initState}
+            actionMessage={actionMessage}
           />
         </box>
 
@@ -220,6 +227,11 @@ export function App({ client, user: _user }: AppProps) {
             focused={true}
             onBack={handleBackFromProfile}
             onPostSelect={handlePostSelectFromProfile}
+            onLike={toggleLike}
+            onBookmark={toggleBookmark}
+            getActionState={getState}
+            initActionState={initState}
+            actionMessage={actionMessage}
           />
         )}
 
@@ -236,6 +248,11 @@ export function App({ client, user: _user }: AppProps) {
             focused={currentView === "bookmarks" && !showSplash}
             onPostCountChange={handleBookmarkCountChange}
             onPostSelect={handlePostSelect}
+            onLike={toggleLike}
+            onBookmark={toggleBookmark}
+            getActionState={getState}
+            initActionState={initState}
+            actionMessage={actionMessage}
           />
         </box>
       </box>

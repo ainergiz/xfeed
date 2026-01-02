@@ -829,6 +829,8 @@ export class TwitterClient {
       quotedTweet,
       media: this.extractMedia(result),
       urls: this.extractUrls(result),
+      favorited: result.legacy?.favorited ?? false,
+      bookmarked: result.legacy?.bookmarked ?? false,
     };
   }
 
