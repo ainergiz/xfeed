@@ -6,6 +6,7 @@ import type { UserData } from "@/api/types";
 
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
+import { TimelineScreen } from "@/screens/TimelineScreen";
 
 export type View = "timeline" | "bookmarks";
 
@@ -16,9 +17,10 @@ interface AppProps {
   user: UserData;
 }
 
-export function App({ client: _client, user }: AppProps) {
+export function App({ client, user: _user }: AppProps) {
   const renderer = useRenderer();
   const [currentView, setCurrentView] = useState<View>("timeline");
+  const [postCount, setPostCount] = useState(0);
 
   useKeyboard((key) => {
     // Quit on q or Escape
@@ -44,20 +46,25 @@ export function App({ client: _client, user }: AppProps) {
         height: "100%",
       }}
     >
-      <Header currentView={currentView} />
+      <Header currentView={currentView} postCount={postCount} />
 
-      {/* Content area - placeholder for now */}
+      {/* Content area */}
       <box
         style={{
           flexGrow: 1,
-          padding: 1,
         }}
       >
-        <text fg="#888888">
-          {currentView === "timeline"
-            ? `Timeline view coming soon... (@${user.username})`
-            : "Bookmarks view coming soon..."}
-        </text>
+        {currentView === "timeline" ? (
+          <TimelineScreen
+            client={client}
+            focused={true}
+            onPostCountChange={setPostCount}
+          />
+        ) : (
+          <box style={{ padding: 2 }}>
+            <text fg="#888888">Bookmarks view coming soon...</text>
+          </box>
+        )}
       </box>
 
       <Footer />

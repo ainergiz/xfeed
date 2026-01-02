@@ -64,7 +64,7 @@ cli
 
       // Launch TUI
       const renderer = await createCliRenderer({
-        exitOnCtrlC: false,
+        exitOnCtrlC: true,
       });
 
       createRoot(renderer).render(
