@@ -251,6 +251,90 @@ useEffect(() => {
 }, [selectedIndex]);
 ```
 
+## Windowed Lists for Modals
+
+### The Problem
+
+Scrollbox works well for full-screen lists (like PostList, NotificationList) where it fills the available space with `height: "100%"` and `flexGrow: 1`. However, **constraining scrollbox height in modals is problematic**:
+
+- Setting numeric `height` on scrollbox doesn't constrain the viewport correctly
+- Wrapping scrollbox in a fixed-height container causes layout issues
+- The scrollbar position and content rendering become misaligned
+
+### Solution: Windowed List Pattern
+
+For modals with bounded lists (like folder pickers), use a **windowed list** instead of scrollbox:
+
+```tsx
+const MAX_VISIBLE_ITEMS = 10;
+
+function PickerModal({ items, onSelect }) {
+  const [windowStart, setWindowStart] = useState(0);
+
+  const { selectedIndex } = useListNavigation({
+    itemCount: items.length,
+    onSelect: (index) => onSelect(items[index]),
+  });
+
+  // Keep selected item within the visible window
+  useEffect(() => {
+    const windowEnd = windowStart + MAX_VISIBLE_ITEMS - 1;
+
+    // If selection is below the window, shift window down
+    if (selectedIndex > windowEnd) {
+      setWindowStart(selectedIndex - MAX_VISIBLE_ITEMS + 1);
+    }
+    // If selection is above the window, shift window up
+    else if (selectedIndex < windowStart) {
+      setWindowStart(selectedIndex);
+    }
+  }, [selectedIndex, windowStart]);
+
+  // Calculate visible items
+  const hasMoreAbove = windowStart > 0;
+  const hasMoreBelow = windowStart + MAX_VISIBLE_ITEMS < items.length;
+  const visibleItems = items.slice(windowStart, windowStart + MAX_VISIBLE_ITEMS);
+
+  return (
+    <box style={{ /* modal styles */ }}>
+      {hasMoreAbove && <text fg="#666666">  ↑ more</text>}
+
+      {visibleItems.map((item, visibleIndex) => {
+        const actualIndex = windowStart + visibleIndex;
+        const isSelected = actualIndex === selectedIndex;
+        return (
+          <box key={item.id}>
+            <text fg={isSelected ? "#1DA1F2" : "#888888"}>
+              {isSelected ? "> " : "  "}{item.name}
+            </text>
+          </box>
+        );
+      })}
+
+      {hasMoreBelow && <text fg="#666666">  ↓ more</text>}
+    </box>
+  );
+}
+```
+
+### When to Use Each Pattern
+
+| Pattern | Use Case |
+|---------|----------|
+| **Scrollbox** | Full-screen lists that fill available space (timeline, notifications) |
+| **Windowed List** | Modals/dialogs with bounded height (folder picker, search results) |
+
+### Key Benefits of Windowed Lists
+
+1. **Predictable sizing** - No complex scrollbox height constraints
+2. **Simple implementation** - Just slice the array and track window position
+3. **Clear indicators** - "↑ more" / "↓ more" show users there's more content
+4. **Works in any layout** - No dependency on parent container sizing
+
+### Reference Implementation
+
+- `src/components/FolderPicker.tsx` - Windowed list pattern for folder selection modal
+
 ## Screen Navigation & State Preservation
 
 ### The Problem
@@ -552,6 +636,7 @@ function App() {
 - `src/app.tsx` - Screen routing, focus management, navigation history
 - `src/components/PostList.tsx` - Scrollbox with scroll preservation, onSelectedIndexChange
 - `src/components/PostCard.tsx` - Basic component styling
+- `src/components/FolderPicker.tsx` - Windowed list pattern for modals
 - `src/screens/PostDetailScreen.tsx` - Expand/collapse, keyboard shortcuts
 - `src/screens/ProfileScreen.tsx` - Collapsible header pattern
 - `src/screens/TimelineScreen.tsx` - Loading states, tab switching
