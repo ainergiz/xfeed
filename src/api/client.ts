@@ -42,6 +42,7 @@ export class TwitterClient {
   private cookieHeader: string;
   private userAgent: string;
   private timeoutMs?: number;
+  private quoteDepth: number;
   private clientUuid: string;
   private clientDeviceId: string;
   private clientUserId?: string;
@@ -59,8 +60,19 @@ export class TwitterClient {
       options.userAgent ||
       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
     this.timeoutMs = options.timeoutMs;
+    this.quoteDepth = this.normalizeQuoteDepth(options.quoteDepth);
     this.clientUuid = randomUUID();
     this.clientDeviceId = randomUUID();
+  }
+
+  private normalizeQuoteDepth(value?: number): number {
+    if (value === undefined || value === null) {
+      return 1; // Default to 1 level of quoted tweets
+    }
+    if (!Number.isFinite(value)) {
+      return 1;
+    }
+    return Math.max(0, Math.floor(value));
   }
 
   private async getQueryId(operationName: OperationName): Promise<string> {
@@ -572,8 +584,26 @@ export class TwitterClient {
     );
   }
 
-  private mapTweetResult(
+  /**
+   * Unwrap visibility wrapper if present.
+   * Twitter sometimes wraps tweet results in a visibility container.
+   */
+  private unwrapTweetResult(
     result: GraphqlTweetResult | undefined
+  ): GraphqlTweetResult | undefined {
+    if (!result) {
+      return undefined;
+    }
+    // Handle TweetWithVisibilityResults wrapper
+    if (result.tweet) {
+      return result.tweet;
+    }
+    return result;
+  }
+
+  private mapTweetResult(
+    result: GraphqlTweetResult | undefined,
+    quoteDepth: number
   ): TweetData | undefined {
     const userResult = result?.core?.user_results?.result;
     const userLegacy = userResult?.legacy;
@@ -590,6 +620,17 @@ export class TwitterClient {
       return undefined;
     }
 
+    // Handle quoted tweets recursively
+    let quotedTweet: TweetData | undefined;
+    if (quoteDepth > 0) {
+      const quotedResult = this.unwrapTweetResult(
+        result.quoted_status_result?.result
+      );
+      if (quotedResult) {
+        quotedTweet = this.mapTweetResult(quotedResult, quoteDepth - 1);
+      }
+    }
+
     return {
       id: result.rest_id,
       text,
@@ -604,6 +645,7 @@ export class TwitterClient {
         name: name || username,
       },
       authorId: userId,
+      quotedTweet,
     };
   }
 
@@ -705,7 +747,8 @@ export class TwitterClient {
             };
           }>;
         }>
-      | undefined
+      | undefined,
+    quoteDepth: number
   ): TweetData[] {
     const tweets: TweetData[] = [];
     const seen = new Set<string>();
@@ -714,7 +757,7 @@ export class TwitterClient {
       for (const entry of instruction.entries ?? []) {
         const results = this.collectTweetResultsFromEntry(entry);
         for (const result of results) {
-          const mapped = this.mapTweetResult(result);
+          const mapped = this.mapTweetResult(result, quoteDepth);
           if (!mapped || seen.has(mapped.id)) {
             continue;
           }
@@ -1122,7 +1165,7 @@ export class TwitterClient {
         tweetId
       );
 
-    const mapped = this.mapTweetResult(tweetResult);
+    const mapped = this.mapTweetResult(tweetResult, this.quoteDepth);
     if (mapped) {
       if (tweetResult?.article) {
         const title = this.firstText(
@@ -1637,7 +1680,10 @@ export class TwitterClient {
           const instructions =
             data.data?.search_by_raw_query?.search_timeline?.timeline
               ?.instructions;
-          const tweets = this.parseTweetsFromInstructions(instructions);
+          const tweets = this.parseTweetsFromInstructions(
+            instructions,
+            this.quoteDepth
+          );
 
           return { success: true as const, tweets, had404 };
         } catch (error) {
@@ -1811,7 +1857,10 @@ export class TwitterClient {
 
     const instructions =
       response.data.threaded_conversation_with_injections_v2?.instructions;
-    const tweets = this.parseTweetsFromInstructions(instructions);
+    const tweets = this.parseTweetsFromInstructions(
+      instructions,
+      this.quoteDepth
+    );
     const replies = tweets.filter(
       (tweet) => tweet.inReplyToStatusId === tweetId
     );
@@ -1830,7 +1879,10 @@ export class TwitterClient {
 
     const instructions =
       response.data.threaded_conversation_with_injections_v2?.instructions;
-    const tweets = this.parseTweetsFromInstructions(instructions);
+    const tweets = this.parseTweetsFromInstructions(
+      instructions,
+      this.quoteDepth
+    );
 
     const target = tweets.find((t) => t.id === tweetId);
     const rootId = target?.conversationId || tweetId;
@@ -2004,7 +2056,10 @@ export class TwitterClient {
 
           const instructions =
             data.data?.bookmark_timeline_v2?.timeline?.instructions;
-          const tweets = this.parseTweetsFromInstructions(instructions);
+          const tweets = this.parseTweetsFromInstructions(
+            instructions,
+            this.quoteDepth
+          );
 
           return { success: true as const, tweets, had404 };
         } catch (error) {
@@ -2122,7 +2177,10 @@ export class TwitterClient {
           }
 
           const instructions = data.data?.home?.home_timeline_urt?.instructions;
-          const tweets = this.parseTweetsFromInstructions(instructions);
+          const tweets = this.parseTweetsFromInstructions(
+            instructions,
+            this.quoteDepth
+          );
           const nextCursor = this.extractBottomCursor(instructions);
 
           return { success: true as const, tweets, nextCursor, had404 };
@@ -2252,7 +2310,10 @@ export class TwitterClient {
           }
 
           const instructions = data.data?.home?.home_timeline_urt?.instructions;
-          const tweets = this.parseTweetsFromInstructions(instructions);
+          const tweets = this.parseTweetsFromInstructions(
+            instructions,
+            this.quoteDepth
+          );
           const nextCursor = this.extractBottomCursor(instructions);
 
           return { success: true as const, tweets, nextCursor, had404 };

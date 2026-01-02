@@ -43,6 +43,8 @@ export interface TweetData {
   likeCount?: number;
   conversationId?: string;
   inReplyToStatusId?: string;
+  /** Quoted tweet data (recursive, depth controlled by quoteDepth option) */
+  quotedTweet?: TweetData;
 }
 
 /**
@@ -95,12 +97,15 @@ export interface TwitterClientOptions {
   cookies: TwitterCookies;
   userAgent?: string;
   timeoutMs?: number;
+  /** Max depth for quoted tweets (0 disables, default: 1) */
+  quoteDepth?: number;
 }
 
 /**
  * Internal GraphQL tweet result structure from Twitter API responses
  */
 export interface GraphqlTweetResult {
+  __typename?: string;
   rest_id?: string;
   legacy?: {
     full_text?: string;
@@ -142,6 +147,12 @@ export interface GraphqlTweetResult {
     };
   };
   article?: ArticleData;
+  /** Quoted tweet data - same structure, recursively nested */
+  quoted_status_result?: {
+    result?: GraphqlTweetResult;
+  };
+  /** Visibility wrapper - tweet may be nested here instead of at top level */
+  tweet?: GraphqlTweetResult;
 }
 
 /**
