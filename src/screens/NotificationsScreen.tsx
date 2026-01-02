@@ -67,9 +67,12 @@ export function NotificationsScreen({
     notifications,
     unreadCount,
     loading,
+    loadingMore,
+    hasMore,
     error,
     apiError,
     refresh,
+    loadMore,
     retryBlocked,
     retryCountdown,
   } = useNotifications({ client });
@@ -160,6 +163,9 @@ export function NotificationsScreen({
         notifications={notifications}
         focused={focused}
         onNotificationSelect={onNotificationSelect}
+        onLoadMore={loadMore}
+        loadingMore={loadingMore}
+        hasMore={hasMore}
       />
     </box>
   );

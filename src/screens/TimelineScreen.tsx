@@ -129,7 +129,7 @@ export function TimelineScreen({
   if (loading) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        <TabBar activeTab={tab} />
+        {focused && <TabBar activeTab={tab} />}
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg="#888888">Loading timeline...</text>
         </box>
@@ -140,7 +140,7 @@ export function TimelineScreen({
   if (apiError) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        <TabBar activeTab={tab} />
+        {focused && <TabBar activeTab={tab} />}
         <ErrorBanner
           error={apiError}
           onRetry={refresh}
@@ -160,7 +160,7 @@ export function TimelineScreen({
   if (error) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        <TabBar activeTab={tab} />
+        {focused && <TabBar activeTab={tab} />}
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg="#ff6666">Error: {error}</text>
           <text fg="#888888"> Press r to retry.</text>
@@ -172,7 +172,7 @@ export function TimelineScreen({
   if (posts.length === 0) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        <TabBar activeTab={tab} />
+        {focused && <TabBar activeTab={tab} />}
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg="#888888">No posts to display. Press r to refresh.</text>
         </box>
@@ -182,7 +182,7 @@ export function TimelineScreen({
 
   return (
     <box style={{ flexDirection: "column", height: "100%" }}>
-      <TabBar activeTab={tab} />
+      {focused && <TabBar activeTab={tab} />}
       {actionMessage ? (
         <box style={{ paddingLeft: 1 }}>
           <text fg={actionMessage.startsWith("Error:") ? "#E0245E" : "#17BF63"}>
