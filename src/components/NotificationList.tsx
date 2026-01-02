@@ -15,6 +15,9 @@ interface NotificationListProps {
   notifications: NotificationData[];
   focused?: boolean;
   onNotificationSelect?: (notification: NotificationData) => void;
+  onLoadMore?: () => void;
+  loadingMore?: boolean;
+  hasMore?: boolean;
 }
 
 /**
@@ -28,6 +31,9 @@ export function NotificationList({
   notifications,
   focused = false,
   onNotificationSelect,
+  onLoadMore,
+  loadingMore = false,
+  hasMore = true,
 }: NotificationListProps) {
   const scrollRef = useRef<ScrollBoxRenderable>(null);
   const savedScrollTop = useRef(0);
@@ -98,6 +104,18 @@ export function NotificationList({
     }
   }, [selectedIndex, notifications.length]);
 
+  // Trigger load more when approaching the end of the list
+  useEffect(() => {
+    if (!onLoadMore || loadingMore || !hasMore || notifications.length === 0)
+      return;
+
+    // Load more when within 5 items of the end
+    const threshold = 5;
+    if (selectedIndex >= notifications.length - threshold) {
+      onLoadMore();
+    }
+  }, [selectedIndex, notifications.length, onLoadMore, loadingMore, hasMore]);
+
   if (notifications.length === 0) {
     return (
       <box style={{ padding: 2 }}>
@@ -123,6 +141,16 @@ export function NotificationList({
           isSelected={index === selectedIndex}
         />
       ))}
+      {loadingMore ? (
+        <box style={{ padding: 1, paddingLeft: 2 }}>
+          <text fg="#888888">Loading more...</text>
+        </box>
+      ) : null}
+      {!hasMore && notifications.length > 0 ? (
+        <box style={{ padding: 1, paddingLeft: 2 }}>
+          <text fg="#666666">No more notifications</text>
+        </box>
+      ) : null}
     </scrollbox>
   );
 }

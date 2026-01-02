@@ -2781,11 +2781,18 @@ export class TwitterClient {
   /**
    * Get the authenticated user's notifications
    */
-  async getNotifications(count = 20): Promise<NotificationsResult> {
-    const variables = {
+  async getNotifications(
+    count = 20,
+    cursor?: string
+  ): Promise<NotificationsResult> {
+    const variables: Record<string, unknown> = {
       timeline_type: "All",
       count,
     };
+
+    if (cursor) {
+      variables.cursor = cursor;
+    }
 
     const features = this.buildTimelineFeatures();
 
