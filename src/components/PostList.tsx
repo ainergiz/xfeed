@@ -30,6 +30,22 @@ export function PostList({
   onPostSelect,
 }: PostListProps) {
   const scrollRef = useRef<ScrollBoxRenderable>(null);
+  // Save scroll position so we can restore when refocused
+  const savedScrollTop = useRef(0);
+  const wasFocused = useRef(focused);
+
+  // Restore scroll position when gaining focus
+  useEffect(() => {
+    const scrollbox = scrollRef.current;
+    if (!scrollbox) return;
+
+    // Only restore when gaining focus (not losing)
+    if (!wasFocused.current && focused && savedScrollTop.current > 0) {
+      scrollbox.scrollTo(savedScrollTop.current);
+    }
+
+    wasFocused.current = focused;
+  }, [focused]);
 
   const { selectedIndex } = useListNavigation({
     itemCount: posts.length,
@@ -37,6 +53,11 @@ export function PostList({
     onSelect: (index) => {
       const post = posts[index];
       if (post) {
+        // Save scroll position SYNCHRONOUSLY before callback triggers re-render
+        // This must happen before any state change that would cause height: 0
+        if (scrollRef.current) {
+          savedScrollTop.current = scrollRef.current.scrollTop;
+        }
         onPostSelect?.(post);
       }
     },
