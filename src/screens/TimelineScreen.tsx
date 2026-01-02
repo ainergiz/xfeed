@@ -15,6 +15,7 @@ interface TimelineScreenProps {
   client: TwitterClient;
   focused?: boolean;
   onPostCountChange?: (count: number) => void;
+  onPostSelect?: (post: TweetData) => void;
 }
 
 interface TabBarProps {
@@ -47,6 +48,7 @@ export function TimelineScreen({
   client,
   focused = false,
   onPostCountChange,
+  onPostSelect,
 }: TimelineScreenProps) {
   const { tab, setTab, posts, loading, error, refresh } = useTimeline({
     client,
@@ -110,13 +112,7 @@ export function TimelineScreen({
   return (
     <box style={{ flexDirection: "column", height: "100%" }}>
       <TabBar activeTab={tab} />
-      <PostList
-        posts={posts}
-        focused={focused}
-        onPostSelect={(_post: TweetData) => {
-          // Future: expand post detail view
-        }}
-      />
+      <PostList posts={posts} focused={focused} onPostSelect={onPostSelect} />
     </box>
   );
 }

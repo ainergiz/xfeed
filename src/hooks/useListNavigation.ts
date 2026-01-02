@@ -61,6 +61,19 @@ export function useListNavigation({
     setSelectedIndex(clampIndex(itemCount - 1));
   }, [clampIndex, itemCount]);
 
+  // Memoize the exposed setSelectedIndex to prevent re-render loops
+  // when used in useEffect dependency arrays
+  const setSelectedIndexClamped = useCallback(
+    (indexOrFn: number | ((prev: number) => number)) => {
+      if (typeof indexOrFn === "function") {
+        setSelectedIndex((prev) => clampIndex(indexOrFn(prev)));
+      } else {
+        setSelectedIndex(clampIndex(indexOrFn));
+      }
+    },
+    [clampIndex]
+  );
+
   useKeyboard((key) => {
     if (!enabled || itemCount === 0) return;
 
@@ -95,13 +108,7 @@ export function useListNavigation({
 
   return {
     selectedIndex: safeSelectedIndex,
-    setSelectedIndex: (indexOrFn) => {
-      if (typeof indexOrFn === "function") {
-        setSelectedIndex((prev) => clampIndex(indexOrFn(prev)));
-      } else {
-        setSelectedIndex(clampIndex(indexOrFn));
-      }
-    },
+    setSelectedIndex: setSelectedIndexClamped,
     moveUp,
     moveDown,
     jumpToTop,
