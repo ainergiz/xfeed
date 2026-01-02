@@ -114,8 +114,13 @@ export function useActions({
           onSuccess?.(newLiked ? "Liked" : "Unliked");
         } else {
           // Check if error indicates the tweet was already in the target state
-          const alreadyLiked = result.error.includes("already favorited");
-          const notLiked = result.error.includes("not found");
+          const lowerError = result.error.toLowerCase();
+          const alreadyLiked = lowerError.includes("already favorited");
+          const notLiked = lowerError.includes("not found");
+          const tweetDeleted =
+            lowerError.includes("deleted") ||
+            lowerError.includes("unavailable") ||
+            lowerError.includes("no status found");
 
           if (alreadyLiked && newLiked) {
             // We tried to like but it was already liked - sync state
@@ -125,6 +130,10 @@ export function useActions({
             // We tried to unlike but it wasn't liked - sync state
             updateState(tweet.id, { liked: false, likePending: false });
             onSuccess?.("Already unliked");
+          } else if (tweetDeleted) {
+            // Tweet was deleted - clear state and show friendly message
+            updateState(tweet.id, { liked: false, likePending: false });
+            onError?.("Tweet no longer available");
           } else {
             // Real error - revert
             updateState(tweet.id, { liked: wasLiked, likePending: false });
@@ -166,8 +175,13 @@ export function useActions({
           onSuccess?.(newBookmarked ? "Bookmarked" : "Removed bookmark");
         } else {
           // Check if error indicates the tweet was already in the target state
-          const alreadyBookmarked = result.error.includes("already bookmarked");
-          const notBookmarked = result.error.includes("not found");
+          const lowerError = result.error.toLowerCase();
+          const alreadyBookmarked = lowerError.includes("already bookmarked");
+          const notBookmarked = lowerError.includes("not found");
+          const tweetDeleted =
+            lowerError.includes("deleted") ||
+            lowerError.includes("unavailable") ||
+            lowerError.includes("no status found");
 
           if (alreadyBookmarked && newBookmarked) {
             // We tried to bookmark but it was already bookmarked - sync state
@@ -180,6 +194,13 @@ export function useActions({
               bookmarkPending: false,
             });
             onSuccess?.("Already removed");
+          } else if (tweetDeleted) {
+            // Tweet was deleted - clear state and show friendly message
+            updateState(tweet.id, {
+              bookmarked: false,
+              bookmarkPending: false,
+            });
+            onError?.("Tweet no longer available");
           } else {
             // Real error - revert
             updateState(tweet.id, {

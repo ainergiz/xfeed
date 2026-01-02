@@ -1,5 +1,6 @@
 /**
  * TimelineScreen - Displays the user's timeline with For You / Following tabs
+ * Includes error handling with ErrorBanner for rate limits, auth expiry, etc.
  */
 
 import { useKeyboard } from "@opentui/react";
@@ -9,6 +10,7 @@ import type { TwitterClient } from "@/api/client";
 import type { TweetData } from "@/api/types";
 import type { TweetActionState } from "@/hooks/useActions";
 
+import { ErrorBanner } from "@/components/ErrorBanner";
 import { PostList } from "@/components/PostList";
 import { useTimeline, type TimelineTab } from "@/hooks/useTimeline";
 
@@ -59,6 +61,19 @@ function TabBar({ activeTab }: TabBarProps) {
   );
 }
 
+/**
+ * Format seconds into a readable countdown string
+ */
+function formatCountdown(seconds: number): string {
+  if (seconds <= 0) return "";
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (mins > 0) {
+    return `${mins}m ${secs}s`;
+  }
+  return `${secs}s`;
+}
+
 export function TimelineScreen({
   client,
   focused = false,
@@ -70,7 +85,17 @@ export function TimelineScreen({
   initActionState,
   actionMessage,
 }: TimelineScreenProps) {
-  const { tab, setTab, posts, loading, error, refresh } = useTimeline({
+  const {
+    tab,
+    setTab,
+    posts,
+    loading,
+    error,
+    apiError,
+    refresh,
+    retryBlocked,
+    retryCountdown,
+  } = useTimeline({
     client,
   });
 
@@ -91,7 +116,9 @@ export function TimelineScreen({
         setTab("following");
         break;
       case "r":
-        refresh();
+        if (!retryBlocked) {
+          refresh();
+        }
         break;
     }
   });
@@ -107,12 +134,33 @@ export function TimelineScreen({
     );
   }
 
+  if (apiError) {
+    return (
+      <box style={{ flexDirection: "column", height: "100%" }}>
+        <TabBar activeTab={tab} />
+        <ErrorBanner
+          error={apiError}
+          onRetry={refresh}
+          retryDisabled={retryBlocked}
+        />
+        {retryBlocked && retryCountdown > 0 && (
+          <box style={{ paddingLeft: 1, paddingTop: 1 }}>
+            <text fg="#ffaa00">
+              Retry available in {formatCountdown(retryCountdown)}
+            </text>
+          </box>
+        )}
+      </box>
+    );
+  }
+
   if (error) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
         <TabBar activeTab={tab} />
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg="#ff6666">Error: {error}</text>
+          <text fg="#888888"> Press r to retry.</text>
         </box>
       </box>
     );

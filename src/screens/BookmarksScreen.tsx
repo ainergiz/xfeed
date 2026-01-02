@@ -1,5 +1,6 @@
 /**
  * BookmarksScreen - Displays the user's bookmarked posts
+ * Includes error handling with ErrorBanner for rate limits, auth expiry, etc.
  */
 
 import { useKeyboard } from "@opentui/react";
@@ -9,6 +10,7 @@ import type { TwitterClient } from "@/api/client";
 import type { TweetData } from "@/api/types";
 import type { TweetActionState } from "@/hooks/useActions";
 
+import { ErrorBanner } from "@/components/ErrorBanner";
 import { PostList } from "@/components/PostList";
 import { useBookmarks } from "@/hooks/useBookmarks";
 
@@ -51,6 +53,19 @@ function ScreenHeader() {
   );
 }
 
+/**
+ * Format seconds into a readable countdown string
+ */
+function formatCountdown(seconds: number): string {
+  if (seconds <= 0) return "";
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (mins > 0) {
+    return `${mins}m ${secs}s`;
+  }
+  return `${secs}s`;
+}
+
 export function BookmarksScreen({
   client,
   focused = false,
@@ -62,7 +77,15 @@ export function BookmarksScreen({
   initActionState,
   actionMessage,
 }: BookmarksScreenProps) {
-  const { posts, loading, error, refresh } = useBookmarks({ client });
+  const {
+    posts,
+    loading,
+    error,
+    apiError,
+    refresh,
+    retryBlocked,
+    retryCountdown,
+  } = useBookmarks({ client });
 
   // Report post count to parent
   useEffect(() => {
@@ -73,7 +96,7 @@ export function BookmarksScreen({
   useKeyboard((key) => {
     if (!focused) return;
 
-    if (key.name === "r") {
+    if (key.name === "r" && !retryBlocked) {
       refresh();
     }
   });
@@ -89,12 +112,33 @@ export function BookmarksScreen({
     );
   }
 
+  if (apiError) {
+    return (
+      <box style={{ flexDirection: "column", height: "100%" }}>
+        <ScreenHeader />
+        <ErrorBanner
+          error={apiError}
+          onRetry={refresh}
+          retryDisabled={retryBlocked}
+        />
+        {retryBlocked && retryCountdown > 0 && (
+          <box style={{ paddingLeft: 1, paddingTop: 1 }}>
+            <text fg="#ffaa00">
+              Retry available in {formatCountdown(retryCountdown)}
+            </text>
+          </box>
+        )}
+      </box>
+    );
+  }
+
   if (error) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
         <ScreenHeader />
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg="#ff6666">Error: {error}</text>
+          <text fg="#888888"> Press r to retry.</text>
         </box>
       </box>
     );
