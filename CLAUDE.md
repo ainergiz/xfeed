@@ -13,6 +13,27 @@ bun run start      # Run the TUI
 bun run typecheck  # TypeScript type checking
 bun run lint       # Check linting (oxlint + oxfmt)
 bun run lint:fix   # Auto-fix lint issues
+bun run test       # Run all tests (IMPORTANT: use this, not `bun test`)
+```
+
+### Testing
+
+**Always use `bun run test`**, not `bun test` directly.
+
+The test suite uses `mock.module()` for module mocking in `check.test.ts`, which pollutes the module cache across test files. The npm script runs tests in isolated batches to prevent this:
+
+```bash
+# Correct - runs tests in isolation
+bun run test
+
+# WRONG - will cause 130+ test failures due to mock pollution
+bun test
+```
+
+For specific test files:
+```bash
+bun test src/api/client.test.ts          # Single file works fine
+bun test -t "getTweet"                    # Filter by test name
 ```
 
 ## Architecture

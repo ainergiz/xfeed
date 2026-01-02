@@ -24,47 +24,37 @@ export function PostCard({ post, isSelected, id }: PostCardProps) {
     <box
       id={id}
       style={{
-        flexDirection: "row",
+        flexDirection: "column",
         marginBottom: 1,
+        paddingLeft: 1,
+        paddingRight: 1,
+        paddingTop: 1,
         backgroundColor: isSelected ? SELECTED_BG : undefined,
       }}
     >
-      {/* Selection indicator */}
-      <box style={{ width: 2, flexShrink: 0 }}>
+      {/* Author line with selection indicator */}
+      <box style={{ flexDirection: "row" }}>
         <text fg={X_BLUE}>{isSelected ? "> " : "  "}</text>
+        <text fg={X_BLUE}>@{post.author.username}</text>
+        <text fg="#666666">
+          {" "}
+          · {post.author.name}
+          {timeAgo ? ` · ${timeAgo}` : ""}
+        </text>
       </box>
 
-      {/* Post content */}
-      <box
-        style={{
-          flexDirection: "column",
-          flexGrow: 1,
-          padding: 1,
-        }}
-      >
-        {/* Author line */}
-        <box style={{ flexDirection: "row" }}>
-          <text fg={X_BLUE}>@{post.author.username}</text>
-          <text fg="#666666">
-            {" "}
-            · {post.author.name}
-            {timeAgo ? ` · ${timeAgo}` : ""}
-          </text>
-        </box>
+      {/* Post text */}
+      <box style={{ marginTop: 1, paddingLeft: 2 }}>
+        <text fg="#ffffff">{displayText}</text>
+      </box>
 
-        {/* Post text */}
-        <box style={{ marginTop: 1 }}>
-          <text fg="#ffffff">{displayText}</text>
-        </box>
-
-        {/* Stats line */}
-        <box style={{ flexDirection: "row", marginTop: 1 }}>
-          <text fg="#888888">
-            {formatCount(post.replyCount)} replies {"  "}
-            {formatCount(post.retweetCount)} reposts {"  "}
-            {formatCount(post.likeCount)} likes
-          </text>
-        </box>
+      {/* Stats line */}
+      <box style={{ flexDirection: "row", marginTop: 1, paddingLeft: 2 }}>
+        <text fg="#888888">
+          {formatCount(post.replyCount)} replies {"  "}
+          {formatCount(post.retweetCount)} reposts {"  "}
+          {formatCount(post.likeCount)} likes
+        </text>
       </box>
     </box>
   );
