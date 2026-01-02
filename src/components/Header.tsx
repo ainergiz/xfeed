@@ -3,9 +3,14 @@ import type { View } from "@/app";
 interface HeaderProps {
   currentView: View;
   postCount?: number;
+  unreadNotificationCount?: number;
 }
 
-export function Header({ currentView, postCount }: HeaderProps) {
+export function Header({
+  currentView,
+  postCount,
+  unreadNotificationCount,
+}: HeaderProps) {
   const viewLabel = currentView.charAt(0).toUpperCase() + currentView.slice(1);
 
   return (
@@ -19,6 +24,9 @@ export function Header({ currentView, postCount }: HeaderProps) {
       }}
     >
       <text fg="#1DA1F2">xfeed</text>
+      {unreadNotificationCount !== undefined && unreadNotificationCount > 0 && (
+        <text fg="#E0245E"> ({unreadNotificationCount})</text>
+      )}
       <text fg="#666666"> | </text>
       <text fg="#ffffff">{viewLabel}</text>
       {postCount !== undefined && postCount > 0 && (

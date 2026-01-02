@@ -1,8 +1,8 @@
 import { useKeyboard, useRenderer } from "@opentui/react";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { TwitterClient } from "@/api/client";
-import type { TweetData, UserData } from "@/api/types";
+import type { NotificationData, TweetData, UserData } from "@/api/types";
 
 import { FolderPicker } from "@/components/FolderPicker";
 import { Footer } from "@/components/Footer";
@@ -10,6 +10,7 @@ import { Header } from "@/components/Header";
 import { useActions } from "@/hooks/useActions";
 import { useNavigation } from "@/hooks/useNavigation";
 import { BookmarksScreen } from "@/screens/BookmarksScreen";
+import { NotificationsScreen } from "@/screens/NotificationsScreen";
 import { PostDetailScreen } from "@/screens/PostDetailScreen";
 import { ProfileScreen } from "@/screens/ProfileScreen";
 import { SplashScreen } from "@/screens/SplashScreen";
@@ -17,10 +18,15 @@ import { TimelineScreen } from "@/screens/TimelineScreen";
 
 const SPLASH_MIN_DISPLAY_MS = 500;
 
-export type View = "timeline" | "bookmarks" | "post-detail" | "profile";
+export type View =
+  | "timeline"
+  | "bookmarks"
+  | "notifications"
+  | "post-detail"
+  | "profile";
 
 /** Main views that can be navigated between with Tab (excludes overlay views) */
-const MAIN_VIEWS = ["timeline", "bookmarks"] as const;
+const MAIN_VIEWS = ["timeline", "bookmarks", "notifications"] as const;
 
 interface AppProps {
   client: TwitterClient;
@@ -36,6 +42,8 @@ export function App({ client, user: _user }: AppProps) {
     });
   const [postCount, setPostCount] = useState(0);
   const [bookmarkCount, setBookmarkCount] = useState(0);
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   // Actions hook for like/bookmark mutations
@@ -91,6 +99,15 @@ export function App({ client, user: _user }: AppProps) {
   // Track bookmark count separately
   const handleBookmarkCountChange = useCallback((count: number) => {
     setBookmarkCount(count);
+  }, []);
+
+  // Track notification counts
+  const handleNotificationCountChange = useCallback((count: number) => {
+    setNotificationCount(count);
+  }, []);
+
+  const handleUnreadCountChange = useCallback((count: number) => {
+    setUnreadNotificationCount(count);
   }, []);
 
   // State for post detail view
@@ -174,6 +191,45 @@ export function App({ client, user: _user }: AppProps) {
     setShowFolderPicker(false);
   }, []);
 
+  // Handle notification select - navigate to tweet detail or profile based on type
+  const handleNotificationSelect = useCallback(
+    (notification: NotificationData) => {
+      // If notification has a target tweet (like, retweet, reply), go to post detail
+      if (notification.targetTweet) {
+        setSelectedPost(notification.targetTweet);
+        initState(
+          notification.targetTweet.id,
+          notification.targetTweet.favorited ?? false,
+          notification.targetTweet.bookmarked ?? false
+        );
+        navigate("post-detail");
+        return;
+      }
+
+      // If notification is a follow (person_icon with fromUsers), go to profile
+      if (
+        notification.icon === "person_icon" &&
+        notification.fromUsers &&
+        notification.fromUsers.length > 0
+      ) {
+        const follower = notification.fromUsers[0];
+        if (follower) {
+          setProfileUsername(follower.username);
+          navigate("profile");
+        }
+        return;
+      }
+
+      // For system notifications, open URL in browser
+      if (notification.url) {
+        import("@/lib/media").then(({ openInBrowser }) => {
+          openInBrowser(notification.url);
+        });
+      }
+    },
+    [navigate, initState]
+  );
+
   useKeyboard((key) => {
     // Always allow quit, even during splash
     if (key.name === "q" || key.name === "escape") {
@@ -193,6 +249,11 @@ export function App({ client, user: _user }: AppProps) {
     if (key.name === "tab") {
       cycleNext();
     }
+
+    // Go to notifications with 'n'
+    if (key.name === "n") {
+      navigate("notifications");
+    }
   });
 
   return (
@@ -207,7 +268,14 @@ export function App({ client, user: _user }: AppProps) {
       ) : isMainView ? (
         <Header
           currentView={currentView}
-          postCount={currentView === "bookmarks" ? bookmarkCount : postCount}
+          postCount={
+            currentView === "bookmarks"
+              ? bookmarkCount
+              : currentView === "notifications"
+                ? notificationCount
+                : postCount
+          }
+          unreadNotificationCount={unreadNotificationCount}
         />
       ) : null}
 
@@ -309,6 +377,24 @@ export function App({ client, user: _user }: AppProps) {
             onBookmark={toggleBookmark}
             getActionState={getState}
             initActionState={initState}
+            actionMessage={actionMessage}
+          />
+        </box>
+
+        {/* Keep NotificationsScreen mounted to preserve state, hide when not active */}
+        <box
+          style={{
+            flexGrow: currentView === "notifications" ? 1 : 0,
+            height: currentView === "notifications" ? "100%" : 0,
+            overflow: "hidden",
+          }}
+        >
+          <NotificationsScreen
+            client={client}
+            focused={currentView === "notifications" && !showSplash}
+            onNotificationCountChange={handleNotificationCountChange}
+            onUnreadCountChange={handleUnreadCountChange}
+            onNotificationSelect={handleNotificationSelect}
             actionMessage={actionMessage}
           />
         </box>

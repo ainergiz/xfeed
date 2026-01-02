@@ -351,7 +351,8 @@ export type OperationName =
   | "UserByScreenName"
   | "UserTweets"
   | "BookmarkFoldersSlice"
-  | "bookmarkTweetToFolder";
+  | "bookmarkTweetToFolder"
+  | "NotificationsTimeline";
 
 /**
  * Result of an action mutation (like, bookmark, etc.)
@@ -442,4 +443,99 @@ export function isRetryableError(errorType: ApiErrorType): boolean {
  */
 export function isAuthError(errorType: ApiErrorType): boolean {
   return errorType === "auth_expired";
+}
+
+/**
+ * Notification icon types from Twitter API
+ */
+export type NotificationIcon =
+  | "heart_icon"
+  | "person_icon"
+  | "bird_icon"
+  | "retweet_icon"
+  | "reply_icon";
+
+/**
+ * Notification data structure
+ */
+export interface NotificationData {
+  /** Unique notification ID */
+  id: string;
+  /** Icon type indicating notification category */
+  icon: NotificationIcon;
+  /** Human-readable notification message */
+  message: string;
+  /** URL to navigate to when clicked */
+  url: string;
+  /** ISO timestamp of the notification */
+  timestamp: string;
+  /** Sort index for ordering and unread calculation */
+  sortIndex: string;
+  /** Associated tweet (for likes, retweets, replies) */
+  targetTweet?: TweetData;
+  /** Users who performed the action */
+  fromUsers?: UserData[];
+}
+
+/**
+ * Result of fetching notifications
+ */
+export type NotificationsResult =
+  | {
+      success: true;
+      notifications: NotificationData[];
+      unreadSortIndex?: string;
+      topCursor?: string;
+      bottomCursor?: string;
+    }
+  | { success: false; error: ApiError };
+
+/**
+ * Internal notification timeline instruction types from Twitter API
+ */
+export interface NotificationInstruction {
+  type: string;
+  sort_index?: string;
+  entries?: Array<{
+    entryId?: string;
+    sortIndex?: string;
+    content?: {
+      cursorType?: string;
+      value?: string;
+      itemContent?: {
+        itemType?: string;
+        id?: string;
+        notification_icon?: string;
+        rich_message?: {
+          text?: string;
+        };
+        notification_url?: {
+          url?: string;
+        };
+        template?: {
+          target_objects?: Array<{
+            tweet_results?: {
+              result?: GraphqlTweetResult;
+            };
+          }>;
+          from_users?: Array<{
+            user_results?: {
+              result?: {
+                rest_id?: string;
+                core?: {
+                  screen_name?: string;
+                  name?: string;
+                };
+                legacy?: {
+                  screen_name?: string;
+                  name?: string;
+                };
+              };
+            };
+          }>;
+        };
+        timestamp_ms?: string;
+      };
+    };
+  }>;
 }
