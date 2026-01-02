@@ -114,6 +114,37 @@ export interface UserData {
 }
 
 /**
+ * Extended user profile data with bio and stats
+ */
+export interface UserProfileData {
+  id: string;
+  username: string;
+  name: string;
+  description?: string;
+  followersCount?: number;
+  followingCount?: number;
+  isBlueVerified?: boolean;
+}
+
+/**
+ * Result of fetching a user profile
+ */
+export interface UserProfileResult {
+  success: boolean;
+  user?: UserProfileData;
+  error?: string;
+}
+
+/**
+ * Result of fetching user tweets
+ */
+export interface UserTweetsResult {
+  success: boolean;
+  tweets?: TweetData[];
+  error?: string;
+}
+
+/**
  * Result of fetching current user information
  */
 export interface CurrentUserResult {
@@ -279,4 +310,6 @@ export type OperationName =
   | "UserArticlesTweets"
   | "Bookmarks"
   | "HomeTimeline"
-  | "HomeLatestTimeline";
+  | "HomeLatestTimeline"
+  | "UserByScreenName"
+  | "UserTweets";

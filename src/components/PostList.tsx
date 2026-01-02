@@ -15,6 +15,7 @@ interface PostListProps {
   posts: TweetData[];
   focused?: boolean;
   onPostSelect?: (post: TweetData) => void;
+  onSelectedIndexChange?: (index: number) => void;
 }
 
 /**
@@ -28,6 +29,7 @@ export function PostList({
   posts,
   focused = false,
   onPostSelect,
+  onSelectedIndexChange,
 }: PostListProps) {
   const scrollRef = useRef<ScrollBoxRenderable>(null);
   // Save scroll position so we can restore when refocused
@@ -62,6 +64,11 @@ export function PostList({
       }
     },
   });
+
+  // Notify parent of selection changes (e.g., for collapsible headers)
+  useEffect(() => {
+    onSelectedIndexChange?.(selectedIndex);
+  }, [selectedIndex, onSelectedIndexChange]);
 
   // Scroll to keep selected item visible with context (scroll margin)
   // Similar to Vim's scrolloff - keeps items visible above/below selection

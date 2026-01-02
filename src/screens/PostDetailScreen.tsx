@@ -25,6 +25,7 @@ interface PostDetailScreenProps {
   tweet: TweetData;
   focused?: boolean;
   onBack?: () => void;
+  onProfileOpen?: (username: string) => void;
 }
 
 /**
@@ -60,6 +61,7 @@ export function PostDetailScreen({
   tweet,
   focused = false,
   onBack,
+  onProfileOpen,
 }: PostDetailScreenProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -128,6 +130,10 @@ export function PostDetailScreen({
         break;
       case "l":
         // Like (TODO: implement when actions are ready)
+        break;
+      case "p":
+        // Open author profile
+        onProfileOpen?.(tweet.author.username);
         break;
       case "i":
         // Preview media (Quick Look on macOS, browser for video)
@@ -296,7 +302,9 @@ export function PostDetailScreen({
       <text fg="#ffffff">b</text>
       <text fg="#666666"> bookmark </text>
       <text fg="#ffffff">l</text>
-      <text fg="#666666"> like</text>
+      <text fg="#666666"> like </text>
+      <text fg="#ffffff">p</text>
+      <text fg="#666666"> profile</text>
       {hasMedia && (
         <>
           <text fg="#ffffff"> i</text>
