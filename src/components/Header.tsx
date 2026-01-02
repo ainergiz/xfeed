@@ -6,6 +6,16 @@ interface HeaderProps {
   unreadNotificationCount?: number;
 }
 
+function getCountLabel(view: View, count: number): string {
+  if (view === "notifications") {
+    return `${count} notifications`;
+  }
+  if (view === "bookmarks") {
+    return `${count} bookmarked`;
+  }
+  return `${count} posts`;
+}
+
 export function Header({
   currentView,
   postCount,
@@ -30,7 +40,7 @@ export function Header({
       <text fg="#666666"> | </text>
       <text fg="#ffffff">{viewLabel}</text>
       {postCount !== undefined && postCount > 0 && (
-        <text fg="#666666"> ({postCount} posts)</text>
+        <text fg="#666666"> ({getCountLabel(currentView, postCount)})</text>
       )}
     </box>
   );
