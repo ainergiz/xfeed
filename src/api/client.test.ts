@@ -1370,6 +1370,219 @@ describe("TwitterClient", () => {
       const result = await client.getHomeTimeline(50);
       expect(result.success).toBe(true);
     });
+
+    it("returns nextCursor from response", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      globalThis.fetch = mock(() =>
+        Promise.resolve(
+          mockResponse({
+            data: {
+              home: {
+                home_timeline_urt: {
+                  instructions: [
+                    {
+                      entries: [
+                        {
+                          entryId: "tweet-123",
+                          content: {
+                            itemContent: {
+                              tweet_results: {
+                                result: {
+                                  rest_id: "123",
+                                  legacy: { full_text: "Tweet" },
+                                  core: {
+                                    user_results: {
+                                      result: {
+                                        rest_id: "u1",
+                                        legacy: {
+                                          screen_name: "user",
+                                          name: "User",
+                                        },
+                                      },
+                                    },
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                        {
+                          entryId: "cursor-bottom-12345",
+                          content: {
+                            value: "DAABCgABG9oKYJ-NEXT-CURSOR",
+                            cursorType: "Bottom",
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          })
+        )
+      );
+
+      const result = await client.getHomeTimeline();
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.nextCursor).toBe("DAABCgABG9oKYJ-NEXT-CURSOR");
+      }
+    });
+
+    it("extracts cursor from TimelineReplaceEntry instruction", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      globalThis.fetch = mock(() =>
+        Promise.resolve(
+          mockResponse({
+            data: {
+              home: {
+                home_timeline_urt: {
+                  instructions: [
+                    {
+                      type: "TimelineAddEntries",
+                      entries: [
+                        {
+                          entryId: "tweet-123",
+                          content: {
+                            itemContent: {
+                              tweet_results: {
+                                result: {
+                                  rest_id: "123",
+                                  legacy: { full_text: "Tweet" },
+                                  core: {
+                                    user_results: {
+                                      result: {
+                                        rest_id: "u1",
+                                        legacy: {
+                                          screen_name: "user",
+                                          name: "User",
+                                        },
+                                      },
+                                    },
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      ],
+                    },
+                    {
+                      type: "TimelineReplaceEntry",
+                      entry: {
+                        entryId: "cursor-bottom-refresh",
+                        content: {
+                          value: "REPLACE-ENTRY-CURSOR",
+                          cursorType: "Bottom",
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          })
+        )
+      );
+
+      const result = await client.getHomeTimeline();
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.nextCursor).toBe("REPLACE-ENTRY-CURSOR");
+      }
+    });
+
+    it("accepts cursor parameter for pagination", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      let capturedUrl = "";
+      globalThis.fetch = mock((url: string) => {
+        capturedUrl = url;
+        return Promise.resolve(
+          mockResponse({
+            data: {
+              home: {
+                home_timeline_urt: { instructions: [] },
+              },
+            },
+          })
+        );
+      });
+
+      await client.getHomeTimeline(20, "test-cursor-value");
+      expect(capturedUrl).toContain("cursor");
+      expect(capturedUrl).toContain("test-cursor-value");
+    });
+
+    it("retries on 404 and succeeds", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      let callCount = 0;
+
+      globalThis.fetch = mock(() => {
+        callCount++;
+        if (callCount <= 3) {
+          return Promise.resolve(
+            mockResponse("Not found", { status: 404, ok: false })
+          );
+        }
+        return Promise.resolve(
+          mockResponse({
+            data: {
+              home: {
+                home_timeline_urt: {
+                  instructions: [
+                    {
+                      entries: [
+                        {
+                          content: {
+                            itemContent: {
+                              tweet_results: {
+                                result: {
+                                  rest_id: "retry-tweet",
+                                  legacy: { full_text: "Success after retry" },
+                                  core: {
+                                    user_results: {
+                                      result: {
+                                        rest_id: "u1",
+                                        legacy: {
+                                          screen_name: "user",
+                                          name: "User",
+                                        },
+                                      },
+                                    },
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          })
+        );
+      });
+
+      const result = await client.getHomeTimeline();
+      expect(result.success).toBe(true);
+    });
+
+    it("returns error after all query IDs return 404", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+
+      globalThis.fetch = mock(() =>
+        Promise.resolve(mockResponse("Not found", { status: 404, ok: false }))
+      );
+
+      const result = await client.getHomeTimeline();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain("404");
+      }
+    });
   });
 
   describe("getHomeLatestTimeline", () => {
@@ -1476,6 +1689,158 @@ describe("TwitterClient", () => {
 
       const result = await client.getHomeLatestTimeline(50);
       expect(result.success).toBe(true);
+    });
+
+    it("returns nextCursor from response", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      globalThis.fetch = mock(() =>
+        Promise.resolve(
+          mockResponse({
+            data: {
+              home: {
+                home_timeline_urt: {
+                  instructions: [
+                    {
+                      entries: [
+                        {
+                          entryId: "tweet-456",
+                          content: {
+                            itemContent: {
+                              tweet_results: {
+                                result: {
+                                  rest_id: "456",
+                                  legacy: { full_text: "Latest tweet" },
+                                  core: {
+                                    user_results: {
+                                      result: {
+                                        rest_id: "u1",
+                                        legacy: {
+                                          screen_name: "user",
+                                          name: "User",
+                                        },
+                                      },
+                                    },
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                        {
+                          entryId: "cursor-bottom-67890",
+                          content: {
+                            value: "DAABCgABG9oKYJ-LATEST-CURSOR",
+                            cursorType: "Bottom",
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          })
+        )
+      );
+
+      const result = await client.getHomeLatestTimeline();
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.nextCursor).toBe("DAABCgABG9oKYJ-LATEST-CURSOR");
+      }
+    });
+
+    it("accepts cursor parameter for pagination", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      let capturedUrl = "";
+      globalThis.fetch = mock((url: string) => {
+        capturedUrl = url;
+        return Promise.resolve(
+          mockResponse({
+            data: {
+              home: {
+                home_timeline_urt: { instructions: [] },
+              },
+            },
+          })
+        );
+      });
+
+      await client.getHomeLatestTimeline(20, "latest-cursor-value");
+      expect(capturedUrl).toContain("cursor");
+      expect(capturedUrl).toContain("latest-cursor-value");
+    });
+
+    it("retries on 404 and succeeds", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      let callCount = 0;
+
+      // HomeLatestTimeline has only 1 unique query ID in tests (fallback == primary)
+      // First tryOnce fails with 404, second tryOnce succeeds
+      globalThis.fetch = mock(() => {
+        callCount++;
+        if (callCount < 2) {
+          return Promise.resolve(
+            mockResponse("Not found", { status: 404, ok: false })
+          );
+        }
+        return Promise.resolve(
+          mockResponse({
+            data: {
+              home: {
+                home_timeline_urt: {
+                  instructions: [
+                    {
+                      entries: [
+                        {
+                          content: {
+                            itemContent: {
+                              tweet_results: {
+                                result: {
+                                  rest_id: "retry-latest",
+                                  legacy: { full_text: "Latest after retry" },
+                                  core: {
+                                    user_results: {
+                                      result: {
+                                        rest_id: "u1",
+                                        legacy: {
+                                          screen_name: "user",
+                                          name: "User",
+                                        },
+                                      },
+                                    },
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          })
+        );
+      });
+
+      const result = await client.getHomeLatestTimeline();
+      expect(result.success).toBe(true);
+    });
+
+    it("returns error after all query IDs return 404", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+
+      globalThis.fetch = mock(() =>
+        Promise.resolve(mockResponse("Not found", { status: 404, ok: false }))
+      );
+
+      const result = await client.getHomeLatestTimeline();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain("404");
+      }
     });
   });
 

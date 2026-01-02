@@ -29,7 +29,7 @@ export const FALLBACK_QUERY_IDS = {
   SearchTimeline: "M1jEez78PEfVfbQLvlWMvQ",
   UserArticlesTweets: "8zBy9h4L90aDL02RsBcCFg",
   Bookmarks: "RV1g3b8n_SGOHwkqKYSCFw",
-  HomeTimeline: "HCosKfLNW1AcOo3la3mMgg",
+  HomeTimeline: "V7xdnRnvW6a8vIsMr9xK7A",
   HomeLatestTimeline: "zhX91JE87mWvfprhYE97xA",
 } as const;
 

@@ -64,6 +64,13 @@ export interface SearchResult {
 }
 
 /**
+ * Result of a timeline fetch with pagination support
+ */
+export type TimelineResult =
+  | { success: true; tweets: TweetData[]; nextCursor?: string }
+  | { success: false; error: string };
+
+/**
  * User information
  */
 export interface UserData {
