@@ -345,20 +345,29 @@ export function App({ client, user: _user }: AppProps) {
           </>
         )}
 
-        {currentView === "profile" && profileUsername && (
-          <ProfileScreen
-            client={client}
-            username={profileUsername}
-            focused={true}
-            onBack={handleBackFromProfile}
-            onPostSelect={handlePostSelectFromProfile}
-            onLike={toggleLike}
-            onBookmark={toggleBookmark}
-            getActionState={getState}
-            initActionState={initState}
-            actionMessage={actionMessage}
-          />
-        )}
+        {/* Keep ProfileScreen mounted to preserve state, hide when not active */}
+        <box
+          style={{
+            flexGrow: currentView === "profile" ? 1 : 0,
+            height: currentView === "profile" ? "100%" : 0,
+            overflow: "hidden",
+          }}
+        >
+          {profileUsername && (
+            <ProfileScreen
+              client={client}
+              username={profileUsername}
+              focused={currentView === "profile"}
+              onBack={handleBackFromProfile}
+              onPostSelect={handlePostSelectFromProfile}
+              onLike={toggleLike}
+              onBookmark={toggleBookmark}
+              getActionState={getState}
+              initActionState={initState}
+              actionMessage={actionMessage}
+            />
+          )}
+        </box>
 
         {/* Keep BookmarksScreen mounted to preserve state, hide when not active */}
         <box
