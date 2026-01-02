@@ -6,6 +6,7 @@
  */
 
 import { useKeyboard } from "@opentui/react";
+import { useEffect, useState } from "react";
 
 import type { TwitterClient } from "@/api/client";
 import type { TweetData } from "@/api/types";
@@ -27,6 +28,8 @@ interface FolderPickerProps {
   focused?: boolean;
 }
 
+const MAX_VISIBLE_FOLDERS = 10;
+
 export function FolderPicker({
   client,
   tweet: _tweet,
@@ -35,6 +38,7 @@ export function FolderPicker({
   focused = true,
 }: FolderPickerProps) {
   const { folders, loading, error } = useBookmarkFolders({ client });
+  const [windowStart, setWindowStart] = useState(0);
 
   const { selectedIndex } = useListNavigation({
     itemCount: folders.length,
@@ -53,6 +57,22 @@ export function FolderPicker({
       onClose();
     }
   });
+
+  // Keep selected item within the visible window
+  useEffect(() => {
+    if (folders.length === 0) return;
+
+    const windowEnd = windowStart + MAX_VISIBLE_FOLDERS - 1;
+
+    // If selection is below the window, shift window down
+    if (selectedIndex > windowEnd) {
+      setWindowStart(selectedIndex - MAX_VISIBLE_FOLDERS + 1);
+    }
+    // If selection is above the window, shift window up
+    else if (selectedIndex < windowStart) {
+      setWindowStart(selectedIndex);
+    }
+  }, [selectedIndex, windowStart, folders.length]);
 
   // Loading state
   if (loading) {
@@ -181,7 +201,14 @@ export function FolderPicker({
     );
   }
 
-  // Folder list
+  // Calculate visible folders window
+  const hasMoreAbove = windowStart > 0;
+  const hasMoreBelow = windowStart + MAX_VISIBLE_FOLDERS < folders.length;
+  const visibleFolders = folders.slice(
+    windowStart,
+    windowStart + MAX_VISIBLE_FOLDERS
+  );
+
   return (
     <box
       style={{
@@ -209,12 +236,20 @@ export function FolderPicker({
           }}
           backgroundColor="#000000"
         >
-          <box style={{ paddingBottom: 1 }}>
+          <box style={{ paddingBottom: 1, flexDirection: "row" }}>
             <text fg={X_BLUE}>Move to folder</text>
+            <text fg="#666666"> ({folders.length} folders)</text>
           </box>
 
-          {folders.map((folder, index) => {
-            const isSelected = index === selectedIndex;
+          {hasMoreAbove ? (
+            <box style={{ flexDirection: "row" }}>
+              <text fg="#666666"> ↑ more</text>
+            </box>
+          ) : null}
+
+          {visibleFolders.map((folder, visibleIndex) => {
+            const actualIndex = windowStart + visibleIndex;
+            const isSelected = actualIndex === selectedIndex;
             return (
               <box key={folder.id} style={{ flexDirection: "row" }}>
                 <text fg={isSelected ? X_BLUE : "#888888"}>
@@ -224,6 +259,12 @@ export function FolderPicker({
               </box>
             );
           })}
+
+          {hasMoreBelow ? (
+            <box style={{ flexDirection: "row" }}>
+              <text fg="#666666"> ↓ more</text>
+            </box>
+          ) : null}
 
           <box style={{ paddingTop: 1, flexDirection: "row" }}>
             <text fg="#666666">j/k</text>

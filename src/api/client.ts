@@ -3558,7 +3558,7 @@ export class TwitterClient {
    * Get the authenticated user's bookmark folders
    */
   async getBookmarkFolders(): Promise<import("./types").BookmarkFoldersResult> {
-    const variables = {};
+    const variables = { count: 100 };
     const features = this.buildBookmarksFeatures();
 
     const params = new URLSearchParams({
