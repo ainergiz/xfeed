@@ -349,13 +349,32 @@ export type OperationName =
   | "HomeTimeline"
   | "HomeLatestTimeline"
   | "UserByScreenName"
-  | "UserTweets";
+  | "UserTweets"
+  | "BookmarkFoldersSlice"
+  | "bookmarkTweetToFolder";
 
 /**
  * Result of an action mutation (like, bookmark, etc.)
  */
 export type ActionResult =
   | { success: true }
+  | { success: false; error: string };
+
+/**
+ * Bookmark folder data structure
+ */
+export interface BookmarkFolder {
+  /** Folder ID (bookmark_collection_id) */
+  id: string;
+  /** Folder display name */
+  name: string;
+}
+
+/**
+ * Result of fetching bookmark folders
+ */
+export type BookmarkFoldersResult =
+  | { success: true; folders: BookmarkFolder[] }
   | { success: false; error: string };
 
 /**

@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import type { TwitterClient } from "@/api/client";
 import type { TweetData, UserData } from "@/api/types";
 
+import { FolderPicker } from "@/components/FolderPicker";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { useActions } from "@/hooks/useActions";
@@ -139,6 +140,40 @@ export function App({ client, user: _user }: AppProps) {
     [navigate, initState]
   );
 
+  // State for folder picker modal
+  const [showFolderPicker, setShowFolderPicker] = useState(false);
+
+  // Open folder picker from post detail
+  const handleMoveToFolder = useCallback(() => {
+    setShowFolderPicker(true);
+  }, []);
+
+  // Handle folder selection
+  const handleFolderSelect = useCallback(
+    async (folderId: string, folderName: string) => {
+      if (!selectedPost) return;
+
+      const result = await client.moveBookmarkToFolder(
+        selectedPost.id,
+        folderId
+      );
+
+      if (result.success) {
+        setActionMessage(`Moved to "${folderName}"`);
+      } else {
+        setActionMessage(`Error: ${result.error}`);
+      }
+
+      setShowFolderPicker(false);
+    },
+    [client, selectedPost]
+  );
+
+  // Close folder picker
+  const handleFolderPickerClose = useCallback(() => {
+    setShowFolderPicker(false);
+  }, []);
+
   useKeyboard((key) => {
     // Always allow quit, even during splash
     if (key.name === "q" || key.name === "escape") {
@@ -207,17 +242,39 @@ export function App({ client, user: _user }: AppProps) {
         </box>
 
         {currentView === "post-detail" && selectedPost && (
-          <PostDetailScreen
-            tweet={selectedPost}
-            focused={true}
-            onBack={handleBackFromDetail}
-            onProfileOpen={handleProfileOpen}
-            onLike={() => toggleLike(selectedPost)}
-            onBookmark={() => toggleBookmark(selectedPost)}
-            isLiked={getState(selectedPost.id).liked}
-            isBookmarked={getState(selectedPost.id).bookmarked}
-            actionMessage={actionMessage}
-          />
+          <>
+            <PostDetailScreen
+              tweet={selectedPost}
+              focused={!showFolderPicker}
+              onBack={handleBackFromDetail}
+              onProfileOpen={handleProfileOpen}
+              onLike={() => toggleLike(selectedPost)}
+              onBookmark={() => toggleBookmark(selectedPost)}
+              onMoveToFolder={handleMoveToFolder}
+              isLiked={getState(selectedPost.id).liked}
+              isBookmarked={getState(selectedPost.id).bookmarked}
+              actionMessage={actionMessage}
+            />
+            {showFolderPicker && (
+              <box
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                }}
+              >
+                <FolderPicker
+                  client={client}
+                  tweet={selectedPost}
+                  onSelect={handleFolderSelect}
+                  onClose={handleFolderPickerClose}
+                  focused={true}
+                />
+              </box>
+            )}
+          </>
         )}
 
         {currentView === "profile" && profileUsername && (

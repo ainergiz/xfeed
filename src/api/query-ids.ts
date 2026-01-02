@@ -36,6 +36,8 @@ export const FALLBACK_QUERY_IDS = {
   HomeLatestTimeline: "zhX91JE87mWvfprhYE97xA",
   UserByScreenName: "7mjxD3-C6BxitPMVQ6w0-Q",
   UserTweets: "HuTx74BxAnezK1gWvYY7zg",
+  BookmarkFoldersSlice: "i78YDd0Tza-dV4SYs58kRg",
+  bookmarkTweetToFolder: "4KHZvvNbHNf07bsgnL9gWA",
 } as const;
 
 /**
