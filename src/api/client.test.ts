@@ -3023,4 +3023,348 @@ describe("TwitterClient", () => {
       // Should not crash even when isMediaUrl is called with undefined
     });
   });
+
+  describe("getNotifications", () => {
+    it("returns notifications on success", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      globalThis.fetch = mock(() =>
+        Promise.resolve(
+          mockResponse({
+            data: {
+              viewer_v2: {
+                user_results: {
+                  result: {
+                    notification_timeline: {
+                      timeline: {
+                        instructions: [
+                          {
+                            type: "TimelineAddEntries",
+                            entries: [
+                              {
+                                entryId: "notification-1",
+                                sortIndex: "1700000000000",
+                                content: {
+                                  itemContent: {
+                                    itemType: "TimelineNotification",
+                                    id: "notif-1",
+                                    notification_icon: "heart_icon",
+                                    rich_message: {
+                                      text: "User liked your post",
+                                    },
+                                    notification_url: {
+                                      url: "https://x.com/i/notification",
+                                    },
+                                    timestamp_ms: "2024-01-01T00:00:00Z",
+                                  },
+                                },
+                              },
+                            ],
+                          },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          })
+        )
+      );
+
+      const result = await client.getNotifications();
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.notifications.length).toBe(1);
+        expect(result.notifications[0]?.icon).toBe("heart_icon");
+        expect(result.notifications[0]?.message).toBe("User liked your post");
+      }
+    });
+
+    it("returns error on HTTP failure", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      globalThis.fetch = mock(() =>
+        Promise.resolve(mockResponse("Error", { status: 500, ok: false }))
+      );
+
+      const result = await client.getNotifications();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.message.length).toBeGreaterThan(0);
+      }
+    });
+
+    it("returns error on GraphQL errors", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      globalThis.fetch = mock(() =>
+        Promise.resolve(
+          mockResponse({
+            errors: [{ message: "Notifications error" }],
+          })
+        )
+      );
+
+      const result = await client.getNotifications();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.message).toContain("Notifications error");
+      }
+    });
+
+    it("retries on 404", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      globalThis.fetch = mock(() =>
+        Promise.resolve(mockResponse("Not found", { status: 404, ok: false }))
+      );
+
+      const result = await client.getNotifications();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.message).toContain("404");
+      }
+    });
+
+    it("uses custom count parameter", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      let capturedUrl = "";
+      globalThis.fetch = mock((url: string) => {
+        capturedUrl = url;
+        return Promise.resolve(
+          mockResponse({
+            data: {
+              viewer_v2: {
+                user_results: {
+                  result: {
+                    notification_timeline: {
+                      timeline: { instructions: [] },
+                    },
+                  },
+                },
+              },
+            },
+          })
+        );
+      });
+
+      await client.getNotifications(50);
+      const decodedUrl = decodeURIComponent(capturedUrl);
+      expect(decodedUrl).toContain('"count":50');
+    });
+
+    it("handles fetch exception", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      globalThis.fetch = mock(() =>
+        Promise.reject(new Error("Network timeout"))
+      );
+
+      const result = await client.getNotifications();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.message).toBe("Network timeout");
+      }
+    });
+
+    it("extracts unread sort index from instructions", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      globalThis.fetch = mock(() =>
+        Promise.resolve(
+          mockResponse({
+            data: {
+              viewer_v2: {
+                user_results: {
+                  result: {
+                    notification_timeline: {
+                      timeline: {
+                        instructions: [
+                          {
+                            type: "TimelineAddEntries",
+                            entries: [
+                              {
+                                entryId: "notification-1",
+                                sortIndex: "1700000000000",
+                                content: {
+                                  itemContent: {
+                                    itemType: "TimelineNotification",
+                                    id: "notif-1",
+                                    notification_icon: "heart_icon",
+                                    rich_message: { text: "Liked" },
+                                    notification_url: { url: "" },
+                                    timestamp_ms: "",
+                                  },
+                                },
+                              },
+                            ],
+                          },
+                          {
+                            type: "TimelineMarkEntriesUnreadGreaterThanSortIndex",
+                            sort_index: "1699999999999",
+                          },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          })
+        )
+      );
+
+      const result = await client.getNotifications();
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.unreadSortIndex).toBe("1699999999999");
+      }
+    });
+
+    it("extracts cursors from entries", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      globalThis.fetch = mock(() =>
+        Promise.resolve(
+          mockResponse({
+            data: {
+              viewer_v2: {
+                user_results: {
+                  result: {
+                    notification_timeline: {
+                      timeline: {
+                        instructions: [
+                          {
+                            type: "TimelineAddEntries",
+                            entries: [
+                              {
+                                content: {
+                                  cursorType: "Top",
+                                  value: "TOP-CURSOR-VALUE",
+                                },
+                              },
+                              {
+                                content: {
+                                  cursorType: "Bottom",
+                                  value: "BOTTOM-CURSOR-VALUE",
+                                },
+                              },
+                            ],
+                          },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          })
+        )
+      );
+
+      const result = await client.getNotifications();
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.topCursor).toBe("TOP-CURSOR-VALUE");
+        expect(result.bottomCursor).toBe("BOTTOM-CURSOR-VALUE");
+      }
+    });
+
+    it("handles empty instructions", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      globalThis.fetch = mock(() =>
+        Promise.resolve(
+          mockResponse({
+            data: {
+              viewer_v2: {
+                user_results: {
+                  result: {
+                    notification_timeline: {
+                      timeline: {
+                        instructions: [],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          })
+        )
+      );
+
+      const result = await client.getNotifications();
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.notifications.length).toBe(0);
+      }
+    });
+
+    it("handles undefined instructions", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      globalThis.fetch = mock(() =>
+        Promise.resolve(
+          mockResponse({
+            data: {
+              viewer_v2: {
+                user_results: {
+                  result: {
+                    notification_timeline: {
+                      timeline: {},
+                    },
+                  },
+                },
+              },
+            },
+          })
+        )
+      );
+
+      const result = await client.getNotifications();
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.notifications.length).toBe(0);
+      }
+    });
+
+    it("uses fallback icon for unknown notification type", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      globalThis.fetch = mock(() =>
+        Promise.resolve(
+          mockResponse({
+            data: {
+              viewer_v2: {
+                user_results: {
+                  result: {
+                    notification_timeline: {
+                      timeline: {
+                        instructions: [
+                          {
+                            type: "TimelineAddEntries",
+                            entries: [
+                              {
+                                entryId: "notif-1",
+                                content: {
+                                  itemContent: {
+                                    itemType: "TimelineNotification",
+                                    id: "1",
+                                    rich_message: { text: "Unknown type" },
+                                    notification_url: { url: "" },
+                                    timestamp_ms: "",
+                                  },
+                                },
+                              },
+                            ],
+                          },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          })
+        )
+      );
+
+      const result = await client.getNotifications();
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.notifications[0]?.icon).toBe("bird_icon");
+      }
+    });
+  });
 });

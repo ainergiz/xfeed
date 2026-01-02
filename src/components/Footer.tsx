@@ -17,6 +17,8 @@ export function Footer() {
       <text fg="#666666"> bookmark </text>
       <text fg="#ffffff">r</text>
       <text fg="#666666"> refresh </text>
+      <text fg="#ffffff">n</text>
+      <text fg="#666666"> notifs </text>
       <text fg="#ffffff">Tab</text>
       <text fg="#666666"> view </text>
       <text fg="#ffffff">q</text>

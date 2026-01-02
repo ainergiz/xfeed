@@ -15,6 +15,10 @@ import type {
   GetTweetResult,
   GraphqlTweetResult,
   MediaItem,
+  NotificationData,
+  NotificationIcon,
+  NotificationInstruction,
+  NotificationsResult,
   OperationName,
   SearchResult,
   TimelineResult,
@@ -24,6 +28,7 @@ import type {
   TwitterClientOptions,
   UploadMediaResult,
   UrlEntity,
+  UserData,
 } from "./types";
 
 import {
@@ -2751,6 +2756,258 @@ export class TwitterClient {
       success: false,
       error: this.stringErrorToApiError(result.error ?? "Unknown error"),
     };
+  }
+
+  private async getNotificationsQueryIds(): Promise<string[]> {
+    const primary = await this.getQueryId("NotificationsTimeline");
+    return Array.from(new Set([primary, "Ev6UMJRROInk_RMH2oVbBg"]));
+  }
+
+  /**
+   * Get the authenticated user's notifications
+   */
+  async getNotifications(count = 20): Promise<NotificationsResult> {
+    const variables = {
+      timeline_type: "All",
+      count,
+    };
+
+    const features = this.buildTimelineFeatures();
+
+    const params = new URLSearchParams({
+      variables: JSON.stringify(variables),
+      features: JSON.stringify(features),
+    });
+
+    const tryOnce = async () => {
+      let lastError: ApiError | undefined;
+      let had404 = false;
+      const queryIds = await this.getNotificationsQueryIds();
+
+      for (const queryId of queryIds) {
+        const url = `${TWITTER_API_BASE}/${queryId}/NotificationsTimeline?${params.toString()}`;
+
+        try {
+          const response = await this.fetchWithTimeout(url, {
+            method: "GET",
+            headers: this.getHeaders(),
+          });
+
+          if (response.status === 404) {
+            had404 = true;
+            lastError = {
+              type: "not_found",
+              message: `HTTP ${response.status}`,
+              statusCode: 404,
+            };
+            continue;
+          }
+
+          if (!response.ok) {
+            const text = await response.text();
+            return {
+              success: false as const,
+              error: this.stringErrorToApiError(
+                `HTTP ${response.status}: ${text.slice(0, 200)}`
+              ),
+              had404,
+            };
+          }
+
+          const data = (await response.json()) as {
+            data?: {
+              viewer_v2?: {
+                user_results?: {
+                  result?: {
+                    notification_timeline?: {
+                      timeline?: {
+                        instructions?: NotificationInstruction[];
+                      };
+                    };
+                  };
+                };
+              };
+            };
+            errors?: Array<{ message: string }>;
+          };
+
+          if (data.errors && data.errors.length > 0) {
+            return {
+              success: false as const,
+              error: {
+                type: "unknown" as const,
+                message: data.errors.map((e) => e.message).join(", "),
+              },
+              had404,
+            };
+          }
+
+          const instructions =
+            data.data?.viewer_v2?.user_results?.result?.notification_timeline
+              ?.timeline?.instructions;
+
+          const notifications =
+            this.parseNotificationsFromInstructions(instructions);
+          const unreadSortIndex = this.extractUnreadSortIndex(instructions);
+          const { topCursor, bottomCursor } =
+            this.extractNotificationCursors(instructions);
+
+          return {
+            success: true as const,
+            notifications,
+            unreadSortIndex,
+            topCursor,
+            bottomCursor,
+            had404,
+          };
+        } catch (error) {
+          lastError = {
+            type: "network_error",
+            message: error instanceof Error ? error.message : String(error),
+          };
+        }
+      }
+
+      return {
+        success: false as const,
+        error: lastError ?? {
+          type: "unknown" as const,
+          message: "Unknown error fetching notifications",
+        },
+        had404,
+      };
+    };
+
+    const firstAttempt = await tryOnce();
+    if (firstAttempt.success) {
+      return {
+        success: true,
+        notifications: firstAttempt.notifications,
+        unreadSortIndex: firstAttempt.unreadSortIndex,
+        topCursor: firstAttempt.topCursor,
+        bottomCursor: firstAttempt.bottomCursor,
+      };
+    }
+
+    if (firstAttempt.had404) {
+      await this.refreshQueryIds();
+      const secondAttempt = await tryOnce();
+      if (secondAttempt.success) {
+        return {
+          success: true,
+          notifications: secondAttempt.notifications,
+          unreadSortIndex: secondAttempt.unreadSortIndex,
+          topCursor: secondAttempt.topCursor,
+          bottomCursor: secondAttempt.bottomCursor,
+        };
+      }
+      return { success: false, error: secondAttempt.error };
+    }
+
+    return { success: false, error: firstAttempt.error };
+  }
+
+  /**
+   * Parse notification entries from timeline instructions
+   */
+  private parseNotificationsFromInstructions(
+    instructions: NotificationInstruction[] | undefined
+  ): NotificationData[] {
+    const notifications: NotificationData[] = [];
+
+    for (const instruction of instructions ?? []) {
+      if (instruction.type !== "TimelineAddEntries") continue;
+
+      for (const entry of instruction.entries ?? []) {
+        const itemContent = entry.content?.itemContent;
+        if (itemContent?.itemType !== "TimelineNotification") continue;
+
+        const notification: NotificationData = {
+          id: itemContent.id ?? entry.entryId ?? "",
+          icon:
+            (itemContent.notification_icon as NotificationIcon) ?? "bird_icon",
+          message: itemContent.rich_message?.text ?? "",
+          url: itemContent.notification_url?.url ?? "",
+          timestamp: itemContent.timestamp_ms ?? "",
+          sortIndex: entry.sortIndex ?? "",
+        };
+
+        // Extract target tweet if present
+        const targetObject = itemContent.template?.target_objects?.[0];
+        if (targetObject?.tweet_results?.result) {
+          const tweet = this.mapTweetResult(
+            this.unwrapTweetResult(targetObject.tweet_results.result),
+            0
+          );
+          if (tweet) {
+            notification.targetTweet = tweet;
+          }
+        }
+
+        // Extract from_users
+        const fromUsers = itemContent.template?.from_users ?? [];
+        if (fromUsers.length > 0) {
+          notification.fromUsers = fromUsers
+            .map((u): UserData | undefined => {
+              const userResult = u.user_results?.result;
+              const id = userResult?.rest_id;
+              const username =
+                userResult?.core?.screen_name ??
+                userResult?.legacy?.screen_name;
+              const name =
+                userResult?.core?.name ?? userResult?.legacy?.name ?? username;
+              if (!id || !username) return undefined;
+              return { id, username, name: name ?? username };
+            })
+            .filter((u): u is UserData => u !== undefined);
+        }
+
+        notifications.push(notification);
+      }
+    }
+
+    return notifications;
+  }
+
+  /**
+   * Extract the unread sort index from instructions
+   */
+  private extractUnreadSortIndex(
+    instructions: NotificationInstruction[] | undefined
+  ): string | undefined {
+    for (const instruction of instructions ?? []) {
+      if (
+        instruction.type === "TimelineMarkEntriesUnreadGreaterThanSortIndex"
+      ) {
+        return instruction.sort_index;
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Extract cursors from notification timeline instructions
+   */
+  private extractNotificationCursors(
+    instructions: NotificationInstruction[] | undefined
+  ): { topCursor?: string; bottomCursor?: string } {
+    let topCursor: string | undefined;
+    let bottomCursor: string | undefined;
+
+    for (const instruction of instructions ?? []) {
+      if (instruction.type !== "TimelineAddEntries") continue;
+
+      for (const entry of instruction.entries ?? []) {
+        if (entry.content?.cursorType === "Top" && entry.content.value) {
+          topCursor = entry.content.value;
+        }
+        if (entry.content?.cursorType === "Bottom" && entry.content.value) {
+          bottomCursor = entry.content.value;
+        }
+      }
+    }
+
+    return { topCursor, bottomCursor };
   }
 
   /**
