@@ -1,8 +1,11 @@
 #!/usr/bin/env bun
+import { createCliRenderer } from "@opentui/core";
+import { createRoot } from "@opentui/react";
 import { cac } from "cac";
 
 import type { CookieSource } from "@/auth/cookies";
 
+import { App } from "@/app";
 import { checkAuth, formatWarnings } from "@/auth/check";
 
 const cli = cac("xfeed");
@@ -59,9 +62,14 @@ cli
         process.exit(1);
       }
 
-      // TODO: Launch TUI (#5)
-      console.log(`Authenticated as @${authResult.user.username}`);
-      console.log("xfeed TUI - coming soon");
+      // Launch TUI
+      const renderer = await createCliRenderer({
+        exitOnCtrlC: false,
+      });
+
+      createRoot(renderer).render(
+        <App client={authResult.client} user={authResult.user} />
+      );
     }
   );
 
