@@ -6,6 +6,8 @@ import type { TweetData } from "@/api/types";
 
 import { formatCount, formatRelativeTime, truncateText } from "@/lib/format";
 
+import { QuotedPostCard } from "./QuotedPostCard";
+
 const MAX_TEXT_LINES = 3;
 const SELECTED_BG = "#1a1a2e";
 const X_BLUE = "#1DA1F2";
@@ -47,6 +49,13 @@ export function PostCard({ post, isSelected, id }: PostCardProps) {
       <box style={{ marginTop: 1, paddingLeft: 2 }}>
         <text fg="#ffffff">{displayText}</text>
       </box>
+
+      {/* Quoted tweet (if present) */}
+      {post.quotedTweet ? (
+        <box style={{ paddingLeft: 2 }}>
+          <QuotedPostCard post={post.quotedTweet} />
+        </box>
+      ) : null}
 
       {/* Stats line */}
       <box style={{ flexDirection: "row", marginTop: 1, paddingLeft: 2 }}>

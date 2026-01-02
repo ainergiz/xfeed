@@ -33,19 +33,11 @@ function TabBar({ activeTab }: TabBarProps) {
       }}
     >
       <text fg={activeTab === "for_you" ? "#1DA1F2" : "#666666"}>
-        {activeTab === "for_you" ? (
-          <b>[1] For You</b>
-        ) : (
-          " 1  For You"
-        )}
+        {activeTab === "for_you" ? <b>[1] For You</b> : " 1  For You"}
       </text>
       <text fg="#666666"> | </text>
       <text fg={activeTab === "following" ? "#1DA1F2" : "#666666"}>
-        {activeTab === "following" ? (
-          <b>[2] Following</b>
-        ) : (
-          " 2  Following"
-        )}
+        {activeTab === "following" ? <b>[2] Following</b> : " 2  Following"}
       </text>
     </box>
   );
