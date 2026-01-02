@@ -1,5 +1,5 @@
 import { useKeyboard, useRenderer } from "@opentui/react";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 
 import type { TwitterClient } from "@/api/client";
 import type { TweetData, UserData } from "@/api/types";
@@ -7,7 +7,10 @@ import type { TweetData, UserData } from "@/api/types";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { PostDetailScreen } from "@/screens/PostDetailScreen";
+import { SplashScreen } from "@/screens/SplashScreen";
 import { TimelineScreen } from "@/screens/TimelineScreen";
+
+const SPLASH_MIN_DISPLAY_MS = 500;
 
 export type View = "timeline" | "bookmarks" | "post-detail";
 
@@ -22,6 +25,41 @@ export function App({ client, user: _user }: AppProps) {
   const renderer = useRenderer();
   const [currentView, setCurrentView] = useState<View>("timeline");
   const [postCount, setPostCount] = useState(0);
+
+  // Splash screen state
+  const [showSplash, setShowSplash] = useState(true);
+  const [minTimeElapsed, setMinTimeElapsed] = useState(false);
+  const hasReceivedPosts = useRef(false);
+
+  // Start minimum display timer on mount
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setMinTimeElapsed(true);
+    }, SPLASH_MIN_DISPLAY_MS);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Hide splash when both conditions are met
+  useEffect(() => {
+    if (minTimeElapsed && hasReceivedPosts.current) {
+      setShowSplash(false);
+    }
+  }, [minTimeElapsed]);
+
+  // Track when posts are first received
+  const handlePostCountChange = useCallback(
+    (count: number) => {
+      setPostCount(count);
+      if (count > 0 && !hasReceivedPosts.current) {
+        hasReceivedPosts.current = true;
+        if (minTimeElapsed) {
+          setShowSplash(false);
+        }
+      }
+    },
+    [minTimeElapsed]
+  );
 
   // State for post detail view
   const [selectedPost, setSelectedPost] = useState<TweetData | null>(null);
@@ -39,15 +77,17 @@ export function App({ client, user: _user }: AppProps) {
   }, []);
 
   useKeyboard((key) => {
-    // Only handle app-level keys when not in post-detail view
-    // Post detail handles its own Escape/back navigation
-    if (currentView === "post-detail") {
-      return;
+    // Always allow quit, even during splash
+    if (key.name === "q" || key.name === "escape") {
+      // Don't quit during splash unless in timeline view (post-detail handles its own)
+      if (showSplash || currentView !== "post-detail") {
+        renderer.destroy();
+        return;
+      }
     }
 
-    // Quit on q or Escape
-    if (key.name === "q" || key.name === "escape") {
-      renderer.destroy();
+    // Don't handle other keys during splash or post-detail
+    if (showSplash || currentView === "post-detail") {
       return;
     }
 
@@ -68,12 +108,19 @@ export function App({ client, user: _user }: AppProps) {
         height: "100%",
       }}
     >
-      <Header currentView={currentView} postCount={postCount} />
+      {showSplash ? (
+        <SplashScreen />
+      ) : (
+        <Header currentView={currentView} postCount={postCount} />
+      )}
 
-      {/* Content area */}
+      {/* Content area - always mount TimelineScreen to preserve state */}
       <box
         style={{
           flexGrow: 1,
+          // Hide during splash but keep mounted
+          height: showSplash ? 0 : undefined,
+          overflow: showSplash ? "hidden" : undefined,
         }}
       >
         {/* Keep TimelineScreen mounted to preserve state, hide when not active */}
@@ -86,8 +133,8 @@ export function App({ client, user: _user }: AppProps) {
         >
           <TimelineScreen
             client={client}
-            focused={currentView === "timeline"}
-            onPostCountChange={setPostCount}
+            focused={currentView === "timeline" && !showSplash}
+            onPostCountChange={handlePostCountChange}
             onPostSelect={handlePostSelect}
           />
         </box>
@@ -107,7 +154,7 @@ export function App({ client, user: _user }: AppProps) {
         )}
       </box>
 
-      {currentView !== "post-detail" && <Footer />}
+      {!showSplash && currentView !== "post-detail" && <Footer />}
     </box>
   );
 }
