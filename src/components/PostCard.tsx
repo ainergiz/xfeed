@@ -11,6 +11,8 @@ import { QuotedPostCard } from "./QuotedPostCard";
 const MAX_TEXT_LINES = 3;
 const SELECTED_BG = "#1a1a2e";
 const X_BLUE = "#1DA1F2";
+const COLOR_SUCCESS = "#17BF63";
+const COLOR_WARNING = "#FFAD1F";
 
 interface PostCardProps {
   post: TweetData;
@@ -21,6 +23,7 @@ interface PostCardProps {
 export function PostCard({ post, isSelected, id }: PostCardProps) {
   const displayText = truncateText(post.text, MAX_TEXT_LINES);
   const timeAgo = formatRelativeTime(post.createdAt);
+  const hasMedia = post.media && post.media.length > 0;
 
   return (
     <box
@@ -65,6 +68,37 @@ export function PostCard({ post, isSelected, id }: PostCardProps) {
           {formatCount(post.likeCount)} likes
         </text>
       </box>
+
+      {/* Media indicators - colored labels */}
+      {hasMedia && (
+        <box style={{ flexDirection: "row", marginTop: 1, paddingLeft: 2 }}>
+          {post.media?.map((item) => {
+            const dims =
+              item.width && item.height
+                ? ` (${item.width}x${item.height})`
+                : "";
+            const typeLabel =
+              item.type === "photo"
+                ? "Image"
+                : item.type === "video"
+                  ? "Video"
+                  : "GIF";
+            const typeColor =
+              item.type === "photo"
+                ? X_BLUE
+                : item.type === "video"
+                  ? COLOR_WARNING
+                  : COLOR_SUCCESS;
+            return (
+              <text key={item.id} fg={typeColor}>
+                • {typeLabel}
+                {dims}
+                {"  "}
+              </text>
+            );
+          })}
+        </box>
+      )}
     </box>
   );
 }
