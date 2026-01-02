@@ -17,9 +17,10 @@
   "dependencies": {
     "@opentui/core": "^0.1.63",
     "@opentui/react": "^0.1.63",
-    "react": "^19.2.0",
+    "@steipete/sweet-cookie": "0.1.0",
     "cac": "^6.7.14",
-    "@steipete/sweet-cookie": "0.1.0"
+    "react": "^19.2.0",
+    "x-client-transaction-id": "^0.1.9"
   },
   "devDependencies": {
     "@types/bun": "latest",

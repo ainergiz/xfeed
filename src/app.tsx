@@ -6,6 +6,7 @@ import type { TweetData, UserData } from "@/api/types";
 
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
+import { useActions } from "@/hooks/useActions";
 import { useNavigation } from "@/hooks/useNavigation";
 import { BookmarksScreen } from "@/screens/BookmarksScreen";
 import { PostDetailScreen } from "@/screens/PostDetailScreen";
@@ -34,6 +35,22 @@ export function App({ client, user: _user }: AppProps) {
     });
   const [postCount, setPostCount] = useState(0);
   const [bookmarkCount, setBookmarkCount] = useState(0);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  // Actions hook for like/bookmark mutations
+  const { toggleLike, toggleBookmark, getState } = useActions({
+    client,
+    onError: (error) => setActionMessage(`Error: ${error}`),
+    onSuccess: (message) => setActionMessage(message),
+  });
+
+  // Clear action message after 3 seconds
+  useEffect(() => {
+    if (actionMessage) {
+      const timer = setTimeout(() => setActionMessage(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [actionMessage]);
 
   // Splash screen state
   const [showSplash, setShowSplash] = useState(true);
@@ -188,6 +205,11 @@ export function App({ client, user: _user }: AppProps) {
             focused={true}
             onBack={handleBackFromDetail}
             onProfileOpen={handleProfileOpen}
+            onLike={() => toggleLike(selectedPost)}
+            onBookmark={() => toggleBookmark(selectedPost)}
+            isLiked={getState(selectedPost.id).liked}
+            isBookmarked={getState(selectedPost.id).bookmarked}
+            actionMessage={actionMessage}
           />
         )}
 

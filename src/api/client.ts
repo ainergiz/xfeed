@@ -4,8 +4,10 @@
  */
 
 import { randomBytes, randomUUID } from "node:crypto";
+import { ClientTransaction, handleXMigration } from "x-client-transaction-id";
 
 import type {
+  ActionResult,
   CreateTweetResponse,
   CurrentUserResult,
   GetTweetResult,
@@ -48,6 +50,8 @@ export class TwitterClient {
   private clientUuid: string;
   private clientDeviceId: string;
   private clientUserId?: string;
+  private clientTransaction?: ClientTransaction;
+  private transactionInitPromise?: Promise<void>;
 
   constructor(options: TwitterClientOptions) {
     if (!options.cookies.authToken || !options.cookies.ct0) {
@@ -167,7 +171,59 @@ export class TwitterClient {
     return this.getJsonHeaders();
   }
 
-  private createTransactionId(): string {
+  /**
+   * Ensure ClientTransaction is initialized for generating valid transaction IDs.
+   * Uses lazy initialization - only fetches homepage when first needed.
+   */
+  private async ensureClientTransaction(): Promise<void> {
+    if (this.clientTransaction) return;
+
+    if (!this.transactionInitPromise) {
+      this.transactionInitPromise = (async () => {
+        try {
+          const document = await handleXMigration();
+          this.clientTransaction = await ClientTransaction.create(document);
+        } catch (error) {
+          // Log error but don't fail - we'll fall back to random transaction IDs
+          console.error(
+            "[xfeed] Failed to initialize ClientTransaction:",
+            error
+          );
+        }
+      })();
+    }
+
+    await this.transactionInitPromise;
+  }
+
+  /**
+   * Generate a transaction ID for a specific API request.
+   * Uses ClientTransaction when available, falls back to random hex.
+   */
+  private async generateTransactionId(
+    method: string,
+    path: string
+  ): Promise<string> {
+    await this.ensureClientTransaction();
+
+    if (this.clientTransaction) {
+      try {
+        return await this.clientTransaction.generateTransactionId(method, path);
+      } catch (error) {
+        // Fall back to random on error
+        console.error("[xfeed] Failed to generate transaction ID:", error);
+      }
+    }
+
+    // Fallback to random hex
+    return randomBytes(16).toString("hex");
+  }
+
+  /**
+   * Legacy sync method for backwards compatibility.
+   * Used by getBaseHeaders for requests that don't need the special transaction ID.
+   */
+  private createRandomTransactionId(): string {
     return randomBytes(16).toString("hex");
   }
 
@@ -183,7 +239,7 @@ export class TwitterClient {
       "x-twitter-client-language": "en",
       "x-client-uuid": this.clientUuid,
       "x-twitter-client-deviceid": this.clientDeviceId,
-      "x-client-transaction-id": this.createTransactionId(),
+      "x-client-transaction-id": this.createRandomTransactionId(),
       cookie: this.cookieHeader,
       "user-agent": this.userAgent,
       origin: "https://x.com",
@@ -2887,10 +2943,126 @@ export class TwitterClient {
         firstAttempt.error ?? restResult.error ?? "Failed to fetch user tweets",
     };
   }
+
+  /**
+   * Like a tweet (favorite)
+   * @param tweetId The ID of the tweet to like
+   */
+  async likeTweet(tweetId: string): Promise<ActionResult> {
+    return this.executeActionMutation("FavoriteTweet", tweetId);
+  }
+
+  /**
+   * Unlike a tweet (unfavorite)
+   * @param tweetId The ID of the tweet to unlike
+   */
+  async unlikeTweet(tweetId: string): Promise<ActionResult> {
+    return this.executeActionMutation("UnfavoriteTweet", tweetId);
+  }
+
+  /**
+   * Bookmark a tweet
+   * @param tweetId The ID of the tweet to bookmark
+   */
+  async createBookmark(tweetId: string): Promise<ActionResult> {
+    return this.executeActionMutation("CreateBookmark", tweetId);
+  }
+
+  /**
+   * Remove a bookmark
+   * @param tweetId The ID of the tweet to unbookmark
+   */
+  async deleteBookmark(tweetId: string): Promise<ActionResult> {
+    return this.executeActionMutation("DeleteBookmark", tweetId);
+  }
+
+  /**
+   * Execute a simple action mutation (like, bookmark, etc.)
+   * These mutations take only a tweet_id and return a simple success/error response.
+   * Note: No features object - Twitter's action mutations only need variables and queryId.
+   */
+  private async executeActionMutation(
+    operationName: OperationName,
+    tweetId: string
+  ): Promise<ActionResult> {
+    await this.ensureClientUserId();
+
+    const variables = { tweet_id: tweetId };
+
+    const tryOnce = async (): Promise<ActionResult & { had404?: boolean }> => {
+      const queryId = await this.getQueryId(operationName);
+      const path = `/i/api/graphql/${queryId}/${operationName}`;
+      const url = `https://x.com${path}`;
+
+      // Generate proper transaction ID for this specific request
+      const transactionId = await this.generateTransactionId("POST", path);
+
+      try {
+        const headers = {
+          ...this.getHeaders(),
+          "x-client-transaction-id": transactionId,
+        };
+
+        const response = await this.fetchWithTimeout(url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ variables, queryId }),
+        });
+
+        if (response.status === 404) {
+          return { success: false, error: "HTTP 404", had404: true };
+        }
+
+        if (!response.ok) {
+          const text = await response.text();
+          return {
+            success: false,
+            error: `HTTP ${response.status}: ${text.slice(0, 200)}`,
+          };
+        }
+
+        const data = (await response.json()) as {
+          data?: Record<string, unknown>;
+          errors?: Array<{ message: string; code?: number }>;
+        };
+
+        if (data.errors && data.errors.length > 0) {
+          return {
+            success: false,
+            error: data.errors.map((e) => e.message).join(", "),
+          };
+        }
+
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    };
+
+    const firstAttempt = await tryOnce();
+    if (firstAttempt.success) {
+      return { success: true };
+    }
+
+    if (firstAttempt.had404) {
+      await this.refreshQueryIds();
+      const secondAttempt = await tryOnce();
+      if (secondAttempt.success) {
+        return { success: true };
+      }
+      return { success: false, error: secondAttempt.error ?? "Unknown error" };
+    }
+
+    return { success: false, error: firstAttempt.error ?? "Unknown error" };
+  }
 }
 
 // Re-export types for convenience
 export type {
+  ActionResult,
   CreateTweetResponse,
   CurrentUserResult,
   GetTweetResult,
