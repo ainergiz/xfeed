@@ -26,10 +26,10 @@ interface GraphqlTweetResult {
     conversation_id_str?: string;
     in_reply_to_status_id_str?: string | null;
 
-    // User interaction state (NOT EXTRACTED)
-    favorited?: boolean;         // Is liked by current user
-    bookmarked?: boolean;        // Is bookmarked by current user
-    retweeted?: boolean;         // Is retweeted by current user
+    // User interaction state
+    favorited?: boolean;         // Is liked by current user (EXTRACTED)
+    bookmarked?: boolean;        // Is bookmarked by current user (EXTRACTED)
+    retweeted?: boolean;         // Is retweeted by current user (NOT EXTRACTED)
 
     // Media (NOT EXTRACTED)
     extended_entities?: {
@@ -123,6 +123,8 @@ Currently extracted into `TweetData`:
 | `author.name` | `core.user_results.result.legacy.name` | Yes |
 | `authorId` | `core.user_results.result.rest_id` | Yes |
 | `quotedTweet` | `quoted_status_result.result` (recursive) | Yes |
+| `favorited` | `legacy.favorited` | Yes |
+| `bookmarked` | `legacy.bookmarked` | Yes |
 
 ## Not Yet Extracted
 
@@ -131,7 +133,7 @@ Could be added in future:
 - `views.count` - View count
 - `legacy.quote_count` - Quote count
 - `legacy.bookmark_count` - Bookmark count
-- `legacy.favorited` / `bookmarked` / `retweeted` - User interaction state
+- `legacy.retweeted` - User retweet state
 - `legacy.extended_entities.media` - Photos, videos, GIFs
 - `legacy.entities` - URLs, mentions, hashtags
 - `core.user_results.result.legacy.profile_image_url_https` - Avatar

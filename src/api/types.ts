@@ -93,6 +93,10 @@ export interface TweetData {
   media?: MediaItem[];
   /** URL entities parsed from tweet text */
   urls?: UrlEntity[];
+  /** Whether the tweet is liked by the current user */
+  favorited?: boolean;
+  /** Whether the tweet is bookmarked by the current user */
+  bookmarked?: boolean;
 }
 
 /**
@@ -194,6 +198,8 @@ export interface GraphqlTweetResult {
     favorite_count?: number;
     conversation_id_str?: string;
     in_reply_to_status_id_str?: string | null;
+    favorited?: boolean;
+    bookmarked?: boolean;
     entities?: {
       urls?: Array<{
         url: string;

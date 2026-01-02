@@ -7,6 +7,7 @@ import { useEffect } from "react";
 
 import type { TwitterClient } from "@/api/client";
 import type { TweetData } from "@/api/types";
+import type { TweetActionState } from "@/hooks/useActions";
 
 import { PostList } from "@/components/PostList";
 import { useBookmarks } from "@/hooks/useBookmarks";
@@ -16,6 +17,20 @@ interface BookmarksScreenProps {
   focused?: boolean;
   onPostCountChange?: (count: number) => void;
   onPostSelect?: (post: TweetData) => void;
+  /** Called when user presses 'l' to toggle like */
+  onLike?: (post: TweetData) => void;
+  /** Called when user presses 'b' to toggle bookmark */
+  onBookmark?: (post: TweetData) => void;
+  /** Get current action state for a tweet */
+  getActionState?: (tweetId: string) => TweetActionState;
+  /** Initialize action state from API data */
+  initActionState?: (
+    tweetId: string,
+    liked: boolean,
+    bookmarked: boolean
+  ) => void;
+  /** Action feedback message */
+  actionMessage?: string | null;
 }
 
 function ScreenHeader() {
@@ -41,6 +56,11 @@ export function BookmarksScreen({
   focused = false,
   onPostCountChange,
   onPostSelect,
+  onLike,
+  onBookmark,
+  getActionState,
+  initActionState,
+  actionMessage,
 }: BookmarksScreenProps) {
   const { posts, loading, error, refresh } = useBookmarks({ client });
 
@@ -94,7 +114,22 @@ export function BookmarksScreen({
   return (
     <box style={{ flexDirection: "column", height: "100%" }}>
       <ScreenHeader />
-      <PostList posts={posts} focused={focused} onPostSelect={onPostSelect} />
+      {actionMessage ? (
+        <box style={{ paddingLeft: 1 }}>
+          <text fg={actionMessage.startsWith("Error:") ? "#E0245E" : "#17BF63"}>
+            {actionMessage}
+          </text>
+        </box>
+      ) : null}
+      <PostList
+        posts={posts}
+        focused={focused}
+        onPostSelect={onPostSelect}
+        onLike={onLike}
+        onBookmark={onBookmark}
+        getActionState={getActionState}
+        initActionState={initActionState}
+      />
     </box>
   );
 }

@@ -2427,6 +2427,114 @@ describe("TwitterClient", () => {
         expect(result.tweets?.length).toBe(1);
       }
     });
+
+    it("extracts favorited and bookmarked state from legacy", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      globalThis.fetch = mock(() =>
+        Promise.resolve(
+          mockResponse({
+            data: {
+              tweetResult: {
+                result: {
+                  rest_id: "123456",
+                  legacy: {
+                    full_text: "Liked and bookmarked tweet",
+                    favorited: true,
+                    bookmarked: true,
+                  },
+                  core: {
+                    user_results: {
+                      result: {
+                        rest_id: "user123",
+                        legacy: { screen_name: "testuser", name: "Test User" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          })
+        )
+      );
+
+      const result = await client.getTweet("123456");
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.tweet?.favorited).toBe(true);
+        expect(result.tweet?.bookmarked).toBe(true);
+      }
+    });
+
+    it("defaults favorited and bookmarked to false when missing", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      globalThis.fetch = mock(() =>
+        Promise.resolve(
+          mockResponse({
+            data: {
+              tweetResult: {
+                result: {
+                  rest_id: "123456",
+                  legacy: {
+                    full_text: "Tweet without interaction state",
+                  },
+                  core: {
+                    user_results: {
+                      result: {
+                        rest_id: "user123",
+                        legacy: { screen_name: "testuser", name: "Test User" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          })
+        )
+      );
+
+      const result = await client.getTweet("123456");
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.tweet?.favorited).toBe(false);
+        expect(result.tweet?.bookmarked).toBe(false);
+      }
+    });
+
+    it("extracts partial interaction state (only favorited)", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      globalThis.fetch = mock(() =>
+        Promise.resolve(
+          mockResponse({
+            data: {
+              tweetResult: {
+                result: {
+                  rest_id: "123456",
+                  legacy: {
+                    full_text: "Only liked tweet",
+                    favorited: true,
+                  },
+                  core: {
+                    user_results: {
+                      result: {
+                        rest_id: "user123",
+                        legacy: { screen_name: "testuser", name: "Test User" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          })
+        )
+      );
+
+      const result = await client.getTweet("123456");
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.tweet?.favorited).toBe(true);
+        expect(result.tweet?.bookmarked).toBe(false);
+      }
+    });
   });
 
   describe("article text extraction edge cases", () => {
