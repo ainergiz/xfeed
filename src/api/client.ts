@@ -12,6 +12,7 @@ import type {
   GraphqlTweetResult,
   OperationName,
   SearchResult,
+  TimelineResult,
   TweetData,
   TweetResult,
   TwitterClientOptions,
@@ -1866,6 +1867,64 @@ export class TwitterClient {
     );
   }
 
+  private async getHomeTimelineQueryIds(): Promise<string[]> {
+    const primary = await this.getQueryId("HomeTimeline");
+    return Array.from(
+      new Set([primary, "V7xdnRnvW6a8vIsMr9xK7A", "HCosKfLNW1AcOo3la3mMgg"])
+    );
+  }
+
+  private async getHomeLatestTimelineQueryIds(): Promise<string[]> {
+    const primary = await this.getQueryId("HomeLatestTimeline");
+    return Array.from(new Set([primary, "zhX91JE87mWvfprhYE97xA"]));
+  }
+
+  private extractBottomCursor(
+    instructions:
+      | Array<{
+          entry?: {
+            entryId?: string;
+            content?: {
+              value?: string;
+              cursorType?: string;
+            };
+          };
+          entries?: Array<{
+            entryId?: string;
+            content?: {
+              value?: string;
+              cursorType?: string;
+            };
+          }>;
+        }>
+      | undefined
+  ): string | undefined {
+    if (!instructions) {
+      return undefined;
+    }
+
+    let bottomCursor: string | undefined;
+
+    for (const instruction of instructions) {
+      // Check instruction.entry (TimelineReplaceEntry)
+      if (
+        instruction.entry?.content?.cursorType === "Bottom" &&
+        instruction.entry.content.value
+      ) {
+        bottomCursor = instruction.entry.content.value;
+      }
+
+      // Check instruction.entries (TimelineAddEntries)
+      for (const entry of instruction.entries ?? []) {
+        if (entry.content?.cursorType === "Bottom" && entry.content.value) {
+          bottomCursor = entry.content.value;
+        }
+      }
+    }
+
+    return bottomCursor;
+  }
+
   /**
    * Get the authenticated user's bookmarks
    */
@@ -1979,154 +2038,259 @@ export class TwitterClient {
 
   /**
    * Get the "For You" timeline (algorithmic feed)
+   * @param count Number of tweets to fetch (default 20)
+   * @param cursor Pagination cursor from previous response's nextCursor
    */
-  async getHomeTimeline(count = 20): Promise<SearchResult> {
-    const variables = {
+  async getHomeTimeline(count = 20, cursor?: string): Promise<TimelineResult> {
+    const variables: Record<string, unknown> = {
       count,
       includePromotedContent: true,
-      latestControlAvailable: true,
-      requestContext: "launch",
       withCommunity: true,
     };
 
+    if (cursor) {
+      variables.cursor = cursor;
+    } else {
+      variables.requestContext = "launch";
+    }
+
     const features = this.buildTimelineFeatures();
 
-    const params = new URLSearchParams({
-      variables: JSON.stringify(variables),
-      features: JSON.stringify(features),
-    });
+    const tryOnce = async () => {
+      let lastError: string | undefined;
+      let had404 = false;
+      const queryIds = await this.getHomeTimelineQueryIds();
 
-    const queryId = await this.getQueryId("HomeTimeline");
-    const url = `${TWITTER_API_BASE}/${queryId}/HomeTimeline?${params.toString()}`;
+      for (const queryId of queryIds) {
+        const params = new URLSearchParams({
+          variables: JSON.stringify(variables),
+          features: JSON.stringify(features),
+        });
+        const url = `${TWITTER_API_BASE}/${queryId}/HomeTimeline?${params.toString()}`;
 
-    try {
-      const response = await this.fetchWithTimeout(url, {
-        method: "GET",
-        headers: this.getHeaders(),
-      });
+        try {
+          const response = await this.fetchWithTimeout(url, {
+            method: "GET",
+            headers: this.getHeaders(),
+          });
 
-      if (!response.ok) {
-        const text = await response.text();
-        return {
-          success: false,
-          error: `HTTP ${response.status}: ${text.slice(0, 200)}`,
-        };
-      }
+          if (response.status === 404) {
+            had404 = true;
+            lastError = `HTTP ${response.status}`;
+            continue;
+          }
 
-      const data = (await response.json()) as {
-        data?: {
-          home?: {
-            home_timeline_urt?: {
-              instructions?: Array<{
-                entries?: Array<{
-                  content?: {
-                    itemContent?: {
-                      tweet_results?: {
-                        result?: GraphqlTweetResult;
-                      };
-                    };
-                  };
-                }>;
-              }>;
+          if (!response.ok) {
+            const text = await response.text();
+            return {
+              success: false as const,
+              error: `HTTP ${response.status}: ${text.slice(0, 200)}`,
+              had404,
             };
-          };
-        };
-        errors?: Array<{ message: string }>;
-      };
+          }
 
-      if (data.errors && data.errors.length > 0) {
-        return {
-          success: false,
-          error: data.errors.map((e) => e.message).join(", "),
-        };
+          const data = (await response.json()) as {
+            data?: {
+              home?: {
+                home_timeline_urt?: {
+                  instructions?: Array<{
+                    entries?: Array<{
+                      entryId?: string;
+                      content?: {
+                        value?: string;
+                        cursorType?: string;
+                        itemContent?: {
+                          tweet_results?: {
+                            result?: GraphqlTweetResult;
+                          };
+                        };
+                      };
+                    }>;
+                  }>;
+                };
+              };
+            };
+            errors?: Array<{ message: string }>;
+          };
+
+          if (data.errors && data.errors.length > 0) {
+            return {
+              success: false as const,
+              error: data.errors.map((e) => e.message).join(", "),
+              had404,
+            };
+          }
+
+          const instructions = data.data?.home?.home_timeline_urt?.instructions;
+          const tweets = this.parseTweetsFromInstructions(instructions);
+          const nextCursor = this.extractBottomCursor(instructions);
+
+          return { success: true as const, tweets, nextCursor, had404 };
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : String(error);
+        }
       }
 
-      const instructions = data.data?.home?.home_timeline_urt?.instructions;
-      const tweets = this.parseTweetsFromInstructions(instructions);
-
-      return { success: true, tweets };
-    } catch (error) {
       return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
+        success: false as const,
+        error: lastError ?? "Unknown error fetching home timeline",
+        had404,
+      };
+    };
+
+    const firstAttempt = await tryOnce();
+    if (firstAttempt.success) {
+      return {
+        success: true,
+        tweets: firstAttempt.tweets,
+        nextCursor: firstAttempt.nextCursor,
       };
     }
+
+    if (firstAttempt.had404) {
+      await this.refreshQueryIds();
+      const secondAttempt = await tryOnce();
+      if (secondAttempt.success) {
+        return {
+          success: true,
+          tweets: secondAttempt.tweets,
+          nextCursor: secondAttempt.nextCursor,
+        };
+      }
+      return { success: false, error: secondAttempt.error };
+    }
+
+    return { success: false, error: firstAttempt.error };
   }
 
   /**
    * Get the "Following" timeline (chronological feed)
+   * @param count Number of tweets to fetch (default 20)
+   * @param cursor Pagination cursor from previous response's nextCursor
    */
-  async getHomeLatestTimeline(count = 20): Promise<SearchResult> {
-    const variables = {
+  async getHomeLatestTimeline(
+    count = 20,
+    cursor?: string
+  ): Promise<TimelineResult> {
+    const variables: Record<string, unknown> = {
       count,
       includePromotedContent: true,
-      latestControlAvailable: true,
-      requestContext: "launch",
       withCommunity: true,
     };
 
+    if (cursor) {
+      variables.cursor = cursor;
+    } else {
+      variables.requestContext = "launch";
+    }
+
     const features = this.buildTimelineFeatures();
 
-    const params = new URLSearchParams({
-      variables: JSON.stringify(variables),
-      features: JSON.stringify(features),
-    });
+    const tryOnce = async () => {
+      let lastError: string | undefined;
+      let had404 = false;
+      const queryIds = await this.getHomeLatestTimelineQueryIds();
 
-    const queryId = await this.getQueryId("HomeLatestTimeline");
-    const url = `${TWITTER_API_BASE}/${queryId}/HomeLatestTimeline?${params.toString()}`;
+      for (const queryId of queryIds) {
+        const params = new URLSearchParams({
+          variables: JSON.stringify(variables),
+          features: JSON.stringify(features),
+        });
+        const url = `${TWITTER_API_BASE}/${queryId}/HomeLatestTimeline?${params.toString()}`;
 
-    try {
-      const response = await this.fetchWithTimeout(url, {
-        method: "GET",
-        headers: this.getHeaders(),
-      });
+        try {
+          const response = await this.fetchWithTimeout(url, {
+            method: "GET",
+            headers: this.getHeaders(),
+          });
 
-      if (!response.ok) {
-        const text = await response.text();
-        return {
-          success: false,
-          error: `HTTP ${response.status}: ${text.slice(0, 200)}`,
-        };
-      }
+          if (response.status === 404) {
+            had404 = true;
+            lastError = `HTTP ${response.status}`;
+            continue;
+          }
 
-      const data = (await response.json()) as {
-        data?: {
-          home?: {
-            home_timeline_urt?: {
-              instructions?: Array<{
-                entries?: Array<{
-                  content?: {
-                    itemContent?: {
-                      tweet_results?: {
-                        result?: GraphqlTweetResult;
-                      };
-                    };
-                  };
-                }>;
-              }>;
+          if (!response.ok) {
+            const text = await response.text();
+            return {
+              success: false as const,
+              error: `HTTP ${response.status}: ${text.slice(0, 200)}`,
+              had404,
             };
-          };
-        };
-        errors?: Array<{ message: string }>;
-      };
+          }
 
-      if (data.errors && data.errors.length > 0) {
-        return {
-          success: false,
-          error: data.errors.map((e) => e.message).join(", "),
-        };
+          const data = (await response.json()) as {
+            data?: {
+              home?: {
+                home_timeline_urt?: {
+                  instructions?: Array<{
+                    entries?: Array<{
+                      entryId?: string;
+                      content?: {
+                        value?: string;
+                        cursorType?: string;
+                        itemContent?: {
+                          tweet_results?: {
+                            result?: GraphqlTweetResult;
+                          };
+                        };
+                      };
+                    }>;
+                  }>;
+                };
+              };
+            };
+            errors?: Array<{ message: string }>;
+          };
+
+          if (data.errors && data.errors.length > 0) {
+            return {
+              success: false as const,
+              error: data.errors.map((e) => e.message).join(", "),
+              had404,
+            };
+          }
+
+          const instructions = data.data?.home?.home_timeline_urt?.instructions;
+          const tweets = this.parseTweetsFromInstructions(instructions);
+          const nextCursor = this.extractBottomCursor(instructions);
+
+          return { success: true as const, tweets, nextCursor, had404 };
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : String(error);
+        }
       }
 
-      const instructions = data.data?.home?.home_timeline_urt?.instructions;
-      const tweets = this.parseTweetsFromInstructions(instructions);
-
-      return { success: true, tweets };
-    } catch (error) {
       return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
+        success: false as const,
+        error: lastError ?? "Unknown error fetching latest timeline",
+        had404,
+      };
+    };
+
+    const firstAttempt = await tryOnce();
+    if (firstAttempt.success) {
+      return {
+        success: true,
+        tweets: firstAttempt.tweets,
+        nextCursor: firstAttempt.nextCursor,
       };
     }
+
+    if (firstAttempt.had404) {
+      await this.refreshQueryIds();
+      const secondAttempt = await tryOnce();
+      if (secondAttempt.success) {
+        return {
+          success: true,
+          tweets: secondAttempt.tweets,
+          nextCursor: secondAttempt.nextCursor,
+        };
+      }
+      return { success: false, error: secondAttempt.error };
+    }
+
+    return { success: false, error: firstAttempt.error };
   }
 }
 
@@ -2138,6 +2302,7 @@ export type {
   GraphqlTweetResult,
   OperationName,
   SearchResult,
+  TimelineResult,
   TweetData,
   TweetResult,
   TwitterClientOptions,
