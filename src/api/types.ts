@@ -357,3 +357,70 @@ export type OperationName =
 export type ActionResult =
   | { success: true }
   | { success: false; error: string };
+
+/**
+ * API error types for different failure modes
+ */
+export type ApiErrorType =
+  | "rate_limit"
+  | "auth_expired"
+  | "network_error"
+  | "not_found"
+  | "unavailable"
+  | "unknown";
+
+/**
+ * Structured API error with type discrimination
+ */
+export interface ApiError {
+  /** Error type for programmatic handling */
+  type: ApiErrorType;
+  /** Human-readable error message */
+  message: string;
+  /** HTTP status code if applicable */
+  statusCode?: number;
+  /** Rate limit reset time (Unix timestamp) for rate_limit errors */
+  rateLimitReset?: number;
+  /** Retry-After header value in seconds */
+  retryAfter?: number;
+}
+
+/**
+ * Timeline result with typed errors
+ */
+export type TimelineResultV2 =
+  | { success: true; tweets: TweetData[]; nextCursor?: string }
+  | { success: false; error: ApiError };
+
+/**
+ * Generic fetch result with typed errors
+ */
+export type FetchResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: ApiError };
+
+/**
+ * User-friendly error messages for each error type
+ */
+export const API_ERROR_MESSAGES: Record<ApiErrorType, string> = {
+  rate_limit: "Rate limited by Twitter. Please wait before trying again.",
+  auth_expired: "Session expired. Please log into x.com and restart xfeed.",
+  network_error: "Network error. Check your connection and try again.",
+  not_found: "Content not found or has been deleted.",
+  unavailable: "This content is temporarily unavailable.",
+  unknown: "Something went wrong. Please try again.",
+};
+
+/**
+ * Check if an error type is retryable
+ */
+export function isRetryableError(errorType: ApiErrorType): boolean {
+  return errorType === "network_error" || errorType === "rate_limit";
+}
+
+/**
+ * Check if an error indicates auth issues requiring re-login
+ */
+export function isAuthError(errorType: ApiErrorType): boolean {
+  return errorType === "auth_expired";
+}

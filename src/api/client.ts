@@ -8,6 +8,8 @@ import { ClientTransaction, handleXMigration } from "x-client-transaction-id";
 
 import type {
   ActionResult,
+  ApiError,
+  ApiErrorType,
   CreateTweetResponse,
   CurrentUserResult,
   GetTweetResult,
@@ -16,6 +18,7 @@ import type {
   OperationName,
   SearchResult,
   TimelineResult,
+  TimelineResultV2,
   TweetData,
   TweetResult,
   TwitterClientOptions,
@@ -279,6 +282,149 @@ export class TwitterClient {
 
   private async sleep(ms: number): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Parse HTTP response into a typed ApiError
+   */
+  private parseApiError(
+    status: number,
+    body: string,
+    headers?: Headers
+  ): ApiError {
+    const errorType = this.classifyHttpError(status, body);
+    const message = this.getErrorMessage(errorType, status, body);
+
+    const error: ApiError = {
+      type: errorType,
+      message,
+      statusCode: status,
+    };
+
+    // Extract rate limit info from headers or body
+    if (errorType === "rate_limit" && headers) {
+      const resetHeader = headers.get("x-rate-limit-reset");
+      const retryAfterHeader = headers.get("retry-after");
+
+      if (resetHeader) {
+        error.rateLimitReset = Number.parseInt(resetHeader, 10);
+      }
+      if (retryAfterHeader) {
+        error.retryAfter = Number.parseInt(retryAfterHeader, 10);
+      }
+
+      // If no headers, estimate 15 minutes (Twitter's typical window)
+      if (!error.retryAfter && !error.rateLimitReset) {
+        error.retryAfter = 900; // 15 minutes
+      }
+    }
+
+    return error;
+  }
+
+  /**
+   * Classify an HTTP error by status code and body content
+   */
+  private classifyHttpError(status: number, body: string): ApiErrorType {
+    // Rate limiting
+    if (status === 429) {
+      return "rate_limit";
+    }
+
+    // Auth errors
+    if (status === 401 || status === 403) {
+      return "auth_expired";
+    }
+
+    // Not found
+    if (status === 404) {
+      return "not_found";
+    }
+
+    // Service unavailable
+    if (status === 503 || status === 502 || status === 500) {
+      return "unavailable";
+    }
+
+    // Check body for specific error patterns
+    const lowerBody = body.toLowerCase();
+    if (
+      lowerBody.includes("rate limit") ||
+      lowerBody.includes("too many requests")
+    ) {
+      return "rate_limit";
+    }
+    if (
+      lowerBody.includes("unauthorized") ||
+      lowerBody.includes("forbidden") ||
+      lowerBody.includes("bad authentication")
+    ) {
+      return "auth_expired";
+    }
+
+    return "unknown";
+  }
+
+  /**
+   * Get user-friendly error message based on error type
+   */
+  private getErrorMessage(
+    errorType: ApiErrorType,
+    status: number,
+    body: string
+  ): string {
+    switch (errorType) {
+      case "rate_limit":
+        return "Rate limited by Twitter. Please wait before trying again.";
+      case "auth_expired":
+        return "Session expired. Please log into x.com and restart xfeed.";
+      case "network_error":
+        return "Network error. Check your connection and try again.";
+      case "not_found":
+        return "Content not found or has been deleted.";
+      case "unavailable":
+        return "Twitter is temporarily unavailable. Please try again later.";
+      default:
+        // Include some detail for unknown errors
+        return `Request failed (${status}): ${body.slice(0, 100)}`;
+    }
+  }
+
+  /**
+   * Parse a network/fetch error into ApiError
+   */
+  private parseNetworkError(error: unknown): ApiError {
+    const message = error instanceof Error ? error.message : String(error);
+    const lowerMessage = message.toLowerCase();
+
+    // Check for timeout
+    if (lowerMessage.includes("abort") || lowerMessage.includes("timeout")) {
+      return {
+        type: "network_error",
+        message: "Request timed out. Please try again.",
+      };
+    }
+
+    // Check for network errors
+    if (
+      lowerMessage.includes("network") ||
+      lowerMessage.includes("enotfound") ||
+      lowerMessage.includes("econnrefused") ||
+      lowerMessage.includes("econnreset") ||
+      lowerMessage.includes("etimedout") ||
+      lowerMessage.includes("fetch failed") ||
+      lowerMessage.includes("socket")
+    ) {
+      return {
+        type: "network_error",
+        message: "Network error. Check your connection and try again.",
+      };
+    }
+
+    return {
+      type: "unknown",
+      message: `Request failed: ${message}`,
+    };
   }
 
   async uploadMedia(input: {
@@ -2537,6 +2683,143 @@ export class TwitterClient {
     }
 
     return { success: false, error: firstAttempt.error };
+  }
+
+  /**
+   * Get the "For You" timeline with typed error handling
+   * Returns ApiError with rate limit info, auth status, etc.
+   */
+  async getHomeTimelineV2(
+    count = 20,
+    cursor?: string
+  ): Promise<TimelineResultV2> {
+    const result = await this.getHomeTimeline(count, cursor);
+    if (result.success) {
+      return result;
+    }
+    return {
+      success: false,
+      error: this.stringErrorToApiError(result.error),
+    };
+  }
+
+  /**
+   * Get the "Following" timeline with typed error handling
+   * Returns ApiError with rate limit info, auth status, etc.
+   */
+  async getHomeLatestTimelineV2(
+    count = 20,
+    cursor?: string
+  ): Promise<TimelineResultV2> {
+    const result = await this.getHomeLatestTimeline(count, cursor);
+    if (result.success) {
+      return result;
+    }
+    return {
+      success: false,
+      error: this.stringErrorToApiError(result.error),
+    };
+  }
+
+  /**
+   * Get bookmarks with typed error handling
+   */
+  async getBookmarksV2(
+    count = 20
+  ): Promise<
+    { success: true; tweets: TweetData[] } | { success: false; error: ApiError }
+  > {
+    const result = await this.getBookmarks(count);
+    if (result.success) {
+      return { success: true, tweets: result.tweets ?? [] };
+    }
+    return {
+      success: false,
+      error: this.stringErrorToApiError(result.error ?? "Unknown error"),
+    };
+  }
+
+  /**
+   * Convert a string error to a typed ApiError
+   * Analyzes the error message to determine the error type
+   */
+  private stringErrorToApiError(errorString: string): ApiError {
+    const lowerError = errorString.toLowerCase();
+
+    // Check for rate limiting
+    if (
+      lowerError.includes("429") ||
+      lowerError.includes("rate limit") ||
+      lowerError.includes("too many requests")
+    ) {
+      return {
+        type: "rate_limit",
+        message: "Rate limited by Twitter. Please wait before trying again.",
+        statusCode: 429,
+        retryAfter: 900, // Default 15 minutes
+      };
+    }
+
+    // Check for auth errors
+    if (
+      lowerError.includes("401") ||
+      lowerError.includes("403") ||
+      lowerError.includes("unauthorized") ||
+      lowerError.includes("forbidden") ||
+      lowerError.includes("bad authentication")
+    ) {
+      return {
+        type: "auth_expired",
+        message: "Session expired. Please log into x.com and restart xfeed.",
+        statusCode: lowerError.includes("401") ? 401 : 403,
+      };
+    }
+
+    // Check for network errors
+    if (
+      lowerError.includes("network") ||
+      lowerError.includes("enotfound") ||
+      lowerError.includes("econnrefused") ||
+      lowerError.includes("econnreset") ||
+      lowerError.includes("etimedout") ||
+      lowerError.includes("fetch failed") ||
+      lowerError.includes("socket") ||
+      lowerError.includes("timeout") ||
+      lowerError.includes("abort")
+    ) {
+      return {
+        type: "network_error",
+        message: "Network error. Check your connection and try again.",
+      };
+    }
+
+    // Check for not found
+    if (lowerError.includes("404") || lowerError.includes("not found")) {
+      return {
+        type: "not_found",
+        message: "Content not found or has been deleted.",
+        statusCode: 404,
+      };
+    }
+
+    // Check for service unavailable
+    if (
+      lowerError.includes("503") ||
+      lowerError.includes("502") ||
+      lowerError.includes("500") ||
+      lowerError.includes("unavailable")
+    ) {
+      return {
+        type: "unavailable",
+        message: "Twitter is temporarily unavailable. Please try again later.",
+      };
+    }
+
+    // Unknown error
+    return {
+      type: "unknown",
+      message: errorString,
+    };
   }
 
   private async getUserByScreenNameQueryIds(): Promise<string[]> {
