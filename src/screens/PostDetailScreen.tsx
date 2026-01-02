@@ -5,14 +5,17 @@
 import type { ScrollBoxRenderable } from "@opentui/core";
 
 import { useKeyboard } from "@opentui/react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 
 import type { TweetData } from "@/api/types";
 
 import { QuotedPostCard } from "@/components/QuotedPostCard";
 import { formatCount, truncateText } from "@/lib/format";
+import { previewMedia, downloadMedia } from "@/lib/media";
 
 const X_BLUE = "#1DA1F2";
+const COLOR_SUCCESS = "#17BF63";
+const COLOR_WARNING = "#FFAD1F";
 
 // Maximum lines for truncated content view
 // Keeps initial view compact; user can expand with 'e'
@@ -59,7 +62,13 @@ export function PostDetailScreen({
   onBack,
 }: PostDetailScreenProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [mediaIndex, setMediaIndex] = useState(0);
   const scrollRef = useRef<ScrollBoxRenderable>(null);
+
+  const hasMedia = tweet.media && tweet.media.length > 0;
+  const mediaCount = tweet.media?.length ?? 0;
+  const currentMedia = hasMedia ? tweet.media?.[mediaIndex] : undefined;
 
   const fullTimestamp = formatFullTimestamp(tweet.createdAt);
   const showTruncated =
@@ -74,6 +83,30 @@ export function PostDetailScreen({
       scrollRef.current.scrollTo(0);
     }
   }, [isExpanded]);
+
+  // Clear status message after 3 seconds
+  useEffect(() => {
+    if (statusMessage) {
+      const timer = setTimeout(() => setStatusMessage(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [statusMessage]);
+
+  // Handle media preview (i key)
+  const handlePreview = useCallback(async () => {
+    if (!currentMedia) return;
+    setStatusMessage("Opening...");
+    const result = await previewMedia(currentMedia, tweet.id, mediaIndex);
+    setStatusMessage(result.success ? result.message : result.error);
+  }, [currentMedia, tweet.id, mediaIndex]);
+
+  // Handle media download (d key)
+  const handleDownload = useCallback(async () => {
+    if (!currentMedia) return;
+    setStatusMessage("Downloading...");
+    const result = await downloadMedia(currentMedia, tweet.id, mediaIndex);
+    setStatusMessage(result.success ? result.message : result.error);
+  }, [currentMedia, tweet.id, mediaIndex]);
 
   useKeyboard((key) => {
     if (!focused) return;
@@ -95,6 +128,30 @@ export function PostDetailScreen({
         break;
       case "l":
         // Like (TODO: implement when actions are ready)
+        break;
+      case "i":
+        // Preview media (Quick Look on macOS, browser for video)
+        if (hasMedia) {
+          handlePreview();
+        }
+        break;
+      case "d":
+        // Download media
+        if (hasMedia) {
+          handleDownload();
+        }
+        break;
+      case "[":
+        // Previous media item
+        if (hasMedia && mediaIndex > 0) {
+          setMediaIndex((prev) => prev - 1);
+        }
+        break;
+      case "]":
+        // Next media item
+        if (hasMedia && mediaIndex < mediaCount - 1) {
+          setMediaIndex((prev) => prev + 1);
+        }
         break;
     }
   });
@@ -165,6 +222,51 @@ export function PostDetailScreen({
     </box>
   );
 
+  // Media info section - colored labels like bird-tui
+  const mediaContent = hasMedia ? (
+    <box style={{ marginTop: 1, paddingLeft: 1, paddingRight: 1 }}>
+      <box style={{ flexDirection: "row", flexWrap: "wrap" }}>
+        {tweet.media?.map((item, idx) => {
+          const dims =
+            item.width && item.height ? ` (${item.width}x${item.height})` : "";
+          const typeLabel =
+            item.type === "photo"
+              ? "Image"
+              : item.type === "video"
+                ? "Video"
+                : "GIF";
+          const typeColor =
+            item.type === "photo"
+              ? X_BLUE
+              : item.type === "video"
+                ? COLOR_WARNING
+                : COLOR_SUCCESS;
+          const isSelected = idx === mediaIndex;
+          return (
+            <text key={item.id} fg={typeColor}>
+              {isSelected ? ">" : "•"} {typeLabel}
+              {mediaCount > 1 ? ` ${idx + 1}` : ""}
+              {dims}
+              {"  "}
+            </text>
+          );
+        })}
+        <text fg="#666666">(</text>
+        <text fg={X_BLUE}>i</text>
+        <text fg="#666666"> view, </text>
+        <text fg={X_BLUE}>d</text>
+        <text fg="#666666"> download)</text>
+      </box>
+    </box>
+  ) : null;
+
+  // Status message (for media operations feedback)
+  const statusContent = statusMessage ? (
+    <box style={{ marginTop: 1, paddingLeft: 1, paddingRight: 1 }}>
+      <text fg="#00aa00">{statusMessage}</text>
+    </box>
+  ) : null;
+
   // Actions footer
   const footerContent = (
     <box
@@ -195,6 +297,20 @@ export function PostDetailScreen({
       <text fg="#666666"> bookmark </text>
       <text fg="#ffffff">l</text>
       <text fg="#666666"> like</text>
+      {hasMedia && (
+        <>
+          <text fg="#ffffff"> i</text>
+          <text fg="#666666"> preview </text>
+          <text fg="#ffffff">d</text>
+          <text fg="#666666"> download</text>
+          {mediaCount > 1 && (
+            <>
+              <text fg="#ffffff"> [/]</text>
+              <text fg="#666666"> media</text>
+            </>
+          )}
+        </>
+      )}
     </box>
   );
 
@@ -213,7 +329,9 @@ export function PostDetailScreen({
           {postContent}
           {quotedContent}
           {statsContent}
+          {mediaContent}
         </scrollbox>
+        {statusContent}
         {footerContent}
       </box>
     );
@@ -229,7 +347,9 @@ export function PostDetailScreen({
         {truncationIndicator}
         {quotedContent}
         {statsContent}
+        {mediaContent}
       </box>
+      {statusContent}
       {footerContent}
     </box>
   );
