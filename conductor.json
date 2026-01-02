@@ -1,0 +1,19 @@
+{
+  "scripts": {
+    "setup": "bun install && bun run sync-context"
+  },
+  "context": {
+    "repos": [
+      {
+        "name": "opentui",
+        "url": "https://github.com/sst/opentui",
+        "description": "OpenTUI framework (core + react)"
+      },
+      {
+        "name": "bird",
+        "url": "https://github.com/steipete/bird",
+        "description": "Twitter API client reference implementation"
+      }
+    ]
+  }
+}
