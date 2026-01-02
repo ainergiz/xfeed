@@ -122,6 +122,7 @@ async function readTwitterCookiesFromBrowser(options: {
     mode: "merge",
     chromeProfile: options.chromeProfile,
     firefoxProfile: options.firefoxProfile,
+    timeoutMs: 30000, // 30 seconds for keychain password prompt
   });
   warnings.push(...providerWarnings);
 
