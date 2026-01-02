@@ -20,6 +20,7 @@ import type {
   TweetResult,
   TwitterClientOptions,
   UploadMediaResult,
+  UrlEntity,
 } from "./types";
 
 import {
@@ -692,6 +693,93 @@ export class TwitterClient {
     });
   }
 
+  /**
+   * Check if a URL points to media (should be hidden from tweet text)
+   */
+  private isMediaUrl(expandedUrl: string): boolean {
+    const lower = expandedUrl.toLowerCase();
+    return (
+      lower.includes("pic.twitter.com") ||
+      lower.includes("video.twimg.com") ||
+      lower.includes("/photo/") ||
+      lower.includes("/video/")
+    );
+  }
+
+  /**
+   * Extract URL entities from legacy.entities.urls
+   * Filters out media URLs (t.co links that point to pic.twitter.com)
+   */
+  private extractUrls(result: GraphqlTweetResult): UrlEntity[] | undefined {
+    const rawUrls = result.legacy?.entities?.urls;
+    if (!rawUrls || rawUrls.length === 0) {
+      return undefined;
+    }
+
+    // Filter out media URLs (pic.twitter.com, video.twimg.com)
+    const urls = rawUrls
+      .filter((u) => !this.isMediaUrl(u.expanded_url))
+      .map((u) => ({
+        url: u.url,
+        expandedUrl: u.expanded_url,
+        displayUrl: u.display_url,
+        indices: u.indices,
+      }));
+
+    return urls.length > 0 ? urls : undefined;
+  }
+
+  /**
+   * Strip media URLs from tweet text
+   * Twitter includes t.co links in full_text for media, but hides them in UI
+   * Media URLs can be in entities.urls (pointing to pic.twitter.com) OR entities.media
+   */
+  private stripMediaUrlsFromText(
+    text: string,
+    result: GraphqlTweetResult
+  ): string {
+    const allIndices: [number, number][] = [];
+
+    // Check entities.urls for URLs pointing to media (pic.twitter.com, etc)
+    const rawUrls = result.legacy?.entities?.urls;
+    if (rawUrls) {
+      for (const u of rawUrls) {
+        if (this.isMediaUrl(u.expanded_url)) {
+          allIndices.push(u.indices);
+        }
+      }
+    }
+
+    // Check entities.media for direct media t.co URLs (videos, images)
+    const mediaEntities = result.legacy?.entities?.media;
+    if (mediaEntities) {
+      for (const m of mediaEntities) {
+        allIndices.push(m.indices);
+      }
+    }
+
+    if (allIndices.length === 0) {
+      return text;
+    }
+
+    // Sort by index descending to remove from end first (preserves earlier indices)
+    allIndices.sort((a, b) => b[0] - a[0]);
+
+    // Remove each media URL from text (working backwards to preserve indices)
+    let result_text = text;
+    for (const [start, end] of allIndices) {
+      // Also trim trailing whitespace before the URL
+      let trimStart = start;
+      while (trimStart > 0 && result_text[trimStart - 1] === " ") {
+        trimStart--;
+      }
+      result_text =
+        result_text.substring(0, trimStart) + result_text.substring(end);
+    }
+
+    return result_text.trim();
+  }
+
   private mapTweetResult(
     result: GraphqlTweetResult | undefined,
     quoteDepth: number
@@ -706,10 +794,12 @@ export class TwitterClient {
       return undefined;
     }
 
-    const text = this.extractTweetText(result);
-    if (!text) {
+    const rawText = this.extractTweetText(result);
+    if (!rawText) {
       return undefined;
     }
+    // Strip media URLs (t.co links to pic.twitter.com etc) from displayed text
+    const text = this.stripMediaUrlsFromText(rawText, result);
 
     // Handle quoted tweets recursively
     let quotedTweet: TweetData | undefined;
@@ -738,6 +828,7 @@ export class TwitterClient {
       authorId: userId,
       quotedTweet,
       media: this.extractMedia(result),
+      urls: this.extractUrls(result),
     };
   }
 

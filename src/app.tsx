@@ -7,6 +7,7 @@ import type { TweetData, UserData } from "@/api/types";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { useActions } from "@/hooks/useActions";
+import { useNavigation } from "@/hooks/useNavigation";
 import { BookmarksScreen } from "@/screens/BookmarksScreen";
 import { PostDetailScreen } from "@/screens/PostDetailScreen";
 import { ProfileScreen } from "@/screens/ProfileScreen";
@@ -17,10 +18,8 @@ const SPLASH_MIN_DISPLAY_MS = 500;
 
 export type View = "timeline" | "bookmarks" | "post-detail" | "profile";
 
-/** Main views that can be navigated between with Tab (excludes post-detail) */
-type MainView = Exclude<View, "post-detail">;
-
-const VIEWS: MainView[] = ["timeline", "bookmarks"];
+/** Main views that can be navigated between with Tab (excludes overlay views) */
+const MAIN_VIEWS = ["timeline", "bookmarks"] as const;
 
 interface AppProps {
   client: TwitterClient;
@@ -29,7 +28,11 @@ interface AppProps {
 
 export function App({ client, user: _user }: AppProps) {
   const renderer = useRenderer();
-  const [currentView, setCurrentView] = useState<View>("timeline");
+  const { currentView, navigate, goBack, cycleNext, isMainView } =
+    useNavigation<View>({
+      initialView: "timeline",
+      mainViews: MAIN_VIEWS,
+    });
   const [postCount, setPostCount] = useState(0);
   const [bookmarkCount, setBookmarkCount] = useState(0);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
@@ -91,82 +94,67 @@ export function App({ client, user: _user }: AppProps) {
 
   // State for post detail view
   const [selectedPost, setSelectedPost] = useState<TweetData | null>(null);
-  // Track which view to return to when leaving post-detail (includes profile)
-  const [postDetailPreviousView, setPostDetailPreviousView] = useState<
-    "timeline" | "bookmarks" | "profile"
-  >("timeline");
 
-  // Navigate to post detail view (from timeline or bookmarks)
+  // Navigate to post detail view (from timeline, bookmarks, or profile)
   const handlePostSelect = useCallback(
     (post: TweetData) => {
-      // Save current view so we can return to it
-      if (currentView !== "post-detail" && currentView !== "profile") {
-        setPostDetailPreviousView(currentView as "timeline" | "bookmarks");
-      }
       setSelectedPost(post);
-      setCurrentView("post-detail");
+      navigate("post-detail");
     },
-    [currentView]
+    [navigate]
   );
 
   // Return from post detail to previous view
   const handleBackFromDetail = useCallback(() => {
-    setCurrentView(postDetailPreviousView);
+    goBack();
     setSelectedPost(null);
-  }, [postDetailPreviousView]);
+  }, [goBack]);
 
   // State for profile view
   const [profileUsername, setProfileUsername] = useState<string | null>(null);
 
   // Navigate to profile view from post detail
-  const handleProfileOpen = useCallback((username: string) => {
-    setProfileUsername(username);
-    setCurrentView("profile");
-  }, []);
+  const handleProfileOpen = useCallback(
+    (username: string) => {
+      setProfileUsername(username);
+      navigate("profile");
+    },
+    [navigate]
+  );
 
-  // Return from profile to post detail
+  // Return from profile to previous view
   const handleBackFromProfile = useCallback(() => {
-    setCurrentView("post-detail");
+    goBack();
     setProfileUsername(null);
-  }, []);
+  }, [goBack]);
 
   // Handle post select from profile (view a user's tweet in detail)
-  const handlePostSelectFromProfile = useCallback((post: TweetData) => {
-    setSelectedPost(post);
-    setPostDetailPreviousView("profile");
-    setCurrentView("post-detail");
-  }, []);
+  const handlePostSelectFromProfile = useCallback(
+    (post: TweetData) => {
+      setSelectedPost(post);
+      navigate("post-detail");
+    },
+    [navigate]
+  );
 
   useKeyboard((key) => {
     // Always allow quit, even during splash
     if (key.name === "q" || key.name === "escape") {
-      // Don't quit during splash unless in timeline view (post-detail and profile handle their own)
-      if (
-        showSplash ||
-        (currentView !== "post-detail" && currentView !== "profile")
-      ) {
+      // Don't quit during splash unless in main view (post-detail and profile handle their own)
+      if (showSplash || isMainView) {
         renderer.destroy();
         return;
       }
     }
 
-    // Don't handle other keys during splash, post-detail, or profile
-    if (
-      showSplash ||
-      currentView === "post-detail" ||
-      currentView === "profile"
-    ) {
+    // Don't handle other keys during splash or overlay views
+    if (showSplash || !isMainView) {
       return;
     }
 
     // Switch views on Tab
     if (key.name === "tab") {
-      setCurrentView((prev) => {
-        // Safe cast: we already checked currentView !== "post-detail" above
-        const currentIndex = VIEWS.indexOf(prev as MainView);
-        const nextIndex = (currentIndex + 1) % VIEWS.length;
-        return VIEWS[nextIndex]!;
-      });
+      cycleNext();
     }
   });
 
@@ -179,7 +167,7 @@ export function App({ client, user: _user }: AppProps) {
     >
       {showSplash ? (
         <SplashScreen />
-      ) : currentView !== "post-detail" && currentView !== "profile" ? (
+      ) : isMainView ? (
         <Header
           currentView={currentView}
           postCount={currentView === "bookmarks" ? bookmarkCount : postCount}
@@ -252,9 +240,7 @@ export function App({ client, user: _user }: AppProps) {
         </box>
       </box>
 
-      {!showSplash &&
-        currentView !== "post-detail" &&
-        currentView !== "profile" && <Footer />}
+      {!showSplash && isMainView && <Footer />}
     </box>
   );
 }

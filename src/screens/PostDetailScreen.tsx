@@ -11,7 +11,13 @@ import type { TweetData } from "@/api/types";
 
 import { QuotedPostCard } from "@/components/QuotedPostCard";
 import { formatCount, truncateText } from "@/lib/format";
-import { previewMedia, downloadMedia } from "@/lib/media";
+import {
+  previewMedia,
+  downloadMedia,
+  openInBrowser,
+  fetchLinkMetadata,
+  type LinkMetadata,
+} from "@/lib/media";
 
 const X_BLUE = "#1DA1F2";
 const COLOR_SUCCESS = "#17BF63";
@@ -81,11 +87,18 @@ export function PostDetailScreen({
   const [isExpanded, setIsExpanded] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [mediaIndex, setMediaIndex] = useState(0);
+  const [linkIndex, setLinkIndex] = useState(0);
+  const [linkMetadata, setLinkMetadata] = useState<LinkMetadata | null>(null);
+  const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
   const scrollRef = useRef<ScrollBoxRenderable>(null);
 
   const hasMedia = tweet.media && tweet.media.length > 0;
   const mediaCount = tweet.media?.length ?? 0;
   const currentMedia = hasMedia ? tweet.media?.[mediaIndex] : undefined;
+
+  const hasLinks = tweet.urls && tweet.urls.length > 0;
+  const linkCount = tweet.urls?.length ?? 0;
+  const currentLink = hasLinks ? tweet.urls?.[linkIndex] : undefined;
 
   const fullTimestamp = formatFullTimestamp(tweet.createdAt);
   const showTruncated =
@@ -109,6 +122,28 @@ export function PostDetailScreen({
     }
   }, [statusMessage]);
 
+  // Fetch link metadata when selected link changes
+  useEffect(() => {
+    if (!currentLink) {
+      setLinkMetadata(null);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoadingMetadata(true);
+
+    fetchLinkMetadata(currentLink).then((metadata) => {
+      if (!cancelled) {
+        setLinkMetadata(metadata);
+        setIsLoadingMetadata(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentLink]);
+
   // Handle media preview (i key)
   const handlePreview = useCallback(async () => {
     if (!currentMedia) return;
@@ -125,6 +160,24 @@ export function PostDetailScreen({
     setStatusMessage(result.success ? result.message : result.error);
   }, [currentMedia, tweet.id, mediaIndex]);
 
+  // Handle open in browser (o key)
+  // Opens selected link if available, otherwise opens the tweet itself
+  const handleOpenInBrowser = useCallback(async () => {
+    const urlToOpen = currentLink
+      ? currentLink.expandedUrl
+      : `https://x.com/${tweet.author.username}/status/${tweet.id}`;
+
+    const label = currentLink ? currentLink.displayUrl : "tweet";
+    setStatusMessage(`Opening ${label}...`);
+
+    try {
+      await openInBrowser(urlToOpen);
+      setStatusMessage(`Opened ${label}`);
+    } catch {
+      setStatusMessage("Failed to open browser");
+    }
+  }, [currentLink, tweet.author.username, tweet.id]);
+
   useKeyboard((key) => {
     if (!focused) return;
 
@@ -138,7 +191,7 @@ export function PostDetailScreen({
         setIsExpanded((prev) => !prev);
         break;
       case "o":
-        // Open in browser (TODO: implement with open command)
+        handleOpenInBrowser();
         break;
       case "b":
         onBookmark?.();
@@ -172,6 +225,18 @@ export function PostDetailScreen({
         // Next media item
         if (hasMedia && mediaIndex < mediaCount - 1) {
           setMediaIndex((prev) => prev + 1);
+        }
+        break;
+      case ",":
+        // Previous link (< key without shift)
+        if (hasLinks && linkIndex > 0) {
+          setLinkIndex((prev) => prev - 1);
+        }
+        break;
+      case ".":
+        // Next link (> key without shift)
+        if (hasLinks && linkIndex < linkCount - 1) {
+          setLinkIndex((prev) => prev + 1);
         }
         break;
     }
@@ -281,6 +346,51 @@ export function PostDetailScreen({
     </box>
   ) : null;
 
+  // Links section - show URLs with metadata
+  const linksContent = hasLinks ? (
+    <box style={{ marginTop: 1, paddingLeft: 1, paddingRight: 1 }}>
+      <box style={{ flexDirection: "column" }}>
+        <box style={{ flexDirection: "row" }}>
+          <text fg="#666666">Links: </text>
+          {linkCount > 1 && (
+            <>
+              <text fg={X_BLUE}>,/.</text>
+              <text fg="#666666"> navigate </text>
+            </>
+          )}
+          <text fg={X_BLUE}>o</text>
+          <text fg="#666666"> open</text>
+        </box>
+        {tweet.urls?.map((link, idx) => {
+          const isSelected = idx === linkIndex;
+          const showMetadata = isSelected && linkMetadata;
+          return (
+            <box
+              key={link.url}
+              style={{ flexDirection: "column", marginTop: idx === 0 ? 1 : 0 }}
+            >
+              <box style={{ flexDirection: "row" }}>
+                <text fg={isSelected ? X_BLUE : "#888888"}>
+                  {isSelected ? ">" : " "} {link.displayUrl}
+                </text>
+              </box>
+              {showMetadata && linkMetadata.title && (
+                <box style={{ paddingLeft: 2 }}>
+                  <text fg="#666666"> "{linkMetadata.title}"</text>
+                </box>
+              )}
+              {isSelected && isLoadingMetadata && (
+                <box style={{ paddingLeft: 2 }}>
+                  <text fg="#666666"> Loading...</text>
+                </box>
+              )}
+            </box>
+          );
+        })}
+      </box>
+    </box>
+  ) : null;
+
   // Status message (for media operations and action feedback)
   const displayMessage = actionMessage ?? statusMessage;
   const isError = displayMessage?.startsWith("Error:");
@@ -359,6 +469,7 @@ export function PostDetailScreen({
           {quotedContent}
           {statsContent}
           {mediaContent}
+          {linksContent}
         </scrollbox>
         {statusContent}
         {footerContent}
@@ -377,6 +488,7 @@ export function PostDetailScreen({
         {quotedContent}
         {statsContent}
         {mediaContent}
+        {linksContent}
       </box>
       {statusContent}
       {footerContent}
