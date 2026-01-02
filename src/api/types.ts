@@ -30,6 +30,36 @@ export interface TweetAuthor {
 }
 
 /**
+ * Media item attached to a tweet (photo, video, or animated GIF)
+ */
+export interface MediaItem {
+  /** Unique media ID */
+  id: string;
+  /** Media type: photo, video, or animated_gif */
+  type: "photo" | "video" | "animated_gif";
+  /** Direct URL to the media (for photos, this is the display URL) */
+  url: string;
+  /** Width in pixels */
+  width?: number;
+  /** Height in pixels */
+  height?: number;
+  /** Video variants (only for video/animated_gif types) */
+  videoVariants?: VideoVariant[];
+}
+
+/**
+ * Video variant with quality/format information
+ */
+export interface VideoVariant {
+  /** Bitrate in bits per second (higher = better quality) */
+  bitrate?: number;
+  /** MIME type (e.g., "video/mp4", "application/x-mpegURL") */
+  contentType: string;
+  /** Direct URL to the video variant */
+  url: string;
+}
+
+/**
  * Core tweet data structure
  */
 export interface TweetData {
@@ -45,6 +75,8 @@ export interface TweetData {
   inReplyToStatusId?: string;
   /** Quoted tweet data (recursive, depth controlled by quoteDepth option) */
   quotedTweet?: TweetData;
+  /** Media attachments (photos, videos, GIFs) */
+  media?: MediaItem[];
 }
 
 /**
@@ -115,6 +147,24 @@ export interface GraphqlTweetResult {
     favorite_count?: number;
     conversation_id_str?: string;
     in_reply_to_status_id_str?: string | null;
+    extended_entities?: {
+      media?: Array<{
+        id_str?: string;
+        type: "photo" | "video" | "animated_gif";
+        media_url_https: string;
+        original_info?: {
+          width?: number;
+          height?: number;
+        };
+        video_info?: {
+          variants: Array<{
+            bitrate?: number;
+            content_type: string;
+            url: string;
+          }>;
+        };
+      }>;
+    };
   };
   core?: {
     user_results?: {

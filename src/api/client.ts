@@ -10,6 +10,7 @@ import type {
   CurrentUserResult,
   GetTweetResult,
   GraphqlTweetResult,
+  MediaItem,
   OperationName,
   SearchResult,
   TimelineResult,
@@ -601,6 +602,40 @@ export class TwitterClient {
     return result;
   }
 
+  /**
+   * Extract media items from extended_entities
+   */
+  private extractMedia(result: GraphqlTweetResult): MediaItem[] | undefined {
+    const rawMedia = result.legacy?.extended_entities?.media;
+    if (!rawMedia || rawMedia.length === 0) {
+      return undefined;
+    }
+
+    return rawMedia.map((item) => {
+      const mediaItem: MediaItem = {
+        id: item.id_str ?? "",
+        type: item.type,
+        url: item.media_url_https,
+        width: item.original_info?.width,
+        height: item.original_info?.height,
+      };
+
+      // Add video variants for video/gif types
+      if (item.video_info?.variants) {
+        mediaItem.videoVariants = item.video_info.variants
+          .filter((v) => v.content_type === "video/mp4")
+          .sort((a, b) => (b.bitrate ?? 0) - (a.bitrate ?? 0))
+          .map((v) => ({
+            bitrate: v.bitrate,
+            contentType: v.content_type,
+            url: v.url,
+          }));
+      }
+
+      return mediaItem;
+    });
+  }
+
   private mapTweetResult(
     result: GraphqlTweetResult | undefined,
     quoteDepth: number
@@ -646,6 +681,7 @@ export class TwitterClient {
       },
       authorId: userId,
       quotedTweet,
+      media: this.extractMedia(result),
     };
   }
 
