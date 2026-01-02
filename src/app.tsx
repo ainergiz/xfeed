@@ -110,13 +110,14 @@ export function App({ client, user: _user }: AppProps) {
     setUnreadNotificationCount(count);
   }, []);
 
-  // State for post detail view
-  const [selectedPost, setSelectedPost] = useState<TweetData | null>(null);
+  // State for post detail view - stack to support navigating to replies
+  const [postStack, setPostStack] = useState<TweetData[]>([]);
+  const selectedPost = postStack[postStack.length - 1] ?? null;
 
-  // Navigate to post detail view (from timeline, bookmarks, or profile)
+  // Navigate to post detail view (from timeline, bookmarks, profile, or a reply)
   const handlePostSelect = useCallback(
     (post: TweetData) => {
-      setSelectedPost(post);
+      setPostStack((prev) => [...prev, post]);
       initState(post.id, post.favorited ?? false, post.bookmarked ?? false);
       navigate("post-detail");
     },
@@ -126,7 +127,7 @@ export function App({ client, user: _user }: AppProps) {
   // Return from post detail to previous view
   const handleBackFromDetail = useCallback(() => {
     goBack();
-    setSelectedPost(null);
+    setPostStack((prev) => prev.slice(0, -1));
   }, [goBack]);
 
   // State for profile view
@@ -150,7 +151,7 @@ export function App({ client, user: _user }: AppProps) {
   // Handle post select from profile (view a user's tweet in detail)
   const handlePostSelectFromProfile = useCallback(
     (post: TweetData) => {
-      setSelectedPost(post);
+      setPostStack((prev) => [...prev, post]);
       initState(post.id, post.favorited ?? false, post.bookmarked ?? false);
       navigate("post-detail");
     },
@@ -196,7 +197,7 @@ export function App({ client, user: _user }: AppProps) {
     (notification: NotificationData) => {
       // If notification has a target tweet (like, retweet, reply), go to post detail
       if (notification.targetTweet) {
-        setSelectedPost(notification.targetTweet);
+        setPostStack((prev) => [...prev, notification.targetTweet!]);
         initState(
           notification.targetTweet.id,
           notification.targetTweet.favorited ?? false,
@@ -312,6 +313,7 @@ export function App({ client, user: _user }: AppProps) {
         {currentView === "post-detail" && selectedPost && (
           <>
             <PostDetailScreen
+              client={client}
               tweet={selectedPost}
               focused={!showFolderPicker}
               onBack={handleBackFromDetail}
@@ -322,6 +324,8 @@ export function App({ client, user: _user }: AppProps) {
               isLiked={getState(selectedPost.id).liked}
               isBookmarked={getState(selectedPost.id).bookmarked}
               actionMessage={actionMessage}
+              onReplySelect={handlePostSelect}
+              getActionState={getState}
             />
             {showFolderPicker && (
               <box
