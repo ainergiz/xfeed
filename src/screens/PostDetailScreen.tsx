@@ -26,6 +26,16 @@ interface PostDetailScreenProps {
   focused?: boolean;
   onBack?: () => void;
   onProfileOpen?: (username: string) => void;
+  /** Called when user presses 'l' to toggle like */
+  onLike?: () => void;
+  /** Called when user presses 'b' to toggle bookmark */
+  onBookmark?: () => void;
+  /** Whether the tweet is currently liked */
+  isLiked?: boolean;
+  /** Whether the tweet is currently bookmarked */
+  isBookmarked?: boolean;
+  /** External action message to display (from parent) */
+  actionMessage?: string | null;
 }
 
 /**
@@ -62,6 +72,11 @@ export function PostDetailScreen({
   focused = false,
   onBack,
   onProfileOpen,
+  onLike,
+  onBookmark,
+  isLiked = false,
+  isBookmarked = false,
+  actionMessage,
 }: PostDetailScreenProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -126,10 +141,10 @@ export function PostDetailScreen({
         // Open in browser (TODO: implement with open command)
         break;
       case "b":
-        // Bookmark (TODO: implement when actions are ready)
+        onBookmark?.();
         break;
       case "l":
-        // Like (TODO: implement when actions are ready)
+        onLike?.();
         break;
       case "p":
         // Open author profile
@@ -266,10 +281,12 @@ export function PostDetailScreen({
     </box>
   ) : null;
 
-  // Status message (for media operations feedback)
-  const statusContent = statusMessage ? (
+  // Status message (for media operations and action feedback)
+  const displayMessage = actionMessage ?? statusMessage;
+  const isError = displayMessage?.startsWith("Error:");
+  const statusContent = displayMessage ? (
     <box style={{ marginTop: 1, paddingLeft: 1, paddingRight: 1 }}>
-      <text fg="#00aa00">{statusMessage}</text>
+      <text fg={isError ? "#E0245E" : "#00aa00"}>{displayMessage}</text>
     </box>
   ) : null;
 
@@ -300,9 +317,13 @@ export function PostDetailScreen({
       <text fg="#ffffff">o</text>
       <text fg="#666666"> open </text>
       <text fg="#ffffff">b</text>
-      <text fg="#666666"> bookmark </text>
+      <text fg={isBookmarked ? X_BLUE : "#666666"}>
+        {isBookmarked ? " ⚑" : " bookmark"}{" "}
+      </text>
       <text fg="#ffffff">l</text>
-      <text fg="#666666"> like </text>
+      <text fg={isLiked ? "#E0245E" : "#666666"}>
+        {isLiked ? " ♥" : " like"}{" "}
+      </text>
       <text fg="#ffffff">p</text>
       <text fg="#666666"> profile</text>
       {hasMedia && (

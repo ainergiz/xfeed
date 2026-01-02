@@ -77,9 +77,9 @@ type Result<T, E = string> = { ok: true; value: T } | { ok: false; error: E }
 ### Reference Code
 
 The `.context/repos/` directory contains reference implementations:
-- `bird-tui/` - Original TUI with Ink (being migrated to OpenTUI)
 - `bird/` - CLI tool with TwitterClient implementation
-- `opentui/`, `opencode/`, `critique/` - OpenTUI framework and examples
+- `opentui/` - OpenTUI framework (core + react)
+- `x-client-transaction-id/` - Transaction ID generator for API mutations (see `docs/x-client-transaction-id.md`)
 
 ## Tech Stack
 
@@ -87,6 +87,7 @@ The `.context/repos/` directory contains reference implementations:
 - **TUI Framework**: @opentui/react (NOT Ink)
 - **CLI**: cac
 - **Auth**: @steipete/sweet-cookie (browser cookie extraction)
+- **API Mutations**: x-client-transaction-id (required for like/bookmark/tweet)
 - **Linting**: Oxlint + Oxfmt via Ultracite
 
 ## Code Standards

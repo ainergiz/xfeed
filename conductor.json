@@ -13,6 +13,11 @@
         "name": "bird",
         "url": "https://github.com/steipete/bird",
         "description": "Twitter API client reference implementation"
+      },
+      {
+        "name": "x-client-transaction-id",
+        "url": "https://github.com/Lqm1/x-client-transaction-id",
+        "description": "Transaction ID generator for Twitter API mutations"
       }
     ]
   }

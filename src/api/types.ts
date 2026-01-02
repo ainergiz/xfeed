@@ -305,6 +305,9 @@ export type OperationName =
   | "CreateTweet"
   | "CreateRetweet"
   | "FavoriteTweet"
+  | "UnfavoriteTweet"
+  | "CreateBookmark"
+  | "DeleteBookmark"
   | "TweetDetail"
   | "SearchTimeline"
   | "UserArticlesTweets"
@@ -313,3 +316,10 @@ export type OperationName =
   | "HomeLatestTimeline"
   | "UserByScreenName"
   | "UserTweets";
+
+/**
+ * Result of an action mutation (like, bookmark, etc.)
+ */
+export type ActionResult =
+  | { success: true }
+  | { success: false; error: string };
