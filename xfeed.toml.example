@@ -1,0 +1,11 @@
+# xfeed configuration
+
+[keybindings]
+# Vim-style navigation (defaults shown)
+# next = "j"
+# prev = "k"
+# top = "g"
+# bottom = "G"
+
+[theme]
+# nerd_fonts = true
