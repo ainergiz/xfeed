@@ -43,3 +43,23 @@ jobs:
           bun-version: latest
       - run: bun install --frozen-lockfile
       - run: bun run lint
+
+  pr-issue-check:
+    name: PR links issue
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Check for issue reference
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          # Match patterns: #123, Fixes #123, Closes #456, Resolves #789
+          PATTERN='#[0-9]+'
+
+          if echo "$PR_TITLE $PR_BODY" | grep -qE "$PATTERN"; then
+            echo "✅ Issue reference found"
+          else
+            echo "::error::PR must reference an issue (e.g., '#123' or 'Fixes #123')"
+            exit 1
+          fi
