@@ -6,6 +6,7 @@ import type { TweetData, UserData } from "@/api/types";
 
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
+import { BookmarksScreen } from "@/screens/BookmarksScreen";
 import { PostDetailScreen } from "@/screens/PostDetailScreen";
 import { SplashScreen } from "@/screens/SplashScreen";
 import { TimelineScreen } from "@/screens/TimelineScreen";
@@ -14,7 +15,10 @@ const SPLASH_MIN_DISPLAY_MS = 500;
 
 export type View = "timeline" | "bookmarks" | "post-detail";
 
-const VIEWS: View[] = ["timeline", "bookmarks"];
+/** Main views that can be navigated between with Tab (excludes post-detail) */
+type MainView = Exclude<View, "post-detail">;
+
+const VIEWS: MainView[] = ["timeline", "bookmarks"];
 
 interface AppProps {
   client: TwitterClient;
@@ -25,6 +29,7 @@ export function App({ client, user: _user }: AppProps) {
   const renderer = useRenderer();
   const [currentView, setCurrentView] = useState<View>("timeline");
   const [postCount, setPostCount] = useState(0);
+  const [bookmarkCount, setBookmarkCount] = useState(0);
 
   // Splash screen state
   const [showSplash, setShowSplash] = useState(true);
@@ -61,20 +66,34 @@ export function App({ client, user: _user }: AppProps) {
     [minTimeElapsed]
   );
 
+  // Track bookmark count separately
+  const handleBookmarkCountChange = useCallback((count: number) => {
+    setBookmarkCount(count);
+  }, []);
+
   // State for post detail view
   const [selectedPost, setSelectedPost] = useState<TweetData | null>(null);
+  // Track which main view to return to when leaving post-detail
+  const [previousView, setPreviousView] = useState<MainView>("timeline");
 
   // Navigate to post detail view
-  const handlePostSelect = useCallback((post: TweetData) => {
-    setSelectedPost(post);
-    setCurrentView("post-detail");
-  }, []);
+  const handlePostSelect = useCallback(
+    (post: TweetData) => {
+      // Save current view so we can return to it
+      if (currentView !== "post-detail") {
+        setPreviousView(currentView as MainView);
+      }
+      setSelectedPost(post);
+      setCurrentView("post-detail");
+    },
+    [currentView]
+  );
 
-  // Return from post detail to timeline
+  // Return from post detail to previous view
   const handleBackFromDetail = useCallback(() => {
-    setCurrentView("timeline");
+    setCurrentView(previousView);
     setSelectedPost(null);
-  }, []);
+  }, [previousView]);
 
   useKeyboard((key) => {
     // Always allow quit, even during splash
@@ -93,8 +112,9 @@ export function App({ client, user: _user }: AppProps) {
 
     // Switch views on Tab
     if (key.name === "tab") {
-      setCurrentView((prev: View) => {
-        const currentIndex = VIEWS.indexOf(prev);
+      setCurrentView((prev) => {
+        // Safe cast: we already checked currentView !== "post-detail" above
+        const currentIndex = VIEWS.indexOf(prev as MainView);
         const nextIndex = (currentIndex + 1) % VIEWS.length;
         return VIEWS[nextIndex]!;
       });
@@ -111,7 +131,10 @@ export function App({ client, user: _user }: AppProps) {
       {showSplash ? (
         <SplashScreen />
       ) : (
-        <Header currentView={currentView} postCount={postCount} />
+        <Header
+          currentView={currentView}
+          postCount={currentView === "bookmarks" ? bookmarkCount : postCount}
+        />
       )}
 
       {/* Content area - always mount TimelineScreen to preserve state */}
@@ -147,11 +170,21 @@ export function App({ client, user: _user }: AppProps) {
           />
         )}
 
-        {currentView === "bookmarks" && (
-          <box style={{ padding: 2 }}>
-            <text fg="#888888">Bookmarks view coming soon...</text>
-          </box>
-        )}
+        {/* Keep BookmarksScreen mounted to preserve state, hide when not active */}
+        <box
+          style={{
+            flexGrow: currentView === "bookmarks" ? 1 : 0,
+            height: currentView === "bookmarks" ? "100%" : 0,
+            overflow: "hidden",
+          }}
+        >
+          <BookmarksScreen
+            client={client}
+            focused={currentView === "bookmarks" && !showSplash}
+            onPostCountChange={handleBookmarkCountChange}
+            onPostSelect={handlePostSelect}
+          />
+        </box>
       </box>
 
       {!showSplash && currentView !== "post-detail" && <Footer />}
