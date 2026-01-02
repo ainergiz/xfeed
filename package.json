@@ -11,7 +11,8 @@
     "test": "bun test src/api src/lib && bun test src/auth/cookies.test.ts && bun test --preload ./src/auth/check.test.preload.ts src/auth/check.test.ts",
     "test:watch": "bun test --watch",
     "test:coverage": "bun test --coverage src/api src/lib && bun test --coverage src/auth/cookies.test.ts && bun test --coverage --preload ./src/auth/check.test.preload.ts src/auth/check.test.ts",
-    "sync-context": "bun scripts/sync-context.ts"
+    "sync-context": "bun scripts/sync-context.ts",
+    "prepare": "lefthook install"
   },
   "dependencies": {
     "@opentui/core": "^0.1.63",
@@ -24,6 +25,7 @@
     "@types/bun": "latest",
     "@types/node": "^22",
     "@types/react": "^19.2.7",
+    "lefthook": "^2.0.13",
     "oxfmt": "^0.21.0",
     "oxlint": "^1.36.0",
     "typescript": "^5.8",
