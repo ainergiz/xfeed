@@ -842,7 +842,8 @@ export class TwitterClient {
   /**
    * Check if a URL points to media (should be hidden from tweet text)
    */
-  private isMediaUrl(expandedUrl: string): boolean {
+  private isMediaUrl(expandedUrl: string | undefined): boolean {
+    if (!expandedUrl) return false;
     const lower = expandedUrl.toLowerCase();
     return (
       lower.includes("pic.twitter.com") ||
@@ -862,9 +863,9 @@ export class TwitterClient {
       return undefined;
     }
 
-    // Filter out media URLs (pic.twitter.com, video.twimg.com)
+    // Filter out media URLs (pic.twitter.com, video.twimg.com) and undefined URLs
     const urls = rawUrls
-      .filter((u) => !this.isMediaUrl(u.expanded_url))
+      .filter((u) => u.expanded_url && !this.isMediaUrl(u.expanded_url))
       .map((u) => ({
         url: u.url,
         expandedUrl: u.expanded_url,
@@ -2310,9 +2311,11 @@ export class TwitterClient {
 
   /**
    * Get the authenticated user's bookmarks
+   * @param count Number of bookmarks to fetch (default 20)
+   * @param cursor Pagination cursor from previous response's nextCursor
    */
-  async getBookmarks(count = 20): Promise<SearchResult> {
-    const variables = {
+  async getBookmarks(count = 20, cursor?: string): Promise<TimelineResult> {
+    const variables: Record<string, unknown> = {
       count,
       includePromotedContent: false,
       withDownvotePerspective: false,
@@ -2320,12 +2323,11 @@ export class TwitterClient {
       withReactionsPerspective: false,
     };
 
-    const features = this.buildBookmarksFeatures();
+    if (cursor) {
+      variables.cursor = cursor;
+    }
 
-    const params = new URLSearchParams({
-      variables: JSON.stringify(variables),
-      features: JSON.stringify(features),
-    });
+    const features = this.buildBookmarksFeatures();
 
     const tryOnce = async () => {
       let lastError: string | undefined;
@@ -2333,6 +2335,10 @@ export class TwitterClient {
       const queryIds = await this.getBookmarksQueryIds();
 
       for (const queryId of queryIds) {
+        const params = new URLSearchParams({
+          variables: JSON.stringify(variables),
+          features: JSON.stringify(features),
+        });
         const url = `${TWITTER_API_BASE}/${queryId}/Bookmarks?${params.toString()}`;
 
         try {
@@ -2362,7 +2368,10 @@ export class TwitterClient {
                 timeline?: {
                   instructions?: Array<{
                     entries?: Array<{
+                      entryId?: string;
                       content?: {
+                        value?: string;
+                        cursorType?: string;
                         itemContent?: {
                           tweet_results?: {
                             result?: GraphqlTweetResult;
@@ -2391,8 +2400,9 @@ export class TwitterClient {
             instructions,
             this.quoteDepth
           );
+          const nextCursor = this.extractBottomCursor(instructions);
 
-          return { success: true as const, tweets, had404 };
+          return { success: true as const, tweets, nextCursor, had404 };
         } catch (error) {
           lastError = error instanceof Error ? error.message : String(error);
         }
@@ -2407,14 +2417,22 @@ export class TwitterClient {
 
     const firstAttempt = await tryOnce();
     if (firstAttempt.success) {
-      return { success: true, tweets: firstAttempt.tweets };
+      return {
+        success: true,
+        tweets: firstAttempt.tweets,
+        nextCursor: firstAttempt.nextCursor,
+      };
     }
 
     if (firstAttempt.had404) {
       await this.refreshQueryIds();
       const secondAttempt = await tryOnce();
       if (secondAttempt.success) {
-        return { success: true, tweets: secondAttempt.tweets };
+        return {
+          success: true,
+          tweets: secondAttempt.tweets,
+          nextCursor: secondAttempt.nextCursor,
+        };
       }
       return { success: false, error: secondAttempt.error };
     }
@@ -2724,14 +2742,10 @@ export class TwitterClient {
   /**
    * Get bookmarks with typed error handling
    */
-  async getBookmarksV2(
-    count = 20
-  ): Promise<
-    { success: true; tweets: TweetData[] } | { success: false; error: ApiError }
-  > {
-    const result = await this.getBookmarks(count);
+  async getBookmarksV2(count = 20, cursor?: string): Promise<TimelineResultV2> {
+    const result = await this.getBookmarks(count, cursor);
     if (result.success) {
-      return { success: true, tweets: result.tweets ?? [] };
+      return result;
     }
     return {
       success: false,

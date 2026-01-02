@@ -1267,6 +1267,83 @@ describe("TwitterClient", () => {
       const result = await client.getBookmarks();
       expect(result.success).toBe(false);
     });
+
+    it("accepts cursor parameter for pagination", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      let capturedUrl = "";
+      globalThis.fetch = mock((url: string) => {
+        capturedUrl = url;
+        return Promise.resolve(
+          mockResponse({
+            data: {
+              bookmark_timeline_v2: {
+                timeline: { instructions: [] },
+              },
+            },
+          })
+        );
+      });
+
+      await client.getBookmarks(20, "test-bookmark-cursor");
+      expect(capturedUrl).toContain("cursor");
+      expect(capturedUrl).toContain("test-bookmark-cursor");
+    });
+
+    it("returns nextCursor from response", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      globalThis.fetch = mock(() =>
+        Promise.resolve(
+          mockResponse({
+            data: {
+              bookmark_timeline_v2: {
+                timeline: {
+                  instructions: [
+                    {
+                      entries: [
+                        {
+                          entryId: "cursor-bottom",
+                          content: {
+                            cursorType: "Bottom",
+                            value: "bookmark-next-cursor-123",
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          })
+        )
+      );
+
+      const result = await client.getBookmarks();
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.nextCursor).toBe("bookmark-next-cursor-123");
+      }
+    });
+
+    it("returns undefined nextCursor when no cursor in response", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      globalThis.fetch = mock(() =>
+        Promise.resolve(
+          mockResponse({
+            data: {
+              bookmark_timeline_v2: {
+                timeline: { instructions: [] },
+              },
+            },
+          })
+        )
+      );
+
+      const result = await client.getBookmarks();
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.nextCursor).toBeUndefined();
+      }
+    });
   });
 
   describe("getHomeTimeline", () => {
@@ -2766,6 +2843,184 @@ describe("TwitterClient", () => {
       // but we can't easily trigger this path from public API
       const result = await client.tweet("Valid text");
       expect(result.success).toBe(false);
+    });
+  });
+
+  describe("URL extraction edge cases", () => {
+    it("handles tweets with undefined expanded_url in entities", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      globalThis.fetch = mock(() =>
+        Promise.resolve(
+          mockResponse({
+            data: {
+              tweetResult: {
+                result: {
+                  rest_id: "tweet-123",
+                  legacy: {
+                    full_text: "Tweet with broken URL https://t.co/abc",
+                    entities: {
+                      urls: [
+                        {
+                          url: "https://t.co/abc",
+                          expanded_url: undefined,
+                          display_url: "example.com",
+                          indices: [25, 48],
+                        },
+                      ],
+                    },
+                  },
+                  core: {
+                    user_results: {
+                      result: {
+                        rest_id: "user1",
+                        legacy: { screen_name: "user1", name: "User 1" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          })
+        )
+      );
+
+      const result = await client.getTweet("tweet-123");
+      expect(result.success).toBe(true);
+      // Should not crash and should handle gracefully
+    });
+
+    it("filters out urls with undefined expanded_url in timeline", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      globalThis.fetch = mock(() =>
+        Promise.resolve(
+          mockResponse({
+            data: {
+              home: {
+                home_timeline_urt: {
+                  instructions: [
+                    {
+                      entries: [
+                        {
+                          content: {
+                            itemContent: {
+                              tweet_results: {
+                                result: {
+                                  rest_id: "tweet-456",
+                                  legacy: {
+                                    full_text: "Tweet with mixed URLs",
+                                    entities: {
+                                      urls: [
+                                        {
+                                          url: "https://t.co/good",
+                                          expanded_url: "https://example.com",
+                                          display_url: "example.com",
+                                          indices: [0, 23],
+                                        },
+                                        {
+                                          url: "https://t.co/bad",
+                                          expanded_url: undefined,
+                                          display_url: "broken.com",
+                                          indices: [24, 47],
+                                        },
+                                      ],
+                                    },
+                                  },
+                                  core: {
+                                    user_results: {
+                                      result: {
+                                        rest_id: "u1",
+                                        legacy: {
+                                          screen_name: "user",
+                                          name: "User",
+                                        },
+                                      },
+                                    },
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          })
+        )
+      );
+
+      const result = await client.getHomeTimeline();
+      expect(result.success).toBe(true);
+      if (result.success && result.tweets.length > 0) {
+        const tweet = result.tweets[0];
+        // Should only have the valid URL, not the undefined one
+        expect(tweet?.urls?.length).toBe(1);
+        expect(tweet?.urls?.[0]?.expandedUrl).toBe("https://example.com");
+      }
+    });
+
+    it("handles media urls with undefined expanded_url", async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      globalThis.fetch = mock(() =>
+        Promise.resolve(
+          mockResponse({
+            data: {
+              home: {
+                home_timeline_urt: {
+                  instructions: [
+                    {
+                      entries: [
+                        {
+                          content: {
+                            itemContent: {
+                              tweet_results: {
+                                result: {
+                                  rest_id: "tweet-789",
+                                  legacy: {
+                                    full_text:
+                                      "Tweet with media URL https://t.co/media",
+                                    entities: {
+                                      urls: [
+                                        {
+                                          url: "https://t.co/media",
+                                          expanded_url: undefined,
+                                          display_url: "pic.twitter.com/abc",
+                                          indices: [22, 45],
+                                        },
+                                      ],
+                                    },
+                                  },
+                                  core: {
+                                    user_results: {
+                                      result: {
+                                        rest_id: "u2",
+                                        legacy: {
+                                          screen_name: "user2",
+                                          name: "User 2",
+                                        },
+                                      },
+                                    },
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          })
+        )
+      );
+
+      const result = await client.getHomeTimeline();
+      expect(result.success).toBe(true);
+      // Should not crash even when isMediaUrl is called with undefined
     });
   });
 });
