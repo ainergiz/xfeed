@@ -462,12 +462,99 @@ const setSelectedIndexMemo = useCallback((val) => { /* ... */ }, [deps]);
 return { setSelectedIndex: setSelectedIndexMemo };
 ```
 
+## Collapsible Headers (Scroll-Based UI)
+
+OpenTUI scrollbox **does NOT have an onScroll event**. Don't try to poll `scrollTop` with intervals. Instead, use an event-driven approach based on selection index.
+
+### Pattern: Selection-Based Header Collapse
+
+```tsx
+// PostList exposes selection changes via callback
+interface PostListProps {
+  posts: TweetData[];
+  focused?: boolean;
+  onPostSelect?: (post: TweetData) => void;
+  onSelectedIndexChange?: (index: number) => void;  // NEW
+}
+
+// In PostList component
+useEffect(() => {
+  onSelectedIndexChange?.(selectedIndex);
+}, [selectedIndex, onSelectedIndexChange]);
+```
+
+```tsx
+// Parent component tracks collapsed state
+function ProfileScreen({ focused, onBack }) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const handleSelectedIndexChange = useCallback((index: number) => {
+    setIsCollapsed(index > 0);  // Collapse when scrolled past first item
+  }, []);
+
+  return (
+    <box style={{ flexDirection: "column", height: "100%" }}>
+      {isCollapsed ? <CompactHeader /> : <FullHeader />}
+      <PostList
+        posts={tweets}
+        focused={focused}
+        onSelectedIndexChange={handleSelectedIndexChange}
+      />
+    </box>
+  );
+}
+```
+
+**Why this works:** Selection changes only happen via keyboard navigation (j/k). This is event-driven and efficient - no polling needed.
+
+## Navigation History
+
+For proper back navigation across multiple views, track where you came from:
+
+### Pattern: Previous View Tracking
+
+```tsx
+function App() {
+  const [currentView, setCurrentView] = useState<View>("timeline");
+  const [selectedPost, setSelectedPost] = useState<TweetData | null>(null);
+
+  // Track where we came from when entering post-detail
+  const [postDetailPreviousView, setPostDetailPreviousView] = useState<
+    "timeline" | "profile"
+  >("timeline");
+
+  // Navigate to post-detail from timeline
+  const handlePostSelect = useCallback((post: TweetData) => {
+    setSelectedPost(post);
+    setPostDetailPreviousView("timeline");
+    setCurrentView("post-detail");
+  }, []);
+
+  // Navigate to post-detail from profile
+  const handlePostSelectFromProfile = useCallback((post: TweetData) => {
+    setSelectedPost(post);
+    setPostDetailPreviousView("profile");  // Remember we came from profile
+    setCurrentView("post-detail");
+  }, []);
+
+  // Return from post-detail to WHEREVER we came from
+  const handleBackFromDetail = useCallback(() => {
+    setCurrentView(postDetailPreviousView);  // Go back to correct view
+    setSelectedPost(null);
+  }, [postDetailPreviousView]);
+}
+```
+
+**Common mistake:** Hardcoding `setCurrentView("timeline")` in back handlers. This breaks navigation when entering the same view from multiple sources.
+
 ## Reference Implementation Files
 
-- `src/app.tsx` - Screen routing, focus management
-- `src/components/PostList.tsx` - Scrollbox with scroll preservation
+- `src/app.tsx` - Screen routing, focus management, navigation history
+- `src/components/PostList.tsx` - Scrollbox with scroll preservation, onSelectedIndexChange
 - `src/components/PostCard.tsx` - Basic component styling
 - `src/screens/PostDetailScreen.tsx` - Expand/collapse, keyboard shortcuts
+- `src/screens/ProfileScreen.tsx` - Collapsible header pattern
 - `src/screens/TimelineScreen.tsx` - Loading states, tab switching
 - `src/hooks/useListNavigation.ts` - Vim-style navigation hook
 - `src/hooks/useTimeline.ts` - Data fetching hook pattern
+- `src/hooks/useUserProfile.ts` - Profile data fetching hook

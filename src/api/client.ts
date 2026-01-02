@@ -2389,6 +2389,413 @@ export class TwitterClient {
 
     return { success: false, error: firstAttempt.error };
   }
+
+  private async getUserByScreenNameQueryIds(): Promise<string[]> {
+    const primary = await this.getQueryId("UserByScreenName");
+    return Array.from(
+      new Set([primary, "7mjxD3-C6BxitPMVQ6w0-Q", "sLVLhk0bGj3MVFEKTdax1w"])
+    );
+  }
+
+  private async getUserTweetsQueryIds(): Promise<string[]> {
+    const primary = await this.getQueryId("UserTweets");
+    return Array.from(
+      new Set([
+        primary,
+        "HuTx74BxAnezK1gWvYY7zg",
+        "V1ze5q3ijDS1VeLwLY0m7g",
+        "LNhjy8t3XpIrBYM-ms7sPQ",
+      ])
+    );
+  }
+
+  private buildUserProfileFeatures(): Record<string, boolean> {
+    return {
+      ...this.buildSearchFeatures(),
+      hidden_profile_subscriptions_enabled: true,
+      rweb_tipjar_consumption_enabled: true,
+      responsive_web_graphql_exclude_directive_enabled: true,
+      verified_phone_label_enabled: false,
+      subscriptions_verification_info_is_identity_verified_enabled: true,
+      subscriptions_verification_info_verified_since_enabled: true,
+      highlights_tweets_tab_ui_enabled: true,
+      responsive_web_twitter_article_notes_tab_enabled: true,
+      subscriptions_feature_can_gift_premium: true,
+      creator_subscriptions_tweet_preview_api_enabled: true,
+      responsive_web_graphql_skip_user_profile_image_extensions_enabled: false,
+      responsive_web_graphql_timeline_navigation_enabled: true,
+    };
+  }
+
+  /**
+   * Get a user profile by screen name (handle without @)
+   */
+  async getUserByScreenName(
+    screenName: string
+  ): Promise<import("./types").UserProfileResult> {
+    const variables = {
+      screen_name: screenName,
+      withSafetyModeUserFields: true,
+      withSuperFollowsUserFields: true,
+    };
+
+    const features = this.buildUserProfileFeatures();
+    const fieldToggles = {
+      withAuxiliaryUserLabels: false,
+    };
+
+    const tryOnce = async () => {
+      let lastError: string | undefined;
+      let had404 = false;
+      const queryIds = await this.getUserByScreenNameQueryIds();
+
+      for (const queryId of queryIds) {
+        const params = new URLSearchParams({
+          variables: JSON.stringify(variables),
+          features: JSON.stringify(features),
+          fieldToggles: JSON.stringify(fieldToggles),
+        });
+        const url = `${TWITTER_API_BASE}/${queryId}/UserByScreenName?${params.toString()}`;
+
+        try {
+          const response = await this.fetchWithTimeout(url, {
+            method: "GET",
+            headers: this.getHeaders(),
+          });
+
+          if (response.status === 404) {
+            had404 = true;
+            lastError = `HTTP ${response.status}`;
+            continue;
+          }
+
+          if (!response.ok) {
+            const text = await response.text();
+            return {
+              success: false as const,
+              error: `HTTP ${response.status}: ${text.slice(0, 200)}`,
+              had404,
+            };
+          }
+
+          const data = (await response.json()) as {
+            data?: {
+              user?: {
+                result?: {
+                  __typename?: string;
+                  rest_id?: string;
+                  id?: string;
+                  is_blue_verified?: boolean;
+                  legacy?: {
+                    screen_name?: string;
+                    name?: string;
+                    description?: string;
+                    followers_count?: number;
+                    friends_count?: number;
+                  };
+                };
+              };
+            };
+            errors?: Array<{ message: string }>;
+          };
+
+          if (data.errors && data.errors.length > 0) {
+            return {
+              success: false as const,
+              error: data.errors.map((e) => e.message).join(", "),
+              had404,
+            };
+          }
+
+          const result = data.data?.user?.result;
+          if (!result || result.__typename === "UserUnavailable") {
+            return {
+              success: false as const,
+              error: "User not found or unavailable",
+              had404,
+            };
+          }
+
+          const user: import("./types").UserProfileData = {
+            id: result.rest_id || result.id || "",
+            username: result.legacy?.screen_name || screenName,
+            name: result.legacy?.name || screenName,
+            description: result.legacy?.description,
+            followersCount: result.legacy?.followers_count,
+            followingCount: result.legacy?.friends_count,
+            isBlueVerified: result.is_blue_verified,
+          };
+
+          return { success: true as const, user, had404 };
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : String(error);
+        }
+      }
+
+      return {
+        success: false as const,
+        error: lastError ?? "Unknown error fetching user profile",
+        had404,
+      };
+    };
+
+    const firstAttempt = await tryOnce();
+    if (firstAttempt.success) {
+      return { success: true, user: firstAttempt.user };
+    }
+
+    if (firstAttempt.had404) {
+      await this.refreshQueryIds();
+      const secondAttempt = await tryOnce();
+      if (secondAttempt.success) {
+        return { success: true, user: secondAttempt.user };
+      }
+      return { success: false, error: secondAttempt.error };
+    }
+
+    return { success: false, error: firstAttempt.error };
+  }
+
+  /**
+   * Get tweets from a specific user via REST API
+   * Fallback method when GraphQL fails
+   */
+  private async getUserTweetsViaRest(
+    userId: string,
+    count: number
+  ): Promise<import("./types").UserTweetsResult> {
+    const params = new URLSearchParams({
+      user_id: userId,
+      count: String(count),
+      include_rts: "true",
+      exclude_replies: "false",
+      tweet_mode: "extended",
+    });
+
+    const urls = [
+      `https://x.com/i/api/1.1/statuses/user_timeline.json?${params.toString()}`,
+      `https://api.twitter.com/1.1/statuses/user_timeline.json?${params.toString()}`,
+    ];
+
+    let lastError: string | undefined;
+
+    for (const url of urls) {
+      try {
+        const response = await this.fetchWithTimeout(url, {
+          method: "GET",
+          headers: this.getHeaders(),
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          lastError = `HTTP ${response.status}: ${text.slice(0, 200)}`;
+          continue;
+        }
+
+        const data = (await response.json()) as Array<{
+          id_str?: string;
+          full_text?: string;
+          text?: string;
+          created_at?: string;
+          retweet_count?: number;
+          favorite_count?: number;
+          reply_count?: number;
+          conversation_id_str?: string;
+          in_reply_to_status_id_str?: string;
+          user?: {
+            id_str?: string;
+            screen_name?: string;
+            name?: string;
+          };
+          extended_entities?: {
+            media?: Array<{
+              id_str?: string;
+              type: "photo" | "video" | "animated_gif";
+              media_url_https: string;
+              original_info?: { width?: number; height?: number };
+              video_info?: {
+                variants: Array<{
+                  bitrate?: number;
+                  content_type: string;
+                  url: string;
+                }>;
+              };
+            }>;
+          };
+        }>;
+
+        const tweets: import("./types").TweetData[] = [];
+        for (const tweet of data) {
+          const id = tweet.id_str;
+          const text = tweet.full_text || tweet.text;
+          if (!id || !text) continue;
+
+          const media = tweet.extended_entities?.media?.map((m) => ({
+            id: m.id_str || "",
+            type: m.type,
+            url: m.media_url_https,
+            width: m.original_info?.width,
+            height: m.original_info?.height,
+            videoVariants: m.video_info?.variants?.map((v) => ({
+              bitrate: v.bitrate,
+              contentType: v.content_type,
+              url: v.url,
+            })),
+          }));
+
+          tweets.push({
+            id,
+            text,
+            author: {
+              username: tweet.user?.screen_name || "",
+              name: tweet.user?.name || "",
+            },
+            authorId: tweet.user?.id_str,
+            createdAt: tweet.created_at,
+            replyCount: tweet.reply_count,
+            retweetCount: tweet.retweet_count,
+            likeCount: tweet.favorite_count,
+            conversationId: tweet.conversation_id_str,
+            inReplyToStatusId: tweet.in_reply_to_status_id_str || undefined,
+            media,
+          });
+        }
+
+        return { success: true, tweets };
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : String(error);
+      }
+    }
+
+    return {
+      success: false,
+      error: lastError ?? "Unknown error fetching user tweets via REST",
+    };
+  }
+
+  /**
+   * Get tweets from a specific user by their ID
+   * @param userId The user's numeric ID
+   * @param count Number of tweets to fetch (default 20)
+   */
+  async getUserTweets(
+    userId: string,
+    count = 20
+  ): Promise<import("./types").UserTweetsResult> {
+    const variables = {
+      userId,
+      count,
+      includePromotedContent: false,
+      withQuickPromoteEligibilityTweetFields: true,
+      withVoice: true,
+      withV2Timeline: true,
+    };
+
+    const features = this.buildTimelineFeatures();
+    const fieldToggles = {
+      withArticlePlainText: false,
+    };
+
+    const tryOnce = async () => {
+      let lastError: string | undefined;
+      let had404 = false;
+      const queryIds = await this.getUserTweetsQueryIds();
+
+      for (const queryId of queryIds) {
+        const params = new URLSearchParams({
+          variables: JSON.stringify(variables),
+          features: JSON.stringify(features),
+          fieldToggles: JSON.stringify(fieldToggles),
+        });
+        const url = `${TWITTER_API_BASE}/${queryId}/UserTweets?${params.toString()}`;
+
+        try {
+          const response = await this.fetchWithTimeout(url, {
+            method: "GET",
+            headers: this.getHeaders(),
+          });
+
+          if (response.status === 404) {
+            had404 = true;
+            lastError = `HTTP ${response.status}`;
+            continue;
+          }
+
+          if (!response.ok) {
+            const text = await response.text();
+            return {
+              success: false as const,
+              error: `HTTP ${response.status}: ${text.slice(0, 200)}`,
+              had404,
+            };
+          }
+
+          // biome-ignore lint/suspicious/noExplicitAny: Twitter API response varies
+          const data = (await response.json()) as any;
+
+          if (data.errors && data.errors.length > 0) {
+            return {
+              success: false as const,
+              error: data.errors
+                .map((e: { message: string }) => e.message)
+                .join(", "),
+              had404,
+            };
+          }
+
+          // Try multiple possible response paths
+          const instructions =
+            data.data?.user?.result?.timeline_v2?.timeline?.instructions ||
+            data.data?.user?.result?.timeline?.timeline?.instructions;
+
+          if (!instructions) {
+            lastError = "No instructions found in response";
+            continue;
+          }
+
+          const tweets = this.parseTweetsFromInstructions(
+            instructions,
+            this.quoteDepth
+          );
+
+          return { success: true as const, tweets, had404 };
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : String(error);
+        }
+      }
+
+      return {
+        success: false as const,
+        error: lastError ?? "Unknown error fetching user tweets",
+        had404,
+      };
+    };
+
+    const firstAttempt = await tryOnce();
+    if (firstAttempt.success && firstAttempt.tweets.length > 0) {
+      return { success: true, tweets: firstAttempt.tweets };
+    }
+
+    if (firstAttempt.had404) {
+      await this.refreshQueryIds();
+      const secondAttempt = await tryOnce();
+      if (secondAttempt.success && secondAttempt.tweets.length > 0) {
+        return { success: true, tweets: secondAttempt.tweets };
+      }
+    }
+
+    // Fallback to REST API
+    const restResult = await this.getUserTweetsViaRest(userId, count);
+    if (restResult.success) {
+      return restResult;
+    }
+
+    return {
+      success: false,
+      error:
+        firstAttempt.error ?? restResult.error ?? "Failed to fetch user tweets",
+    };
+  }
 }
 
 // Re-export types for convenience
@@ -2404,4 +2811,7 @@ export type {
   TweetResult,
   TwitterClientOptions,
   UploadMediaResult,
+  UserProfileData,
+  UserProfileResult,
+  UserTweetsResult,
 } from "./types";

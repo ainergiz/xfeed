@@ -7,12 +7,13 @@ import type { TweetData, UserData } from "@/api/types";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { PostDetailScreen } from "@/screens/PostDetailScreen";
+import { ProfileScreen } from "@/screens/ProfileScreen";
 import { SplashScreen } from "@/screens/SplashScreen";
 import { TimelineScreen } from "@/screens/TimelineScreen";
 
 const SPLASH_MIN_DISPLAY_MS = 500;
 
-export type View = "timeline" | "bookmarks" | "post-detail";
+export type View = "timeline" | "bookmarks" | "post-detail" | "profile";
 
 const VIEWS: View[] = ["timeline", "bookmarks"];
 
@@ -63,31 +64,65 @@ export function App({ client, user: _user }: AppProps) {
 
   // State for post detail view
   const [selectedPost, setSelectedPost] = useState<TweetData | null>(null);
+  // Track where we came from when entering post-detail (for proper back navigation)
+  const [postDetailPreviousView, setPostDetailPreviousView] = useState<
+    "timeline" | "profile"
+  >("timeline");
 
-  // Navigate to post detail view
+  // Navigate to post detail view from timeline
   const handlePostSelect = useCallback((post: TweetData) => {
     setSelectedPost(post);
+    setPostDetailPreviousView("timeline");
     setCurrentView("post-detail");
   }, []);
 
-  // Return from post detail to timeline
+  // Return from post detail to previous view
   const handleBackFromDetail = useCallback(() => {
-    setCurrentView("timeline");
+    setCurrentView(postDetailPreviousView);
     setSelectedPost(null);
+  }, [postDetailPreviousView]);
+
+  // State for profile view
+  const [profileUsername, setProfileUsername] = useState<string | null>(null);
+
+  // Navigate to profile view from post detail
+  const handleProfileOpen = useCallback((username: string) => {
+    setProfileUsername(username);
+    setCurrentView("profile");
+  }, []);
+
+  // Return from profile to post detail
+  const handleBackFromProfile = useCallback(() => {
+    setCurrentView("post-detail");
+    setProfileUsername(null);
+  }, []);
+
+  // Handle post select from profile (view a user's tweet in detail)
+  const handlePostSelectFromProfile = useCallback((post: TweetData) => {
+    setSelectedPost(post);
+    setPostDetailPreviousView("profile");
+    setCurrentView("post-detail");
   }, []);
 
   useKeyboard((key) => {
     // Always allow quit, even during splash
     if (key.name === "q" || key.name === "escape") {
-      // Don't quit during splash unless in timeline view (post-detail handles its own)
-      if (showSplash || currentView !== "post-detail") {
+      // Don't quit during splash unless in timeline view (post-detail and profile handle their own)
+      if (
+        showSplash ||
+        (currentView !== "post-detail" && currentView !== "profile")
+      ) {
         renderer.destroy();
         return;
       }
     }
 
-    // Don't handle other keys during splash or post-detail
-    if (showSplash || currentView === "post-detail") {
+    // Don't handle other keys during splash, post-detail, or profile
+    if (
+      showSplash ||
+      currentView === "post-detail" ||
+      currentView === "profile"
+    ) {
       return;
     }
 
@@ -110,9 +145,9 @@ export function App({ client, user: _user }: AppProps) {
     >
       {showSplash ? (
         <SplashScreen />
-      ) : (
+      ) : currentView !== "post-detail" && currentView !== "profile" ? (
         <Header currentView={currentView} postCount={postCount} />
-      )}
+      ) : null}
 
       {/* Content area - always mount TimelineScreen to preserve state */}
       <box
@@ -144,6 +179,17 @@ export function App({ client, user: _user }: AppProps) {
             tweet={selectedPost}
             focused={true}
             onBack={handleBackFromDetail}
+            onProfileOpen={handleProfileOpen}
+          />
+        )}
+
+        {currentView === "profile" && profileUsername && (
+          <ProfileScreen
+            client={client}
+            username={profileUsername}
+            focused={true}
+            onBack={handleBackFromProfile}
+            onPostSelect={handlePostSelectFromProfile}
           />
         )}
 
@@ -154,7 +200,9 @@ export function App({ client, user: _user }: AppProps) {
         )}
       </box>
 
-      {!showSplash && currentView !== "post-detail" && <Footer />}
+      {!showSplash &&
+        currentView !== "post-detail" &&
+        currentView !== "profile" && <Footer />}
     </box>
   );
 }
