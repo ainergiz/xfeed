@@ -204,6 +204,84 @@ describe("cookies", () => {
 });
 ```
 
+## Preload Pattern for Mock Isolation
+
+When `mock.module()` would pollute other test files, use a **preload file** to isolate mocks.
+
+**Problem:** `mock.module()` persists across test files - `mock.restore()` does NOT reset it.
+
+**Solution:** Create a preload file and run the test with `--preload`:
+
+**1. Create `check.test.preload.ts`:**
+```typescript
+import { mock } from "bun:test";
+
+// Export mutable mock implementations
+export let mockResolveCredentialsImpl = () => Promise.resolve({ cookies: {}, warnings: [] });
+export let mockGetCurrentUserImpl = () => Promise.resolve({ success: true, user: {} });
+
+// Helper to update mocks from tests
+export function setMockResolveCredentials(impl: typeof mockResolveCredentialsImpl) {
+  mockResolveCredentialsImpl = impl;
+}
+
+export function resetMocks() {
+  mockResolveCredentialsImpl = () => Promise.resolve({ cookies: {}, warnings: [] });
+  // ... reset other mocks
+}
+
+// Mock modules BEFORE they're imported anywhere
+mock.module("./cookies", () => ({
+  resolveCredentials: (options: unknown) => mockResolveCredentialsImpl(options),
+}));
+
+mock.module("@/api/client", () => ({
+  TwitterClient: class MockTwitterClient {
+    getCurrentUser() { return mockGetCurrentUserImpl(); }
+  },
+}));
+```
+
+**2. Update test file to use preload helpers:**
+```typescript
+import { beforeEach, describe, expect, it } from "bun:test";
+import { resetMocks, setMockResolveCredentials } from "./check.test.preload";
+
+const { checkAuth } = await import("./check");
+
+describe("check", () => {
+  beforeEach(() => {
+    resetMocks();
+  });
+
+  it("handles missing credentials", async () => {
+    setMockResolveCredentials(() => Promise.resolve({
+      cookies: { authToken: null, ct0: null },
+      warnings: [],
+    }));
+
+    const result = await checkAuth();
+    expect(result.ok).toBe(false);
+  });
+});
+```
+
+**3. Run with preload:**
+```bash
+bun test --preload ./src/auth/check.test.preload.ts src/auth/check.test.ts
+```
+
+**4. Update package.json to isolate tests:**
+```json
+{
+  "scripts": {
+    "test": "bun test src/api src/lib && bun test src/auth/cookies.test.ts && bun test --preload ./src/auth/check.test.preload.ts src/auth/check.test.ts"
+  }
+}
+```
+
+This ensures each test file gets the correct module implementations without pollution.
+
 ## Multi-Step Mock Pattern (Video Upload)
 
 For tests that require multiple fetch calls in sequence:
