@@ -60,6 +60,20 @@ export interface VideoVariant {
 }
 
 /**
+ * URL entity from tweet text
+ */
+export interface UrlEntity {
+  /** Shortened t.co URL as it appears in tweet text */
+  url: string;
+  /** Full expanded URL */
+  expandedUrl: string;
+  /** Display-friendly URL (truncated, no protocol) */
+  displayUrl: string;
+  /** Character indices in tweet text [start, end] */
+  indices: [number, number];
+}
+
+/**
  * Core tweet data structure
  */
 export interface TweetData {
@@ -77,6 +91,8 @@ export interface TweetData {
   quotedTweet?: TweetData;
   /** Media attachments (photos, videos, GIFs) */
   media?: MediaItem[];
+  /** URL entities parsed from tweet text */
+  urls?: UrlEntity[];
 }
 
 /**
@@ -178,6 +194,18 @@ export interface GraphqlTweetResult {
     favorite_count?: number;
     conversation_id_str?: string;
     in_reply_to_status_id_str?: string | null;
+    entities?: {
+      urls?: Array<{
+        url: string;
+        expanded_url: string;
+        display_url: string;
+        indices: [number, number];
+      }>;
+      media?: Array<{
+        url: string;
+        indices: [number, number];
+      }>;
+    };
     extended_entities?: {
       media?: Array<{
         id_str?: string;
