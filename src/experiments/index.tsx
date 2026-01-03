@@ -38,4 +38,6 @@ export { TimelineScreenExperimental } from "./TimelineScreenExperimental";
 export { useTimelineQuery } from "./use-timeline-query";
 export { useProfileQuery } from "./use-profile-query";
 export { usePostDetailQuery } from "./use-post-detail-query";
+export { useBookmarksQuery } from "./use-bookmarks-query";
+export { useBookmarkMutation } from "./use-bookmark-mutation";
 export { createQueryClient, queryKeys } from "./query-client";

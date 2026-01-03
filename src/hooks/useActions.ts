@@ -9,6 +9,21 @@ import { useState, useCallback, useRef } from "react";
 import type { XClient } from "@/api/client";
 import type { TweetData } from "@/api/types";
 
+export interface BookmarkMutationFns {
+  /** Add a bookmark with optimistic cache update */
+  addBookmark: (tweet: TweetData) => void;
+  /** Remove a bookmark with optimistic cache update */
+  removeBookmark: (
+    tweetId: string,
+    folderId?: string,
+    tweet?: TweetData
+  ) => void;
+  /** Check if a bookmark operation is pending */
+  isPending: (tweetId: string) => boolean;
+  /** Check if a tweet was just bookmarked (for visual feedback) */
+  isJustBookmarked: (tweetId: string) => boolean;
+}
+
 export interface UseActionsOptions {
   client: XClient;
   /** Callback when an action fails - use to show error message */
@@ -17,6 +32,10 @@ export interface UseActionsOptions {
   onSuccess?: (message: string) => void;
   /** Callback when bookmark state changes - use to sync bookmark list */
   onBookmarkChange?: (tweetId: string, isBookmarked: boolean) => void;
+  /** Optional TanStack Query bookmark mutation for optimistic cache updates */
+  bookmarkMutation?: BookmarkMutationFns;
+  /** Current folder ID for bookmark cache updates */
+  currentFolderId?: string;
 }
 
 export interface TweetActionState {
@@ -62,6 +81,8 @@ export function useActions({
   onError,
   onSuccess,
   onBookmarkChange,
+  bookmarkMutation,
+  currentFolderId,
 }: UseActionsOptions): UseActionsResult {
   // Track action states by tweet ID
   const [states, setStates] = useState<Map<string, TweetActionState>>(
@@ -78,9 +99,20 @@ export function useActions({
 
   const getState = useCallback(
     (tweetId: string): TweetActionState => {
-      return states.get(tweetId) ?? DEFAULT_STATE;
+      const baseState = states.get(tweetId) ?? DEFAULT_STATE;
+
+      // If using TanStack Query mutation, overlay its pending/justBookmarked state
+      if (bookmarkMutation) {
+        return {
+          ...baseState,
+          bookmarkPending: bookmarkMutation.isPending(tweetId),
+          justBookmarked: bookmarkMutation.isJustBookmarked(tweetId),
+        };
+      }
+
+      return baseState;
     },
-    [states]
+    [states, bookmarkMutation]
   );
 
   const updateState = useCallback(
@@ -189,6 +221,30 @@ export function useActions({
     async (tweet: TweetData) => {
       const currentState = states.get(tweet.id) ?? DEFAULT_STATE;
 
+      // If using TanStack Query mutation, delegate to it
+      if (bookmarkMutation) {
+        // Prevent double-clicks
+        if (bookmarkMutation.isPending(tweet.id)) return;
+
+        const wasBookmarked = currentState.bookmarked;
+        const newBookmarked = !wasBookmarked;
+
+        // Update local state for UI (bookmarked flag)
+        updateState(tweet.id, { bookmarked: newBookmarked });
+
+        // Use mutation for API call + cache updates
+        if (newBookmarked) {
+          bookmarkMutation.addBookmark(tweet);
+        } else {
+          bookmarkMutation.removeBookmark(tweet.id, currentFolderId, tweet);
+        }
+
+        // Notify about bookmark change (for legacy sync if needed)
+        onBookmarkChange?.(tweet.id, newBookmarked);
+        return;
+      }
+
+      // Fallback: Original implementation without TanStack Query
       // Prevent double-clicks
       if (currentState.bookmarkPending) return;
 
@@ -277,7 +333,16 @@ export function useActions({
         onError?.(error instanceof Error ? error.message : String(error));
       }
     },
-    [client, states, updateState, onError, onSuccess, onBookmarkChange]
+    [
+      client,
+      states,
+      updateState,
+      onError,
+      onSuccess,
+      onBookmarkChange,
+      bookmarkMutation,
+      currentFolderId,
+    ]
   );
 
   return {

@@ -13,9 +13,8 @@ import type { TweetActionState } from "@/hooks/useActions";
 
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { PostList } from "@/components/PostList";
-import { useBookmarks } from "@/hooks/useBookmarks";
+import { useBookmarksQuery } from "@/experiments";
 import { colors } from "@/lib/colors";
-import { formatCountdown } from "@/lib/format";
 
 interface BookmarksScreenProps {
   client: XClient;
@@ -39,8 +38,6 @@ interface BookmarksScreenProps {
     liked: boolean,
     bookmarked: boolean
   ) => void;
-  /** Callback to register the removePost function for external sync */
-  onRegisterRemovePost?: (removePost: (tweetId: string) => void) => void;
 }
 
 interface ScreenHeaderProps {
@@ -79,26 +76,16 @@ export function BookmarksScreen({
   onBookmark,
   getActionState,
   initActionState,
-  onRegisterRemovePost,
 }: BookmarksScreenProps) {
   const {
     posts,
-    loading,
-    loadingMore,
-    hasMore,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
     error,
-    apiError,
     refresh,
-    loadMore,
-    retryBlocked,
-    retryCountdown,
-    removePost,
-  } = useBookmarks({ client, folderId: selectedFolder?.id });
-
-  // Register removePost function for external bookmark sync
-  useEffect(() => {
-    onRegisterRemovePost?.(removePost);
-  }, [onRegisterRemovePost, removePost]);
+    fetchNextPage,
+  } = useBookmarksQuery({ client, folderId: selectedFolder?.id });
 
   // Report post count to parent
   useEffect(() => {
@@ -107,14 +94,14 @@ export function BookmarksScreen({
 
   // Report hasMore state to parent
   useEffect(() => {
-    onHasMoreChange?.(hasMore);
-  }, [hasMore, onHasMoreChange]);
+    onHasMoreChange?.(hasNextPage);
+  }, [hasNextPage, onHasMoreChange]);
 
   // Handle keyboard shortcuts
   useKeyboard((key) => {
     if (!focused) return;
 
-    if (key.name === "r" && !retryBlocked) {
+    if (key.name === "r") {
       refresh();
     }
 
@@ -126,7 +113,7 @@ export function BookmarksScreen({
 
   const folderName = selectedFolder?.name ?? null;
 
-  if (loading) {
+  if (isLoading) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
         <ScreenHeader folderName={folderName} />
@@ -137,34 +124,11 @@ export function BookmarksScreen({
     );
   }
 
-  if (apiError) {
-    return (
-      <box style={{ flexDirection: "column", height: "100%" }}>
-        <ScreenHeader folderName={folderName} />
-        <ErrorBanner
-          error={apiError}
-          onRetry={refresh}
-          retryDisabled={retryBlocked}
-        />
-        {retryBlocked && retryCountdown > 0 && (
-          <box style={{ paddingLeft: 1, paddingTop: 1 }}>
-            <text fg="#ffaa00">
-              Retry available in {formatCountdown(retryCountdown)}
-            </text>
-          </box>
-        )}
-      </box>
-    );
-  }
-
   if (error) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
         <ScreenHeader folderName={folderName} />
-        <box style={{ padding: 2, flexGrow: 1 }}>
-          <text fg="#ff6666">Error: {error}</text>
-          <text fg={colors.muted}> Press r to retry.</text>
-        </box>
+        <ErrorBanner error={error} onRetry={refresh} retryDisabled={false} />
       </box>
     );
   }
@@ -195,9 +159,9 @@ export function BookmarksScreen({
         onBookmark={onBookmark}
         getActionState={getActionState}
         initActionState={initActionState}
-        onLoadMore={loadMore}
-        loadingMore={loadingMore}
-        hasMore={hasMore}
+        onLoadMore={fetchNextPage}
+        loadingMore={isFetchingNextPage}
+        hasMore={hasNextPage}
       />
     </box>
   );

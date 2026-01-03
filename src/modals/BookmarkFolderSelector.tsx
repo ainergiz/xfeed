@@ -40,39 +40,31 @@ export function BookmarkFolderSelector({
   const { folders, loading, error } = useBookmarkFolders({ client });
   const [windowStart, setWindowStart] = useState(0);
 
-  // Items: "All Bookmarks" (null) + folders
-  // We use null to represent "All Bookmarks", and BookmarkFolder for actual folders
-  const itemCount = folders.length + 1; // +1 for "All Bookmarks"
+  // Build selectable items: exclude the current view
+  // If viewing "All Bookmarks" (currentFolder is null/undefined), only show folders
+  // If viewing a folder, show "All Bookmarks" + other folders (excluding current)
+  const isViewingAllBookmarks = !currentFolder;
 
-  // Find initial index for current folder
-  const getInitialIndex = () => {
-    if (!currentFolder) return 0; // "All Bookmarks"
-    const folderIndex = folders.findIndex((f) => f.id === currentFolder.id);
-    return folderIndex >= 0 ? folderIndex + 1 : 0; // +1 because index 0 is "All Bookmarks"
-  };
+  // Filter folders to exclude the current one (if any)
+  const selectableFolders = currentFolder
+    ? folders.filter((f) => f.id !== currentFolder.id)
+    : folders;
 
-  const { selectedIndex, setSelectedIndex } = useListNavigation({
+  // Build the items list: null represents "All Bookmarks"
+  const items: (BookmarkFolder | null)[] = isViewingAllBookmarks
+    ? selectableFolders // Only folders when viewing All Bookmarks
+    : [null, ...selectableFolders]; // All Bookmarks + other folders
+
+  const itemCount = items.length;
+
+  const { selectedIndex } = useListNavigation({
     itemCount,
     enabled: focused && !loading && itemCount > 0,
     onSelect: (index) => {
-      if (index === 0) {
-        onSelect(null); // "All Bookmarks"
-      } else {
-        const folder = folders[index - 1];
-        if (folder) {
-          onSelect(folder);
-        }
-      }
+      const item = items[index];
+      onSelect(item ?? null);
     },
   });
-
-  // Set initial selection to current folder when folders load
-  useEffect(() => {
-    if (folders.length > 0) {
-      setSelectedIndex(getInitialIndex());
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [folders.length > 0]);
 
   useKeyboard((key) => {
     if (!focused) return;
@@ -182,15 +174,11 @@ export function BookmarkFolderSelector({
   const hasMoreAbove = windowStart > 0;
   const hasMoreBelow = windowStart + MAX_VISIBLE_ITEMS < itemCount;
 
-  // Build visible items: indices from windowStart to windowStart + MAX_VISIBLE_ITEMS
-  const visibleIndices: number[] = [];
-  for (
-    let i = windowStart;
-    i < Math.min(windowStart + MAX_VISIBLE_ITEMS, itemCount);
-    i++
-  ) {
-    visibleIndices.push(i);
-  }
+  // Get visible items slice
+  const visibleItems = items.slice(
+    windowStart,
+    windowStart + MAX_VISIBLE_ITEMS
+  );
 
   return (
     <box
@@ -220,8 +208,10 @@ export function BookmarkFolderSelector({
           backgroundColor="#000000"
         >
           <box style={{ paddingBottom: 1, flexDirection: "row" }}>
-            <text fg={colors.primary}>Select folder</text>
-            <text fg={colors.dim}> ({folders.length} folders)</text>
+            <text fg={colors.primary}>
+              {isViewingAllBookmarks ? "Switch to folder" : "Switch view"}
+            </text>
+            <text fg={colors.dim}> ({itemCount} options)</text>
           </box>
 
           {hasMoreAbove ? (
@@ -230,26 +220,20 @@ export function BookmarkFolderSelector({
             </box>
           ) : null}
 
-          {visibleIndices.map((index) => {
-            const isSelected = index === selectedIndex;
-            const isAllBookmarks = index === 0;
-            const folder = isAllBookmarks ? null : folders[index - 1];
-            const label = isAllBookmarks
-              ? "All Bookmarks"
-              : (folder?.name ?? "");
-            const isCurrent = isAllBookmarks
-              ? !currentFolder
-              : folder?.id === currentFolder?.id;
+          {visibleItems.map((item, visibleIndex) => {
+            const actualIndex = windowStart + visibleIndex;
+            const isSelected = actualIndex === selectedIndex;
+            const isAllBookmarks = item === null;
+            const label = isAllBookmarks ? "All Bookmarks" : item.name;
 
             return (
               <box
-                key={isAllBookmarks ? "all" : folder?.id}
+                key={isAllBookmarks ? "all" : item.id}
                 style={{ flexDirection: "row" }}
               >
                 <text fg={isSelected ? colors.primary : colors.muted}>
                   {isSelected ? "> " : "  "}
                   {label}
-                  {isCurrent ? " •" : ""}
                 </text>
               </box>
             );
