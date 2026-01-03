@@ -620,7 +620,9 @@ export function PostDetailScreen({
               <text fg={colors.reply}> @{parentTweet.author.username}</text>
             </box>
             <box style={{ marginTop: 1 }}>
-              <text fg="#aaaaaa">{truncateText(parentTweet.text, 3)}</text>
+              <text fg="#aaaaaa" selectable selectionBg="#264F78">
+                {truncateText(parentTweet.text, 3)}
+              </text>
             </box>
           </box>
         ) : null}
@@ -650,7 +652,9 @@ export function PostDetailScreen({
       {hasMentions ? (
         renderTextWithMentions(displayText, colors.mention, "#ffffff")
       ) : (
-        <text fg="#ffffff">{displayText}</text>
+        <text fg="#ffffff" selectable selectionBg="#264F78">
+          {displayText}
+        </text>
       )}
     </box>
   );

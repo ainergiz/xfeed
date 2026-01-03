@@ -69,8 +69,16 @@ export function renderTextWithMentions(
 
   // If no mentions found, just return plain text
   if (parts.length === 0) {
-    return <text fg={textColor}>{text}</text>;
+    return (
+      <text fg={textColor} selectable selectionBg="#264F78">
+        {text}
+      </text>
+    );
   }
 
-  return <text>{parts}</text>;
+  return (
+    <text selectable selectionBg="#264F78">
+      {parts}
+    </text>
+  );
 }
