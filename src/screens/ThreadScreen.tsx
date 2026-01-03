@@ -1,17 +1,15 @@
 /**
  * ThreadScreen - Full thread view with visual hierarchy
  *
- * Experimental screen for Issue #80.
  * Shows ancestor chain, focused tweet, and reply tree with collapse/expand.
- *
- * @experimental
+ * Uses TanStack Query for data fetching (Issue #159).
  */
 
 import type { XClient } from "@/api/client";
 import type { TweetData } from "@/api/types";
 
 import { ThreadViewPrototype } from "@/components/ThreadView.prototype";
-import { useThread } from "@/hooks/useThread.prototype";
+import { useThreadQuery } from "@/experiments/use-thread-query";
 import { colors } from "@/lib/colors";
 
 interface ThreadScreenProps {
@@ -32,7 +30,7 @@ export function ThreadScreen({
   showFooter = true,
 }: ThreadScreenProps) {
   const { ancestors, replyTree, loadingAncestors, loadingReplies, error } =
-    useThread({
+    useThreadQuery({
       client,
       tweet,
       maxAncestorDepth: 10,
