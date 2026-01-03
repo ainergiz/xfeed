@@ -4,9 +4,6 @@
  */
 
 import { getCookies } from "@steipete/sweet-cookie";
-import { existsSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
 
 export interface TwitterCookies {
   authToken: string | null;
@@ -147,74 +144,25 @@ function getSweetCookieBrowser(
 }
 
 /**
- * Get explicit cookie database path for Chromium browsers.
- * This is a workaround until steipete/sweet-cookie#1 is merged.
- * By passing the explicit path, sweet-cookie only accesses that browser's keychain.
+ * Map CookieSource to sweet-cookie chromiumBrowser option.
+ * This tells sweet-cookie which Chromium browser's keychain to use for decryption.
  */
-function getChromiumCookiePath(source: CookieSource): string | undefined {
-  if (source === "chrome") {
-    // Chrome uses default discovery, no need for explicit path
-    return undefined;
+function getChromiumBrowser(
+  source: CookieSource
+): "chrome" | "brave" | "arc" | undefined {
+  switch (source) {
+    case "chrome":
+      return "chrome";
+    case "brave":
+      return "brave";
+    case "arc":
+      return "arc";
+    // Opera uses "chromium" keychain - but sweet-cookie doesn't support it yet
+    // For now, Opera will fall back to Chrome's keychain discovery
+    default:
+      return undefined;
   }
-
-  const home = homedir();
-
-  if (source === "brave") {
-    // Try Network/Cookies first (newer Chromium), then legacy path
-    const networkPath = join(
-      home,
-      "Library/Application Support/BraveSoftware/Brave-Browser/Default/Network/Cookies"
-    );
-    if (existsSync(networkPath)) return networkPath;
-
-    const legacyPath = join(
-      home,
-      "Library/Application Support/BraveSoftware/Brave-Browser/Default/Cookies"
-    );
-    if (existsSync(legacyPath)) return legacyPath;
-  }
-
-  if (source === "arc") {
-    const networkPath = join(
-      home,
-      "Library/Application Support/Arc/User Data/Default/Network/Cookies"
-    );
-    if (existsSync(networkPath)) return networkPath;
-
-    const legacyPath = join(
-      home,
-      "Library/Application Support/Arc/User Data/Default/Cookies"
-    );
-    if (existsSync(legacyPath)) return legacyPath;
-  }
-
-  if (source === "opera") {
-    const networkPath = join(
-      home,
-      "Library/Application Support/com.operasoftware.Opera/Network/Cookies"
-    );
-    if (existsSync(networkPath)) return networkPath;
-
-    const legacyPath = join(
-      home,
-      "Library/Application Support/com.operasoftware.Opera/Cookies"
-    );
-    if (existsSync(legacyPath)) return legacyPath;
-  }
-
-  return undefined;
 }
-
-// TODO: Replace getChromiumCookiePath with chromiumBrowser option when
-// steipete/sweet-cookie#1 is merged and published
-// function getChromiumBrowser(source: CookieSource): "chrome" | "brave" | "arc" | undefined {
-//   switch (source) {
-//     case "chrome": return "chrome";
-//     case "brave": return "brave";
-//     case "arc": return "arc";
-//     default: return undefined;
-//   }
-// }
 
 async function readTwitterCookiesFromBrowser(options: {
   source: CookieSource;
@@ -225,12 +173,7 @@ async function readTwitterCookiesFromBrowser(options: {
   const out = buildEmpty();
 
   const browser = getSweetCookieBrowser(options.source);
-
-  // For Brave/Arc, pass explicit cookie path so sweet-cookie only accesses
-  // that browser's keychain (single password prompt instead of multiple).
-  // This is a workaround until steipete/sweet-cookie#1 adds chromiumBrowser option.
-  const chromiumPath = getChromiumCookiePath(options.source);
-  const chromeProfile = options.chromeProfile ?? chromiumPath;
+  const chromiumBrowser = getChromiumBrowser(options.source);
 
   const { cookies, warnings: providerWarnings } = await getCookies({
     url: TWITTER_URL,
@@ -238,8 +181,9 @@ async function readTwitterCookiesFromBrowser(options: {
     names: [...TWITTER_COOKIE_NAMES],
     browsers: [browser],
     mode: "merge",
-    chromeProfile,
+    chromeProfile: options.chromeProfile,
     firefoxProfile: options.firefoxProfile,
+    chromiumBrowser,
     timeoutMs: 30000, // 30 seconds for keychain password prompt
   });
   warnings.push(...providerWarnings);

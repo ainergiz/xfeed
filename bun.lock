@@ -7,7 +7,7 @@
       "dependencies": {
         "@opentui/core": "^0.1.68",
         "@opentui/react": "^0.1.68",
-        "@steipete/sweet-cookie": "^0.1.0",
+        "@steipete/sweet-cookie": "file:./vendor/sweet-cookie",
         "cac": "^6.7.14",
         "react": "^19.2.0",
         "x-client-transaction-id": "^0.1.9",
@@ -139,7 +139,7 @@
 
     "@oxlint/win32-x64": ["@oxlint/win32-x64@1.36.0", "", { "os": "win32", "cpu": "x64" }, "sha512-J+Vc00Utcf8p77lZPruQgb0QnQXuKnFogN88kCnOqs2a83I+vTBB8ILr0+L9sTwVRvIDMSC0pLdeQH4svWGFZg=="],
 
-    "@steipete/sweet-cookie": ["@steipete/sweet-cookie@0.1.0", "", {}, "sha512-cF8hS6rTohAFI1NAm2/HM9omBlw6V1DpwF6q5e9FB+l274HjtyirCgCc6QK2Rtuh7uDoqWHshFQZPsceyJuVgw=="],
+    "@steipete/sweet-cookie": ["@steipete/sweet-cookie@file:vendor/sweet-cookie", {}],
 
     "@tokenizer/token": ["@tokenizer/token@0.3.0", "", {}, "sha512-OvjF+z51L3ov0OyAU0duzsYuvO01PH7x4t6DJx+guahgTnBHkhJdG7soQeTSFLWN3efnHyibZ4Z8l2EuWwJN3A=="],
 
