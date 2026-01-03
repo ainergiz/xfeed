@@ -25,6 +25,7 @@ import {
   fetchLinkMetadata,
   type LinkMetadata,
 } from "@/lib/media";
+import { renderTextWithMentions } from "@/lib/text";
 
 // Unicode symbols for like/bookmark states
 const HEART_EMPTY = "\u2661"; // ♡
@@ -132,57 +133,6 @@ function formatFullTimestamp(dateString?: string): string {
 function needsTruncation(text: string, maxLines: number): boolean {
   const lines = text.split("\n");
   return lines.length > maxLines;
-}
-
-/**
- * Render text with @mentions highlighted in blue using <span> inside <text>
- * Uses OpenTUI's text helper components for inline styling
- */
-function renderTextWithMentions(
-  text: string,
-  mentionColor: string,
-  textColor: string
-): React.ReactNode {
-  // Match @username (alphanumeric and underscores)
-  const mentionRegex = /@(\w+)/g;
-  const parts: React.ReactNode[] = [];
-  let lastIndex = 0;
-  let match;
-  let keyIdx = 0;
-
-  while ((match = mentionRegex.exec(text)) !== null) {
-    // Add text before the mention
-    if (match.index > lastIndex) {
-      parts.push(
-        <span key={`text-${keyIdx++}`} fg={textColor}>
-          {text.slice(lastIndex, match.index)}
-        </span>
-      );
-    }
-    // Add the mention in blue
-    parts.push(
-      <span key={`mention-${keyIdx++}`} fg={mentionColor}>
-        {match[0]}
-      </span>
-    );
-    lastIndex = match.index + match[0].length;
-  }
-
-  // Add remaining text after last mention
-  if (lastIndex < text.length) {
-    parts.push(
-      <span key={`text-${keyIdx++}`} fg={textColor}>
-        {text.slice(lastIndex)}
-      </span>
-    );
-  }
-
-  // If no mentions found, just return plain text
-  if (parts.length === 0) {
-    return <text fg={textColor}>{text}</text>;
-  }
-
-  return <text>{parts}</text>;
 }
 
 export function PostDetailScreen({

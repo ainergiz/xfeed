@@ -274,13 +274,14 @@ export function App({ client, user: _user }: AppProps) {
     setPostStack((prev) => prev.slice(0, -1));
   }, [goBack]);
 
-  // State for profile view
-  const [profileUsername, setProfileUsername] = useState<string | null>(null);
+  // State for profile view (stack for nested profile navigation)
+  const [profileStack, setProfileStack] = useState<string[]>([]);
+  const profileUsername = profileStack[profileStack.length - 1] ?? null;
 
-  // Navigate to profile view from post detail
+  // Navigate to profile view from post detail or another profile
   const handleProfileOpen = useCallback(
     (username: string) => {
-      setProfileUsername(username);
+      setProfileStack((prev) => [...prev, username]);
       navigate("profile");
     },
     [navigate]
@@ -300,10 +301,10 @@ export function App({ client, user: _user }: AppProps) {
     setThreadRootTweet(null);
   }, [goBack]);
 
-  // Return from profile to previous view
+  // Return from profile to previous view (pops from profile stack)
   const handleBackFromProfile = useCallback(() => {
     goBack();
-    setProfileUsername(null);
+    setProfileStack((prev) => prev.slice(0, -1));
   }, [goBack]);
 
   // Handle post select from profile (view a user's tweet in detail)
@@ -381,7 +382,7 @@ export function App({ client, user: _user }: AppProps) {
       ) {
         const follower = notification.fromUsers[0];
         if (follower) {
-          setProfileUsername(follower.username);
+          setProfileStack((prev) => [...prev, follower.username]);
           navigate("profile");
         }
         return;
@@ -596,6 +597,7 @@ export function App({ client, user: _user }: AppProps) {
               focused={currentView === "profile"}
               onBack={handleBackFromProfile}
               onPostSelect={handlePostSelectFromProfile}
+              onProfileOpen={handleProfileOpen}
               onLike={toggleLike}
               onBookmark={toggleBookmark}
               getActionState={getState}

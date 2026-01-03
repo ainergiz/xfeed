@@ -7,11 +7,12 @@ Comprehensive documentation of all navigation in xfeed - a terminal-based X view
 1. [Core Navigation Architecture](#1-core-navigation-architecture)
 2. [View Types & Structure](#2-view-types--structure)
 3. [Post Stack Management](#3-post-stack-management)
-4. [Screen-by-Screen Keybindings](#4-screen-by-screen-keybindings)
-5. [Modal Navigation](#5-modal-navigation)
-6. [Navigation Flow Examples](#6-navigation-flow-examples)
-7. [Edge Cases & Special Handling](#7-edge-cases--special-handling)
-8. [Complete Keyboard Map](#8-complete-keyboard-map)
+4. [Profile Stack Management](#4-profile-stack-management)
+5. [Screen-by-Screen Keybindings](#5-screen-by-screen-keybindings)
+6. [Modal Navigation](#6-modal-navigation)
+7. [Navigation Flow Examples](#7-navigation-flow-examples)
+8. [Edge Cases & Special Handling](#8-edge-cases--special-handling)
+9. [Complete Keyboard Map](#9-complete-keyboard-map)
 
 ---
 
@@ -197,7 +198,91 @@ const handleParentSelect = useCallback(async (parentTweet: TweetData) => {
 
 ---
 
-## 4. Screen-by-Screen Keybindings
+## 4. Profile Stack Management
+
+**File:** `src/app.tsx`
+
+Profile navigation uses a stack pattern, similar to post navigation. This enables nested profile navigation (e.g., viewing Profile A → clicking a bio mention to Profile B → pressing Escape to return to Profile A).
+
+```typescript
+// State for profile view (stack for nested profile navigation)
+const [profileStack, setProfileStack] = useState<string[]>([]);
+const profileUsername = profileStack[profileStack.length - 1] ?? null;
+```
+
+### Stack Operations
+
+#### Push to Stack (Navigate Into)
+
+```typescript
+// From post detail, profile, or notifications → profile
+const handleProfileOpen = useCallback((username: string) => {
+  setProfileStack((prev) => [...prev, username]);  // Push to profile stack
+  navigate("profile");  // Push to view history
+}, [navigate]);
+```
+
+#### Pop from Stack (Navigate Back)
+
+```typescript
+const handleBackFromProfile = useCallback(() => {
+  goBack();  // Pop view history
+  setProfileStack((prev) => prev.slice(0, -1));  // Pop profile stack
+}, [goBack]);
+```
+
+### Why a Stack Instead of Single Value?
+
+**The Bug (pre-fix):** Using a single `profileUsername` value caused crashes when navigating profile → profile:
+
+```typescript
+// BROKEN: Single value approach
+const [profileUsername, setProfileUsername] = useState<string | null>(null);
+
+const handleBackFromProfile = useCallback(() => {
+  goBack();
+  setProfileUsername(null);  // ← Clears username entirely!
+}, [goBack]);
+```
+
+**What happened:**
+1. User on Profile A (`profileUsername = "userA"`, history = `[..., "profile"]`)
+2. User presses `m` to navigate to mentioned Profile B
+3. `profileUsername = "userB"`, history = `[..., "profile", "profile"]`
+4. User presses Escape:
+   - `goBack()` pops history → still on "profile" view
+   - `setProfileUsername(null)` clears username → **BLACK SCREEN** (profile view with no username)
+
+**The Fix:** Use a stack that parallels the navigation history:
+
+```typescript
+// FIXED: Stack approach
+const [profileStack, setProfileStack] = useState<string[]>([]);
+const profileUsername = profileStack[profileStack.length - 1] ?? null;
+
+const handleBackFromProfile = useCallback(() => {
+  goBack();
+  setProfileStack((prev) => prev.slice(0, -1));  // Pops, revealing previous username
+}, [goBack]);
+```
+
+**Result:**
+1. User on Profile A (`profileStack = ["userA"]`, history = `[..., "profile"]`)
+2. User presses `m` to navigate to Profile B
+3. `profileStack = ["userA", "userB"]`, history = `[..., "profile", "profile"]`
+4. User presses Escape:
+   - `goBack()` pops history → still on "profile" view
+   - `setProfileStack` pops → `["userA"]` → Profile A renders correctly
+
+### Key Insight
+
+**When a view can navigate to itself (profile → profile, post → post), you MUST use a stack to track the navigation state, not a single value.**
+
+This pattern is already used for `postStack` and now applies to `profileStack` as well.
+
+---
+
+## 5. Screen-by-Screen Keybindings
 
 ### Root Level (app.tsx)
 
@@ -284,15 +369,24 @@ const handleParentSelect = useCallback(async (parentTweet: TweetData) => {
 
 **File:** `src/screens/ProfileScreen.tsx`
 
+| Key | Action | Condition |
+|-----|--------|-----------|
+| `h/Esc/Backspace` | Go back | - |
+| `r` | Refresh profile | - |
+| `m` | Open mention profile / enter mentions mode | hasMentions in bio |
+| `a` | Preview avatar | hasProfileImage |
+| `v` | Preview banner | hasBannerImage |
+| `w` | Open website | hasWebsite |
+| `x` | Open profile on x.com | - |
+| `j/k/g/G/Enter` | List navigation | - |
+
+#### Mentions Mode (multiple bio mentions)
+
 | Key | Action |
 |-----|--------|
-| `h/Esc/Backspace` | Go back |
-| `r` | Refresh profile |
-| `a` | Preview avatar |
-| `v` | Preview banner |
-| `w` | Open website |
-| `x` | Open profile on x.com |
-| `j/k/g/G/Enter` | List navigation |
+| `j/k` | Navigate mentions |
+| `Enter` | Open selected mention's profile |
+| `h/Esc` | Exit mode |
 
 ### Thread Screen
 
@@ -304,7 +398,7 @@ const handleParentSelect = useCallback(async (parentTweet: TweetData) => {
 
 ---
 
-## 5. Modal Navigation
+## 6. Modal Navigation
 
 ### Exit Confirmation Modal
 
@@ -325,7 +419,7 @@ const handleParentSelect = useCallback(async (parentTweet: TweetData) => {
 
 ---
 
-## 6. Navigation Flow Examples
+## 7. Navigation Flow Examples
 
 ### Example 1: Timeline → Quote Tweet → Parent → Back
 
@@ -379,9 +473,27 @@ notifications
 profile [opens follower's profile]
 ```
 
+### Example 5: Profile → Profile (Bio Mentions)
+
+```
+post-detail [postStack: [A]]
+  ↓ p (view author profile)
+profile [profileStack: ["userA"]]
+  ↓ m (navigate to bio mention)
+profile [profileStack: ["userA", "userB"]]
+  ↓ m (navigate to another bio mention)
+profile [profileStack: ["userA", "userB", "userC"]]
+  ↓ Esc (back)
+profile [profileStack: ["userA", "userB"]]
+  ↓ Esc (back)
+profile [profileStack: ["userA"]]
+  ↓ Esc (back)
+post-detail [postStack: [A], profileStack: []]
+```
+
 ---
 
-## 7. Edge Cases & Special Handling
+## 8. Edge Cases & Special Handling
 
 ### Circular Navigation Prevention
 
@@ -453,7 +565,7 @@ const showHeader = selectedIndex === 0 || !user;
 
 ---
 
-## 8. Complete Keyboard Map
+## 9. Complete Keyboard Map
 
 ```
 ╔══════════════════════════════════════════════════════════════════════╗
@@ -508,11 +620,14 @@ const showHeader = selectedIndex === 0 || !user;
 ╠══════════════════════════════════════════════════════════════════════╣
 ║ h/Esc/Backspace   Back                                                ║
 ║ r                 Refresh                                             ║
+║ m                 Mentions mode / open mention profile (if hasMentions)║
 ║ a                 Preview avatar                                      ║
 ║ v                 Preview banner                                      ║
 ║ w                 Open website                                        ║
 ║ x                 Open on x.com                                       ║
 ║ j/k/g/G/Enter     List navigation                                     ║
+╠══════════════════════════════════════════════════════════════════════╣
+║ MENTIONS MODE: j/k navigate, Enter open profile, h/Esc exit           ║
 ╚══════════════════════════════════════════════════════════════════════╝
 
 ╔══════════════════════════════════════════════════════════════════════╗
