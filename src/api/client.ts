@@ -1388,7 +1388,10 @@ export class XClient {
     return {};
   }
 
-  private async fetchTweetDetail(tweetId: string): Promise<
+  private async fetchTweetDetail(
+    tweetId: string,
+    cursor?: string
+  ): Promise<
     | {
         success: true;
         data: {
@@ -1396,7 +1399,10 @@ export class XClient {
           threaded_conversation_with_injections_v2?: {
             instructions?: Array<{
               entries?: Array<{
+                entryId?: string;
                 content?: {
+                  cursorType?: string;
+                  value?: string;
                   itemContent?: {
                     tweet_results?: {
                       result?: GraphqlTweetResult;
@@ -1410,7 +1416,7 @@ export class XClient {
       }
     | { success: false; error: string }
   > {
-    const variables = {
+    const variables: Record<string, unknown> = {
       focalTweetId: tweetId,
       with_rux_injections: false,
       rankingMode: "Relevance",
@@ -1420,6 +1426,10 @@ export class XClient {
       withBirdwatchNotes: true,
       withVoice: true,
     };
+
+    if (cursor) {
+      variables.cursor = cursor;
+    }
 
     const features = {
       ...this.buildTweetDetailFeatures(),
@@ -1458,7 +1468,10 @@ export class XClient {
             threaded_conversation_with_injections_v2?: {
               instructions?: Array<{
                 entries?: Array<{
+                  entryId?: string;
                   content?: {
+                    cursorType?: string;
+                    value?: string;
                     itemContent?: {
                       tweet_results?: {
                         result?: GraphqlTweetResult;
@@ -2254,9 +2267,11 @@ export class XClient {
 
   /**
    * Get replies to a tweet by ID
+   * @param tweetId The tweet ID to get replies for
+   * @param cursor Pagination cursor from previous response's nextCursor
    */
-  async getReplies(tweetId: string): Promise<SearchResult> {
-    const response = await this.fetchTweetDetail(tweetId);
+  async getReplies(tweetId: string, cursor?: string): Promise<SearchResult> {
+    const response = await this.fetchTweetDetail(tweetId, cursor);
     if (!response.success) {
       return response;
     }
@@ -2271,7 +2286,10 @@ export class XClient {
       (tweet) => tweet.inReplyToStatusId === tweetId
     );
 
-    return { success: true, tweets: replies };
+    // Extract pagination cursor for loading more replies
+    const nextCursor = this.extractBottomCursor(instructions);
+
+    return { success: true, tweets: replies, nextCursor };
   }
 
   /**
