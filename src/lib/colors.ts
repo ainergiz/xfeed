@@ -4,7 +4,7 @@
  */
 
 export const colors = {
-  /** X brand blue - used for primary elements, selection, links */
+  /** X brand blue - used for primary elements, selection, links, main author */
   primary: "#1DA1F2",
 
   /** Success green - used for likes, retweets, success states */
@@ -24,6 +24,18 @@ export const colors = {
 
   /** Dim text color - less prominent than muted */
   dim: "#666666",
+
+  /** Purple - used for @mentions in tweet text */
+  mention: "#9B59B6",
+
+  /** Light blue - used for quoted tweet authors */
+  quoted: "#3498DB",
+
+  /** Gray - used for reply context ("Replying to...") */
+  reply: "#95A5A6",
+
+  /** Muted blue - used for @handles (secondary to name) */
+  handle: "#6B8A9E",
 } as const;
 
 export type ColorKey = keyof typeof colors;

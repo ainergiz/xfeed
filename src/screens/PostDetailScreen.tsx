@@ -666,8 +666,8 @@ export function PostDetailScreen({
           <box style={{ flexDirection: "column" }}>
             <box style={{ flexDirection: "row" }}>
               <text fg={colors.dim}>Replying to </text>
-              <text fg={colors.primary}>@{parentTweet.author.username}</text>
-              <text fg={colors.muted}> · {parentTweet.author.name}</text>
+              <text fg={colors.muted}>{parentTweet.author.name}</text>
+              <text fg={colors.reply}> @{parentTweet.author.username}</text>
             </box>
             <box style={{ marginTop: 1 }}>
               <text fg="#aaaaaa">{truncateText(parentTweet.text, 3)}</text>
@@ -681,8 +681,10 @@ export function PostDetailScreen({
   const authorContent = (
     <box style={{ flexDirection: "column", paddingLeft: 1, paddingRight: 1 }}>
       <box style={{ flexDirection: "row" }}>
-        <text fg={colors.primary}>@{tweet.author.username}</text>
-        <text fg="#ffffff"> · {tweet.author.name}</text>
+        <text>
+          <b fg={colors.primary}>{tweet.author.name}</b>
+        </text>
+        <text fg={colors.handle}> @{tweet.author.username}</text>
       </box>
       {fullTimestamp && (
         <box style={{ marginTop: 0 }}>
@@ -696,7 +698,7 @@ export function PostDetailScreen({
   const postContent = (
     <box style={{ marginTop: 1, paddingLeft: 1, paddingRight: 1 }}>
       {hasMentions ? (
-        renderTextWithMentions(displayText, colors.primary, "#ffffff")
+        renderTextWithMentions(displayText, colors.mention, "#ffffff")
       ) : (
         <text fg="#ffffff">{displayText}</text>
       )}
@@ -746,7 +748,7 @@ export function PostDetailScreen({
                 : "GIF";
           const typeColor =
             item.type === "photo"
-              ? colors.primary
+              ? colors.warning
               : item.type === "video"
                 ? colors.warning
                 : colors.success;
@@ -793,7 +795,7 @@ export function PostDetailScreen({
               style={{ flexDirection: "column", marginTop: idx === 0 ? 1 : 0 }}
             >
               <box style={{ flexDirection: "row" }}>
-                <text fg={isSelected ? colors.primary : colors.muted}>
+                <text fg={isSelected ? colors.mention : colors.muted}>
                   {isSelected ? ">" : " "} {link.displayUrl}
                 </text>
               </box>
@@ -823,7 +825,7 @@ export function PostDetailScreen({
           // Single mention - show directly with profile shortcut
           <box style={{ flexDirection: "row" }}>
             <text fg={colors.dim}>Mentions: </text>
-            <text fg={colors.primary}>@{firstMention?.username}</text>
+            <text fg={colors.mention}>@{firstMention?.username}</text>
             {firstMention?.name && (
               <text fg={colors.dim}> · {firstMention.name}</text>
             )}
@@ -848,7 +850,7 @@ export function PostDetailScreen({
                   key={mention.username}
                   style={{ flexDirection: "row", marginTop: idx === 0 ? 1 : 0 }}
                 >
-                  <text fg={isSelected ? colors.primary : colors.muted}>
+                  <text fg={isSelected ? colors.mention : colors.muted}>
                     {isSelected ? ">" : " "} @{mention.username}
                   </text>
                   {mention.name && (
@@ -862,7 +864,7 @@ export function PostDetailScreen({
           // Multiple mentions - collapsed view
           <box style={{ flexDirection: "row" }}>
             <text fg={colors.dim}>Mentions: </text>
-            <text fg={colors.primary}>@{firstMention?.username}</text>
+            <text fg={colors.mention}>@{firstMention?.username}</text>
             <text fg={colors.dim}> +{mentionCount - 1} more (</text>
             <text fg={colors.primary}>m</text>
             <text fg={colors.dim}> to navigate)</text>
