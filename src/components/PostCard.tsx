@@ -93,7 +93,9 @@ export function PostCard({
 
       {/* Post text */}
       <box style={{ marginTop: 1, paddingLeft: 2 }}>
-        <text fg="#ffffff">{displayText}</text>
+        <text fg="#ffffff" selectable selectionBg="#264F78">
+          {displayText}
+        </text>
       </box>
 
       {/* Quoted tweet (if present) */}
