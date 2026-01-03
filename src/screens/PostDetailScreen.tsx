@@ -281,23 +281,59 @@ export function PostDetailScreen({
     setStatusMessage(result.success ? result.message : result.error);
   }, [currentMedia, tweet.id, mediaIndex]);
 
-  // Handle open in browser (o key)
-  // Opens selected link if available, otherwise opens the tweet itself
-  const handleOpenInBrowser = useCallback(async () => {
-    const urlToOpen = currentLink
-      ? currentLink.expandedUrl
-      : `https://x.com/${tweet.author.username}/status/${tweet.id}`;
-
-    const label = currentLink ? currentLink.displayUrl : "tweet";
-    setStatusMessage(`Opening ${label}...`);
+  // Handle open tweet on x.com (x key)
+  // Always opens the tweet itself
+  const handleOpenTweet = useCallback(async () => {
+    const urlToOpen = `https://x.com/${tweet.author.username}/status/${tweet.id}`;
+    setStatusMessage("Opening on x.com...");
 
     try {
       await openInBrowser(urlToOpen);
-      setStatusMessage(`Opened ${label}`);
+      setStatusMessage("Opened on x.com");
     } catch {
       setStatusMessage("Failed to open browser");
     }
-  }, [currentLink, tweet.author.username, tweet.id]);
+  }, [tweet.author.username, tweet.id]);
+
+  // Handle open external link in browser (o key)
+  // Opens the currently selected external link with domain highlight
+  const handleOpenLink = useCallback(async () => {
+    if (!currentLink) {
+      setStatusMessage("No external link selected");
+      return;
+    }
+
+    // Extract and highlight domain for user awareness
+    let domain = "";
+    try {
+      const url = new URL(currentLink.expandedUrl);
+      domain = url.hostname;
+    } catch {
+      domain = currentLink.displayUrl;
+    }
+
+    // Check for suspicious URL patterns
+    const isSuspicious =
+      // IP address instead of domain
+      /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/.test(domain) ||
+      // Excessive subdomains (potential phishing)
+      domain.split(".").length > 4 ||
+      // Known suspicious TLDs
+      /\.(xyz|top|click|loan|work|gq|ml|cf|tk)$/i.test(domain);
+
+    if (isSuspicious) {
+      setStatusMessage(`⚠ Opening [${domain}] - verify this domain`);
+    } else {
+      setStatusMessage(`Opening [${domain}]...`);
+    }
+
+    try {
+      await openInBrowser(currentLink.expandedUrl);
+      setStatusMessage(`Opened [${domain}]`);
+    } catch {
+      setStatusMessage("Failed to open browser");
+    }
+  }, [currentLink]);
 
   useKeyboard((key) => {
     if (!focused) return;
@@ -334,8 +370,15 @@ export function PostDetailScreen({
       case "e":
         setIsExpanded((prev) => !prev);
         break;
+      case "x":
+        // Open tweet on x.com
+        handleOpenTweet();
+        break;
       case "o":
-        handleOpenInBrowser();
+        // Open external link
+        if (hasLinks) {
+          handleOpenLink();
+        }
         break;
       case "b":
         onBookmark?.();
@@ -666,8 +709,8 @@ export function PostDetailScreen({
           <text fg="#666666"> collapse </text>
         </>
       ) : null}
-      <text fg="#ffffff">o</text>
-      <text fg="#666666"> open </text>
+      <text fg="#ffffff">x</text>
+      <text fg="#666666"> x.com </text>
       <text fg="#ffffff">b</text>
       <text fg={isBookmarked ? X_BLUE : "#666666"}>
         {isBookmarked ? " ⚑" : " bookmark"}{" "}
@@ -702,6 +745,18 @@ export function PostDetailScreen({
         <>
           <text fg="#ffffff"> r</text>
           <text fg="#666666"> replies</text>
+        </>
+      )}
+      {hasLinks && (
+        <>
+          <text fg="#ffffff"> o</text>
+          <text fg="#666666"> ext</text>
+          {linkCount > 1 && (
+            <>
+              <text fg="#ffffff"> ,/.</text>
+              <text fg="#666666"> nav</text>
+            </>
+          )}
         </>
       )}
     </box>
