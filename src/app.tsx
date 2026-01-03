@@ -41,7 +41,7 @@ interface AppProps {
   user: UserData;
 }
 
-export function App({ client, user: _user }: AppProps) {
+export function App({ client, user }: AppProps) {
   const renderer = useRenderer();
   const { currentView, navigate, goBack, cycleNext, isMainView } =
     useNavigation<View>({
@@ -482,6 +482,12 @@ export function App({ client, user: _user }: AppProps) {
     if (key.name === "n") {
       navigate("notifications");
     }
+
+    // Go to own profile with 'p'
+    if (key.name === "p") {
+      setProfileStack((prev) => [...prev, user.username]);
+      navigate("profile");
+    }
   });
 
   return (
@@ -597,6 +603,7 @@ export function App({ client, user: _user }: AppProps) {
               <ProfileScreen
                 client={client}
                 username={profileUsername}
+                currentUser={user}
                 focused={currentView === "profile"}
                 onBack={handleBackFromProfile}
                 onPostSelect={handlePostSelectFromProfile}

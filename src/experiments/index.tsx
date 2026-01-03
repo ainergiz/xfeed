@@ -36,4 +36,5 @@ export function QueryProvider({ children }: { children: ReactNode }) {
 // Re-export components for external use
 export { TimelineScreenExperimental } from "./TimelineScreenExperimental";
 export { useTimelineQuery } from "./use-timeline-query";
+export { useProfileQuery } from "./use-profile-query";
 export { createQueryClient, queryKeys } from "./query-client";
