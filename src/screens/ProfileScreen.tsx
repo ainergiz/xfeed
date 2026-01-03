@@ -1,13 +1,14 @@
 /**
  * ProfileScreen - User profile view with bio and recent tweets
  * Supports collapsible header when scrolling through tweets
+ * When viewing own profile (isSelf), shows tabs for Tweets/Likes
  */
 
 import { useKeyboard } from "@opentui/react";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 import type { XClient } from "@/api/client";
-import type { TweetData } from "@/api/types";
+import type { TweetData, UserData } from "@/api/types";
 import type { TweetActionState } from "@/hooks/useActions";
 
 import { Footer, type Keybinding } from "@/components/Footer";
@@ -17,6 +18,8 @@ import { colors } from "@/lib/colors";
 import { formatCount } from "@/lib/format";
 import { openInBrowser, previewImageUrl } from "@/lib/media";
 import { extractMentions, renderTextWithMentions } from "@/lib/text";
+
+type ProfileTab = "tweets" | "likes";
 
 /**
  * Format X's created_at date to "Joined Month Year"
@@ -50,6 +53,8 @@ function extractDomain(url: string | undefined): string | undefined {
 interface ProfileScreenProps {
   client: XClient;
   username: string;
+  /** Current logged-in user (used to detect self-view) */
+  currentUser?: UserData;
   focused?: boolean;
   onBack?: () => void;
   onPostSelect?: (post: TweetData) => void;
@@ -74,6 +79,7 @@ interface ProfileScreenProps {
 export function ProfileScreen({
   client,
   username,
+  currentUser,
   focused = false,
   onBack,
   onPostSelect,
@@ -84,10 +90,30 @@ export function ProfileScreen({
   initActionState,
   showFooter = true,
 }: ProfileScreenProps) {
-  const { user, tweets, loading, error, refresh } = useUserProfile({
+  // Detect if viewing own profile
+  const isSelf = Boolean(
+    currentUser && username.toLowerCase() === currentUser.username.toLowerCase()
+  );
+
+  const {
+    user,
+    tweets,
+    loading,
+    error,
+    refresh,
+    likedTweets,
+    likesLoading,
+    likesError,
+    fetchLikes,
+    likesFetched,
+  } = useUserProfile({
     client,
     username,
+    isSelf,
   });
+
+  // Tab state (only used when isSelf)
+  const [activeTab, setActiveTab] = useState<ProfileTab>("tweets");
 
   // Track if header should be collapsed (when scrolled past first tweet)
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -95,6 +121,13 @@ export function ProfileScreen({
   // Mentions navigation state
   const [mentionsMode, setMentionsMode] = useState(false);
   const [mentionIndex, setMentionIndex] = useState(0);
+
+  // Fetch likes when switching to likes tab for the first time
+  useEffect(() => {
+    if (isSelf && activeTab === "likes" && !likesFetched && !likesLoading) {
+      fetchLikes();
+    }
+  }, [isSelf, activeTab, likesFetched, likesLoading, fetchLikes]);
 
   // Extract mentions from bio
   const bioMentions = user?.description
@@ -191,6 +224,20 @@ export function ProfileScreen({
           }
         }
         break;
+      case "1":
+        // Switch to tweets tab (only on own profile)
+        if (isSelf && activeTab !== "tweets") {
+          setActiveTab("tweets");
+          setIsCollapsed(false);
+        }
+        break;
+      case "2":
+        // Switch to likes tab (only on own profile)
+        if (isSelf && activeTab !== "likes") {
+          setActiveTab("likes");
+          setIsCollapsed(false);
+        }
+        break;
     }
   });
 
@@ -206,6 +253,7 @@ export function ProfileScreen({
     >
       <text fg={colors.dim}>{mentionsMode ? "<- Back (Esc) | " : "<- "}</text>
       {mentionsMode && <text fg={colors.primary}>Navigating mentions </text>}
+      {isSelf && <text fg={colors.primary}>My Profile </text>}
       <text fg="#ffffff">
         <b>{user.name}</b>
       </text>
@@ -232,6 +280,7 @@ export function ProfileScreen({
       <box style={{ paddingLeft: 1, paddingRight: 1, flexDirection: "row" }}>
         <text fg={colors.dim}>{mentionsMode ? "<- Back (Esc) | " : "<- "}</text>
         {mentionsMode && <text fg={colors.primary}>Navigating mentions </text>}
+        {isSelf && <text fg={colors.primary}>My Profile </text>}
         <text fg="#ffffff">
           <b>{user.name}</b>
         </text>
@@ -343,6 +392,29 @@ export function ProfileScreen({
     </box>
   );
 
+  // Tab bar for own profile (Tweets | Likes)
+  const tabBar = isSelf && (
+    <box
+      style={{
+        paddingLeft: 1,
+        paddingRight: 1,
+        flexShrink: 0,
+        flexDirection: "row",
+      }}
+    >
+      <text fg={activeTab === "tweets" ? colors.primary : colors.dim}>
+        {activeTab === "tweets" ? <b>[1] Tweets</b> : " 1  Tweets"}
+      </text>
+      <text fg={colors.dim}> | </text>
+      <text fg={activeTab === "likes" ? colors.primary : colors.dim}>
+        {activeTab === "likes" ? <b>[2] Likes</b> : " 2  Likes"}
+      </text>
+      {activeTab === "likes" && likesLoading && (
+        <text fg={colors.muted}> (loading...)</text>
+      )}
+    </box>
+  );
+
   // Separator
   const separator = (
     <box
@@ -360,7 +432,12 @@ export function ProfileScreen({
     </box>
   );
 
+  // Determine which posts to show based on active tab
+  const displayPosts = isSelf && activeTab === "likes" ? likedTweets : tweets;
+  const displayError = isSelf && activeTab === "likes" ? likesError : null;
+
   // Footer keybindings - show available actions based on what data exists
+  // Tab keybindings (1/2) are shown in the tab bar itself, not in footer
   const footerBindings: Keybinding[] = [
     { key: "h/Esc", label: "back" },
     { key: "j/k", label: "nav" },
@@ -414,13 +491,24 @@ export function ProfileScreen({
     );
   }
 
+  // Empty state message based on active tab
+  const emptyMessage =
+    isSelf && activeTab === "likes"
+      ? "No liked tweets"
+      : "No tweets to display";
+
   return (
     <box style={{ flexDirection: "column", height: "100%" }}>
       {isCollapsed ? compactHeader : fullHeader}
+      {tabBar}
       {separator}
-      {tweets.length > 0 ? (
+      {displayError ? (
+        <box style={{ padding: 1, flexGrow: 1 }}>
+          <text fg="#ff6666">Error: {displayError}</text>
+        </box>
+      ) : displayPosts.length > 0 ? (
         <PostList
-          posts={tweets}
+          posts={displayPosts}
           focused={focused}
           onPostSelect={onPostSelect}
           onSelectedIndexChange={handleSelectedIndexChange}
@@ -431,7 +519,7 @@ export function ProfileScreen({
         />
       ) : (
         <box style={{ padding: 1, flexGrow: 1 }}>
-          <text fg={colors.muted}>No tweets to display</text>
+          <text fg={colors.muted}>{emptyMessage}</text>
         </box>
       )}
       <Footer bindings={footerBindings} visible={showFooter} />

@@ -3439,6 +3439,11 @@ export class XClient {
     );
   }
 
+  private async getLikesQueryIds(): Promise<string[]> {
+    const primary = await this.getQueryId("Likes");
+    return Array.from(new Set([primary, "JR2gceKucIKcVNB_9JkhsA"]));
+  }
+
   private buildUserProfileFeatures(): Record<string, boolean> {
     return {
       ...this.buildSearchFeatures(),
@@ -3866,6 +3871,121 @@ export class XClient {
       error:
         firstAttempt.error ?? restResult.error ?? "Failed to fetch user tweets",
     };
+  }
+
+  /**
+   * Get the current user's liked tweets
+   * @param count Number of tweets to fetch (default 20)
+   */
+  async getLikes(count = 20): Promise<import("./types").UserTweetsResult> {
+    // Get current user ID first
+    const userResult = await this.getCurrentUser();
+    if (!userResult.success || !userResult.user) {
+      return {
+        success: false,
+        error: userResult.error ?? "Could not determine current user",
+      };
+    }
+
+    const variables = {
+      userId: userResult.user.id,
+      count,
+      includePromotedContent: false,
+      withClientEventToken: false,
+      withBirdwatchNotes: false,
+      withVoice: true,
+    };
+
+    const features = this.buildTimelineFeatures();
+
+    const tryOnce = async () => {
+      let lastError: string | undefined;
+      let had404 = false;
+      const queryIds = await this.getLikesQueryIds();
+
+      for (const queryId of queryIds) {
+        const params = new URLSearchParams({
+          variables: JSON.stringify(variables),
+          features: JSON.stringify(features),
+        });
+        const url = `${X_API_BASE}/${queryId}/Likes?${params.toString()}`;
+
+        try {
+          const response = await this.fetchWithTimeout(url, {
+            method: "GET",
+            headers: this.getHeaders(),
+          });
+
+          if (response.status === 404) {
+            had404 = true;
+            lastError = `HTTP ${response.status}`;
+            continue;
+          }
+
+          if (!response.ok) {
+            const text = await response.text();
+            return {
+              success: false as const,
+              error: `HTTP ${response.status}: ${text.slice(0, 200)}`,
+              had404,
+            };
+          }
+
+          // biome-ignore lint/suspicious/noExplicitAny: X API response varies
+          const data = (await response.json()) as any;
+
+          if (data.errors && data.errors.length > 0) {
+            return {
+              success: false as const,
+              error: data.errors
+                .map((e: { message: string }) => e.message)
+                .join(", "),
+              had404,
+            };
+          }
+
+          // Likes endpoint uses different response path than UserTweets
+          const instructions =
+            data.data?.user?.result?.timeline?.timeline?.instructions;
+
+          if (!instructions) {
+            lastError = "No instructions found in response";
+            continue;
+          }
+
+          const tweets = this.parseTweetsFromInstructions(
+            instructions,
+            this.quoteDepth
+          );
+
+          return { success: true as const, tweets, had404 };
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : String(error);
+        }
+      }
+
+      return {
+        success: false as const,
+        error: lastError ?? "Unknown error fetching likes",
+        had404,
+      };
+    };
+
+    const firstAttempt = await tryOnce();
+    if (firstAttempt.success) {
+      return { success: true, tweets: firstAttempt.tweets };
+    }
+
+    if (firstAttempt.had404) {
+      await this.refreshQueryIds();
+      const secondAttempt = await tryOnce();
+      if (secondAttempt.success) {
+        return { success: true, tweets: secondAttempt.tweets };
+      }
+      return { success: false, error: secondAttempt.error };
+    }
+
+    return { success: false, error: firstAttempt.error };
   }
 
   /**

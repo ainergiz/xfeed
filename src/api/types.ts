@@ -389,6 +389,7 @@ export type OperationName =
   | "HomeLatestTimeline"
   | "UserByScreenName"
   | "UserTweets"
+  | "Likes"
   | "BookmarkFoldersSlice"
   | "bookmarkTweetToFolder"
   | "NotificationsTimeline";
