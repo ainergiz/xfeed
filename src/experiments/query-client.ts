@@ -114,6 +114,7 @@ export const queryKeys = {
   notifications: {
     all: ["notifications"] as const,
     list: () => [...queryKeys.notifications.all, "list"] as const,
+    poll: () => [...queryKeys.notifications.all, "poll"] as const,
   },
   tweet: {
     all: ["tweet"] as const,

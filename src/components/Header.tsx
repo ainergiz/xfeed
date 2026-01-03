@@ -42,7 +42,7 @@ export function Header({
     >
       <text fg={colors.primary}>xfeed</text>
       {unreadNotificationCount !== undefined && unreadNotificationCount > 0 && (
-        <text fg={colors.error}> ({unreadNotificationCount})</text>
+        <text fg={colors.error}> 🔔 {unreadNotificationCount}</text>
       )}
       <text fg={colors.dim}> | </text>
       <text fg="#ffffff">{viewLabel}</text>
