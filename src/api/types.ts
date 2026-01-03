@@ -113,6 +113,8 @@ export interface TweetData {
   favorited?: boolean;
   /** Whether the tweet is bookmarked by the current user */
   bookmarked?: boolean;
+  /** First nested reply preview (display-only, not navigable) */
+  nestedReplyPreview?: TweetData;
 }
 
 /**

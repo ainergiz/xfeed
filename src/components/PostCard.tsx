@@ -8,8 +8,24 @@ import { colors } from "@/lib/colors";
 import { formatCount, formatRelativeTime, truncateText } from "@/lib/format";
 
 import { QuotedPostCard } from "./QuotedPostCard";
+import { ReplyPreviewCard } from "./ReplyPreviewCard";
 
 const MAX_TEXT_LINES = 3;
+
+/**
+ * Strip leading @mention from reply text if it matches the parent author.
+ * This removes redundant mentions when viewing replies in a thread context.
+ *
+ * Only strips if:
+ * - The mention is at the very beginning of the text
+ * - It's a single mention (not @user1 @user2 text)
+ */
+function stripLeadingMention(text: string, username: string): string {
+  // Match @username at start, followed by optional whitespace
+  // But NOT followed by another @mention (to preserve multi-mention replies)
+  const pattern = new RegExp(`^@${username}\\s+(?!@)`, "i");
+  return text.replace(pattern, "");
+}
 
 interface PostCardProps {
   post: TweetData;
@@ -23,6 +39,10 @@ interface PostCardProps {
   isJustLiked?: boolean;
   /** True briefly after bookmarking (for visual pulse feedback) */
   isJustBookmarked?: boolean;
+  /** Parent post author username - if provided, strips leading @mention matching this user */
+  parentAuthorUsername?: string;
+  /** Main post author username (for nested reply mention stripping) */
+  mainPostAuthorUsername?: string;
 }
 
 // Unicode symbols for like/bookmark states
@@ -39,8 +59,13 @@ export function PostCard({
   isBookmarked,
   isJustLiked,
   isJustBookmarked,
+  parentAuthorUsername,
+  mainPostAuthorUsername,
 }: PostCardProps) {
-  const displayText = truncateText(post.text, MAX_TEXT_LINES);
+  const textToDisplay = parentAuthorUsername
+    ? stripLeadingMention(post.text, parentAuthorUsername)
+    : post.text;
+  const displayText = truncateText(textToDisplay, MAX_TEXT_LINES);
   const timeAgo = formatRelativeTime(post.createdAt);
   const hasMedia = post.media && post.media.length > 0;
 
@@ -142,6 +167,19 @@ export function PostCard({
               </text>
             );
           })}
+        </box>
+      )}
+
+      {/* Nested reply preview (if present) */}
+      {post.nestedReplyPreview && (
+        <box style={{ paddingLeft: 2 }}>
+          <ReplyPreviewCard
+            reply={post.nestedReplyPreview}
+            stripMentions={[
+              post.author.username,
+              ...(mainPostAuthorUsername ? [mainPostAuthorUsername] : []),
+            ]}
+          />
         </box>
       )}
     </box>
