@@ -16,6 +16,7 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { colors } from "@/lib/colors";
 import { formatCount } from "@/lib/format";
 import { openInBrowser, previewImageUrl } from "@/lib/media";
+import { extractMentions, renderTextWithMentions } from "@/lib/text";
 
 /**
  * Format X's created_at date to "Joined Month Year"
@@ -52,6 +53,8 @@ interface ProfileScreenProps {
   focused?: boolean;
   onBack?: () => void;
   onPostSelect?: (post: TweetData) => void;
+  /** Called when user navigates to a mentioned profile */
+  onProfileOpen?: (username: string) => void;
   /** Called when user presses 'l' to toggle like */
   onLike?: (post: TweetData) => void;
   /** Called when user presses 'b' to toggle bookmark */
@@ -74,6 +77,7 @@ export function ProfileScreen({
   focused = false,
   onBack,
   onPostSelect,
+  onProfileOpen,
   onLike,
   onBookmark,
   getActionState,
@@ -88,6 +92,18 @@ export function ProfileScreen({
   // Track if header should be collapsed (when scrolled past first tweet)
   const [isCollapsed, setIsCollapsed] = useState(false);
 
+  // Mentions navigation state
+  const [mentionsMode, setMentionsMode] = useState(false);
+  const [mentionIndex, setMentionIndex] = useState(0);
+
+  // Extract mentions from bio
+  const bioMentions = user?.description
+    ? extractMentions(user.description)
+    : [];
+  const hasMentions = bioMentions.length > 0;
+  const mentionCount = bioMentions.length;
+  const currentMention = hasMentions ? bioMentions[mentionIndex] : undefined;
+
   const handleSelectedIndexChange = useCallback((index: number) => {
     setIsCollapsed(index > 0);
   }, []);
@@ -95,6 +111,36 @@ export function ProfileScreen({
   // Handle keyboard shortcuts
   useKeyboard((key) => {
     if (!focused) return;
+
+    // Handle mentions mode navigation
+    if (mentionsMode && hasMentions) {
+      // Exit mentions mode with escape or h
+      if (key.name === "escape" || key.name === "h") {
+        setMentionsMode(false);
+        return;
+      }
+      // Navigate mentions with j/k
+      if (key.name === "j" || key.name === "down") {
+        if (mentionIndex < mentionCount - 1) {
+          setMentionIndex((prev) => prev + 1);
+        }
+        return;
+      }
+      if (key.name === "k" || key.name === "up") {
+        if (mentionIndex > 0) {
+          setMentionIndex((prev) => prev - 1);
+        }
+        return;
+      }
+      // Open mention profile with Enter
+      if (key.name === "return") {
+        if (currentMention) {
+          onProfileOpen?.(currentMention);
+        }
+        return;
+      }
+      // Other keys exit mentions mode and proceed
+    }
 
     switch (key.name) {
       case "escape":
@@ -129,6 +175,22 @@ export function ProfileScreen({
           openInBrowser(`https://x.com/${user.username}`);
         }
         break;
+      case "m":
+        // Handle mentions: single = direct profile, multiple = enter mode
+        if (hasMentions && !mentionsMode) {
+          if (mentionCount === 1) {
+            // Single mention - open profile directly
+            const mention = bioMentions[0];
+            if (mention) {
+              onProfileOpen?.(mention);
+            }
+          } else {
+            // Multiple mentions - enter navigation mode
+            setMentionsMode(true);
+            setMentionIndex(0);
+          }
+        }
+        break;
     }
   });
 
@@ -142,7 +204,8 @@ export function ProfileScreen({
         flexDirection: "row",
       }}
     >
-      <text fg={colors.dim}>{"<- "}</text>
+      <text fg={colors.dim}>{mentionsMode ? "<- Back (Esc) | " : "<- "}</text>
+      {mentionsMode && <text fg={colors.primary}>Navigating mentions </text>}
       <text fg="#ffffff">
         <b>{user.name}</b>
       </text>
@@ -156,10 +219,19 @@ export function ProfileScreen({
   const websiteDomain = extractDomain(user?.websiteUrl);
 
   const fullHeader = user && (
-    <box style={{ flexShrink: 0, flexDirection: "column" }}>
+    <box
+      style={{
+        flexShrink: 0,
+        flexDirection: "column",
+        justifyContent: "flex-start",
+        marginBottom: 0,
+        paddingBottom: 0,
+      }}
+    >
       {/* Back hint + Name + Handle on same line */}
       <box style={{ paddingLeft: 1, paddingRight: 1, flexDirection: "row" }}>
-        <text fg={colors.dim}>{"<- "}</text>
+        <text fg={colors.dim}>{mentionsMode ? "<- Back (Esc) | " : "<- "}</text>
+        {mentionsMode && <text fg={colors.primary}>Navigating mentions </text>}
         <text fg="#ffffff">
           <b>{user.name}</b>
         </text>
@@ -167,10 +239,18 @@ export function ProfileScreen({
         <text fg={colors.muted}> @{user.username}</text>
       </box>
 
-      {/* Bio */}
+      {/* Bio - highlight @mentions in blue */}
       {user.description && (
         <box style={{ paddingLeft: 1, paddingRight: 1 }}>
-          <text fg="#cccccc">{user.description}</text>
+          {hasMentions ? (
+            renderTextWithMentions(
+              user.description.trim(),
+              colors.primary,
+              "#cccccc"
+            )
+          ) : (
+            <text fg="#cccccc">{user.description.trim()}</text>
+          )}
         </box>
       )}
 
@@ -212,12 +292,70 @@ export function ProfileScreen({
         <text fg="#ffffff">{formatCount(user.followingCount)}</text>
         <text fg={colors.muted}> Following</text>
       </box>
+
+      {/* Mentions section - simplified UI based on count */}
+      {hasMentions && (
+        <box
+          style={{ paddingLeft: 1, paddingRight: 1, flexDirection: "column" }}
+        >
+          {mentionCount === 1 ? (
+            // Single mention - show directly with profile shortcut
+            <box style={{ flexDirection: "row" }}>
+              <text fg={colors.dim}>Mentions: </text>
+              <text fg={colors.primary}>@{bioMentions[0]}</text>
+              <text fg={colors.dim}> (</text>
+              <text fg={colors.primary}>m</text>
+              <text fg={colors.dim}> profile)</text>
+            </box>
+          ) : mentionsMode ? (
+            // Multiple mentions - navigation mode active
+            <>
+              <box style={{ flexDirection: "row" }}>
+                <text fg={colors.dim}>Mentions ({mentionCount}): </text>
+                <text fg={colors.primary}>j/k</text>
+                <text fg={colors.dim}> navigate </text>
+                <text fg={colors.primary}>Enter</text>
+                <text fg={colors.dim}> profile</text>
+              </box>
+              {bioMentions.map((mention, idx) => {
+                const isSelected = idx === mentionIndex;
+                return (
+                  <box key={mention} style={{ flexDirection: "row" }}>
+                    <text fg={isSelected ? colors.primary : colors.muted}>
+                      {isSelected ? ">" : " "} @{mention}
+                    </text>
+                  </box>
+                );
+              })}
+            </>
+          ) : (
+            // Multiple mentions - collapsed view
+            <box style={{ flexDirection: "row" }}>
+              <text fg={colors.dim}>Mentions: </text>
+              <text fg={colors.primary}>@{bioMentions[0]}</text>
+              <text fg={colors.dim}> +{mentionCount - 1} more (</text>
+              <text fg={colors.primary}>m</text>
+              <text fg={colors.dim}> to navigate)</text>
+            </box>
+          )}
+        </box>
+      )}
     </box>
   );
 
   // Separator
   const separator = (
-    <box style={{ paddingLeft: 1, paddingRight: 1, flexShrink: 0 }}>
+    <box
+      style={{
+        paddingLeft: 1,
+        paddingRight: 1,
+        flexShrink: 0,
+        marginTop: 0,
+        marginBottom: 0,
+        paddingTop: 0,
+        paddingBottom: 0,
+      }}
+    >
       <text fg="#444444">{"─".repeat(50)}</text>
     </box>
   );
@@ -228,6 +366,11 @@ export function ProfileScreen({
     { key: "j/k", label: "nav" },
     { key: "l", label: "like" },
     { key: "b", label: "bkmk" },
+    {
+      key: "m",
+      label: mentionCount === 1 ? "@profile" : "mentions",
+      show: hasMentions && !mentionsMode,
+    },
     { key: "a", label: "avatar", show: !!user?.profileImageUrl },
     { key: "v", label: "banner", show: !!user?.bannerImageUrl },
     { key: "w", label: "web", show: !!user?.websiteUrl },
