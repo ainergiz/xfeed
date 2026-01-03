@@ -13,8 +13,38 @@ import type { TweetActionState } from "@/hooks/useActions";
 import { PostList } from "@/components/PostList";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { formatCount } from "@/lib/format";
+import { openInBrowser, previewImageUrl } from "@/lib/media";
 
 const X_BLUE = "#1DA1F2";
+
+/**
+ * Format Twitter's created_at date to "Joined Month Year"
+ */
+function formatJoinDate(createdAt: string | undefined): string | undefined {
+  if (!createdAt) return undefined;
+  try {
+    const date = new Date(createdAt);
+    if (Number.isNaN(date.getTime())) return undefined;
+    const month = date.toLocaleDateString("en-US", { month: "long" });
+    const year = date.getFullYear();
+    return `Joined ${month} ${year}`;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Extract display domain from a URL
+ */
+function extractDomain(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname.replace(/^www\./, "");
+  } catch {
+    return undefined;
+  }
+}
 
 interface ProfileScreenProps {
   client: TwitterClient;
@@ -75,6 +105,30 @@ export function ProfileScreen({
       case "r":
         refresh();
         break;
+      case "a":
+        // Open avatar/profile photo in Quick Look
+        if (user?.profileImageUrl) {
+          previewImageUrl(user.profileImageUrl, `profile_${user.username}`);
+        }
+        break;
+      case "v":
+        // View banner image in Quick Look
+        if (user?.bannerImageUrl) {
+          previewImageUrl(user.bannerImageUrl, `banner_${user.username}`);
+        }
+        break;
+      case "w":
+        // Open website in browser
+        if (user?.websiteUrl) {
+          openInBrowser(user.websiteUrl);
+        }
+        break;
+      case "x":
+        // Open profile on x.com
+        if (user?.username) {
+          openInBrowser(`https://x.com/${user.username}`);
+        }
+        break;
     }
   });
 
@@ -98,6 +152,9 @@ export function ProfileScreen({
   );
 
   // Full profile header with back hint, bio, and stats
+  const joinDate = formatJoinDate(user?.createdAt);
+  const websiteDomain = extractDomain(user?.websiteUrl);
+
   const fullHeader = user && (
     <box style={{ flexShrink: 0, flexDirection: "column" }}>
       {/* Back hint + Name + Handle on same line */}
@@ -114,6 +171,36 @@ export function ProfileScreen({
       {user.description && (
         <box style={{ paddingLeft: 1, paddingRight: 1 }}>
           <text fg="#cccccc">{user.description}</text>
+        </box>
+      )}
+
+      {/* Location, Website, Join Date row */}
+      {(user.location || websiteDomain || joinDate) && (
+        <box style={{ paddingLeft: 1, paddingRight: 1, flexDirection: "row" }}>
+          {user.location && (
+            <>
+              <text fg="#888888">{"\u{1F4CD}"} </text>
+              <text fg="#aaaaaa">{user.location}</text>
+            </>
+          )}
+          {user.location && websiteDomain && (
+            <text fg="#666666"> {"\u00B7"} </text>
+          )}
+          {websiteDomain && (
+            <>
+              <text fg="#888888">{"\u{1F517}"} </text>
+              <text fg={X_BLUE}>{websiteDomain}</text>
+            </>
+          )}
+          {(user.location || websiteDomain) && joinDate && (
+            <text fg="#666666"> {"\u00B7"} </text>
+          )}
+          {joinDate && (
+            <>
+              <text fg="#888888">{"\u{1F4C5}"} </text>
+              <text fg="#aaaaaa">{joinDate}</text>
+            </>
+          )}
         </box>
       )}
 
@@ -135,7 +222,7 @@ export function ProfileScreen({
     </box>
   );
 
-  // Footer
+  // Footer - show available actions based on what data exists
   const footerContent = (
     <box
       style={{
@@ -152,7 +239,27 @@ export function ProfileScreen({
       <text fg="#ffffff">l</text>
       <text fg="#666666"> like </text>
       <text fg="#ffffff">b</text>
-      <text fg="#666666"> bookmark </text>
+      <text fg="#666666"> bkmk </text>
+      {user?.profileImageUrl && (
+        <>
+          <text fg="#ffffff">a</text>
+          <text fg="#666666"> avatar </text>
+        </>
+      )}
+      {user?.bannerImageUrl && (
+        <>
+          <text fg="#ffffff">v</text>
+          <text fg="#666666"> banner </text>
+        </>
+      )}
+      {user?.websiteUrl && (
+        <>
+          <text fg="#ffffff">w</text>
+          <text fg="#666666"> web </text>
+        </>
+      )}
+      <text fg="#ffffff">x</text>
+      <text fg="#666666"> x.com </text>
       <text fg="#ffffff">r</text>
       <text fg="#666666"> refresh</text>
     </box>

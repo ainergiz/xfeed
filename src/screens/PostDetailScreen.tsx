@@ -928,7 +928,7 @@ export function PostDetailScreen({
       {hasLinks && (
         <>
           <text fg="#ffffff"> o</text>
-          <text fg="#666666"> ext</text>
+          <text fg="#666666"> link</text>
           {linkCount > 1 && (
             <>
               <text fg="#ffffff"> ,/.</text>

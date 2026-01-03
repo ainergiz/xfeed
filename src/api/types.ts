@@ -160,6 +160,16 @@ export interface UserProfileData {
   followersCount?: number;
   followingCount?: number;
   isBlueVerified?: boolean;
+  /** Profile photo URL */
+  profileImageUrl?: string;
+  /** Banner/header image URL */
+  bannerImageUrl?: string;
+  /** User's location string */
+  location?: string;
+  /** User's website URL (expanded) */
+  websiteUrl?: string;
+  /** Account creation date (ISO string) */
+  createdAt?: string;
 }
 
 /**

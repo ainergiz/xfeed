@@ -3240,6 +3240,20 @@ export class TwitterClient {
                     description?: string;
                     followers_count?: number;
                     friends_count?: number;
+                    profile_image_url_https?: string;
+                    profile_banner_url?: string;
+                    location?: string;
+                    created_at?: string;
+                    url?: string;
+                    entities?: {
+                      url?: {
+                        urls?: Array<{
+                          url?: string;
+                          expanded_url?: string;
+                          display_url?: string;
+                        }>;
+                      };
+                    };
                   };
                 };
               };
@@ -3264,6 +3278,28 @@ export class TwitterClient {
             };
           }
 
+          // Some query IDs return incomplete data (missing name, screen_name, profile_image)
+          // If essential fields are missing, try the next query ID
+          if (!result.legacy?.screen_name || !result.legacy?.name) {
+            lastError = "Incomplete user data";
+            continue;
+          }
+
+          // Extract website URL from entities (expanded URL is more useful)
+          const websiteUrl =
+            result.legacy?.entities?.url?.urls?.[0]?.expanded_url ||
+            result.legacy?.url;
+
+          // Get higher resolution profile image (replace _normal with _400x400)
+          // URL may have query params, so don't anchor to end with $
+          const rawProfileImageUrl = result.legacy?.profile_image_url_https;
+          const profileImageUrl = rawProfileImageUrl
+            ? rawProfileImageUrl.replace(
+                /_normal\.(jpg|jpeg|png|gif|webp)/i,
+                "_400x400.$1"
+              )
+            : undefined;
+
           const user: import("./types").UserProfileData = {
             id: result.rest_id || result.id || "",
             username: result.legacy?.screen_name || screenName,
@@ -3272,6 +3308,11 @@ export class TwitterClient {
             followersCount: result.legacy?.followers_count,
             followingCount: result.legacy?.friends_count,
             isBlueVerified: result.is_blue_verified,
+            profileImageUrl,
+            bannerImageUrl: result.legacy?.profile_banner_url,
+            location: result.legacy?.location || undefined,
+            websiteUrl,
+            createdAt: result.legacy?.created_at,
           };
 
           return { success: true as const, user, had404 };
