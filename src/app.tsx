@@ -59,11 +59,35 @@ export function App({ client, user: _user }: AppProps) {
     });
   }, [client]);
 
+  // Ref to store BookmarksScreen's removePost function for sync
+  const bookmarksRemovePostRef = useRef<((tweetId: string) => void) | null>(
+    null
+  );
+
+  // Callback to register BookmarksScreen's removePost function
+  const handleRegisterRemovePost = useCallback(
+    (removePost: (tweetId: string) => void) => {
+      bookmarksRemovePostRef.current = removePost;
+    },
+    []
+  );
+
+  // Handle bookmark state changes - sync with BookmarksScreen
+  const handleBookmarkChange = useCallback(
+    (tweetId: string, isBookmarked: boolean) => {
+      if (!isBookmarked && bookmarksRemovePostRef.current) {
+        bookmarksRemovePostRef.current(tweetId);
+      }
+    },
+    []
+  );
+
   // Actions hook for like/bookmark mutations
   const { toggleLike, toggleBookmark, getState, initState } = useActions({
     client,
     onError: (error) => setActionMessage(`Error: ${error}`),
     onSuccess: (message) => setActionMessage(message),
+    onBookmarkChange: handleBookmarkChange,
   });
 
   // Clear action message after 3 seconds
@@ -502,6 +526,7 @@ export function App({ client, user: _user }: AppProps) {
             getActionState={getState}
             initActionState={initState}
             actionMessage={actionMessage}
+            onRegisterRemovePost={handleRegisterRemovePost}
           />
         </box>
 

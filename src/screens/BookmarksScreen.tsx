@@ -33,6 +33,8 @@ interface BookmarksScreenProps {
   ) => void;
   /** Action feedback message */
   actionMessage?: string | null;
+  /** Callback to register the removePost function for external sync */
+  onRegisterRemovePost?: (removePost: (tweetId: string) => void) => void;
 }
 
 function ScreenHeader() {
@@ -76,6 +78,7 @@ export function BookmarksScreen({
   getActionState,
   initActionState,
   actionMessage,
+  onRegisterRemovePost,
 }: BookmarksScreenProps) {
   const {
     posts,
@@ -88,7 +91,13 @@ export function BookmarksScreen({
     loadMore,
     retryBlocked,
     retryCountdown,
+    removePost,
   } = useBookmarks({ client });
+
+  // Register removePost function for external bookmark sync
+  useEffect(() => {
+    onRegisterRemovePost?.(removePost);
+  }, [onRegisterRemovePost, removePost]);
 
   // Report post count to parent
   useEffect(() => {
