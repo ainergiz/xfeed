@@ -40,7 +40,9 @@ import {
   loadConfig,
   updateConfig,
 } from "@/config/loader";
+import { getPreferencesPath, loadPreferences } from "@/config/preferences";
 import { ModalProvider } from "@/contexts/ModalContext";
+import { PreferencesProvider } from "@/contexts/PreferencesContext";
 
 const cli = cac("xfeed");
 
@@ -283,6 +285,18 @@ cli
         }
       }
 
+      // Load user preferences
+      const { preferences, warnings: prefWarnings } = loadPreferences();
+
+      // Show preference warnings if any
+      if (prefWarnings.length > 0) {
+        console.warn("Preference warnings:");
+        for (const warning of prefWarnings) {
+          console.warn(`  - ${warning}`);
+        }
+        console.warn(`  Config file: ${getPreferencesPath()}\n`);
+      }
+
       // Clear screen before launching TUI (removes any auth flow output)
       process.stdout.write("\x1b[2J\x1b[H");
 
@@ -292,9 +306,11 @@ cli
       });
 
       createRoot(renderer).render(
-        <ModalProvider>
-          <App client={authResult.client} user={authResult.user} />
-        </ModalProvider>
+        <PreferencesProvider preferences={preferences}>
+          <ModalProvider>
+            <App client={authResult.client} user={authResult.user} />
+          </ModalProvider>
+        </PreferencesProvider>
       );
     }
   );
