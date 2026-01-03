@@ -35,5 +35,12 @@
   },
   "engines": {
     "bun": ">= 1.0"
-  }
+  },
+  "files": [
+    "src",
+    "vendor"
+  ],
+  "bundledDependencies": [
+    "@steipete/sweet-cookie"
+  ]
 }
