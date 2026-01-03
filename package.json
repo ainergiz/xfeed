@@ -1,11 +1,13 @@
 {
   "name": "xfeed",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Terminal-based X/Twitter viewer with vim-style navigation. Install with: bun install -g xfeed",
   "type": "module",
-  "bin": "./src/index.tsx",
+  "bin": "./dist/index.js",
   "scripts": {
     "start": "bun src/index.tsx",
+    "build": "bun build src/index.tsx --outdir dist --target bun --external '@opentui/*' --external 'react' --external '@tanstack/*' --external 'cac' --external 'x-client-transaction-id' --external '@steipete/sweet-cookie'",
+    "prepublishOnly": "bun run build",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint src && oxfmt --check src",
     "lint:fix": "oxlint --fix src && oxfmt --write src",
@@ -38,7 +40,7 @@
     "bun": ">= 1.0"
   },
   "files": [
-    "src",
+    "dist",
     "vendor"
   ]
 }
