@@ -76,10 +76,16 @@ type Result<T, E = string> = { ok: true; value: T } | { ok: false; error: E }
 
 ### Reference Code
 
-The `.context/repos/` directory contains reference implementations:
-- `bird/` - CLI tool with XClient implementation
+Since OpenTUI is a very new library, reference repos in `.context/repos/` are essential for development. If the directory doesn't exist, run:
+
+```bash
+bun run sync-context
+```
+
+This reads from `conductor.json` and clones/updates:
 - `opentui/` - OpenTUI framework (core + react)
-- `x-client-transaction-id/` - Transaction ID generator for API mutations (see `docs/x-client-transaction-id.md`)
+- `bird/` - X API client reference implementation
+- `x-client-transaction-id/` - Transaction ID generator for X API mutations (see `docs/x-client-transaction-id.md`)
 
 ## Tech Stack
 

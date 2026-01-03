@@ -24,6 +24,16 @@ All pull requests must reference a GitHub issue (e.g., `#123` or `Fixes #123`) i
    bun run start
    ```
 
+### Reference Repos
+
+Since OpenTUI is a very new library, I strongly suggest cloning reference repos while developing new features. Use the sync-context script to clone them:
+
+```bash
+bun run sync-context
+```
+
+This reads from `conductor.json` and clones repos to `.context/repos/`. See [conductor.json docs](https://docs.conductor.build/core/conductor-json) for configuration details.
+
 ## Commands
 
 ```bash
