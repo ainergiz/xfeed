@@ -15,6 +15,8 @@ export interface UseActionsOptions {
   onError?: (error: string) => void;
   /** Callback when an action succeeds - use to show success message */
   onSuccess?: (message: string) => void;
+  /** Callback when bookmark state changes - use to sync bookmark list */
+  onBookmarkChange?: (tweetId: string, isBookmarked: boolean) => void;
 }
 
 export interface TweetActionState {
@@ -50,6 +52,7 @@ export function useActions({
   client,
   onError,
   onSuccess,
+  onBookmarkChange,
 }: UseActionsOptions): UseActionsResult {
   // Track action states by tweet ID
   const [states, setStates] = useState<Map<string, TweetActionState>>(
@@ -173,6 +176,7 @@ export function useActions({
         if (result.success) {
           updateState(tweet.id, { bookmarkPending: false });
           onSuccess?.(newBookmarked ? "Bookmarked" : "Removed bookmark");
+          onBookmarkChange?.(tweet.id, newBookmarked);
         } else {
           // Check if error indicates the tweet was already in the target state
           const lowerError = result.error.toLowerCase();
@@ -219,7 +223,7 @@ export function useActions({
         onError?.(error instanceof Error ? error.message : String(error));
       }
     },
-    [client, states, updateState, onError, onSuccess]
+    [client, states, updateState, onError, onSuccess, onBookmarkChange]
   );
 
   return {

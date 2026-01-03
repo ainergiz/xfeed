@@ -37,6 +37,8 @@ export interface UseBookmarksResult {
   retryBlocked: boolean;
   /** Seconds until retry is allowed (for rate limit countdown) */
   retryCountdown: number;
+  /** Remove a post from the list (used when unbookmarked from detail view) */
+  removePost: (tweetId: string) => void;
 }
 
 export function useBookmarks({
@@ -77,6 +79,11 @@ export function useBookmarks({
     getId,
   });
 
+  const removePost = useCallback((tweetId: string) => {
+    setPosts((prev) => prev.filter((post) => post.id !== tweetId));
+    seenIds.current.delete(tweetId);
+  }, []);
+
   return {
     posts,
     loading,
@@ -88,5 +95,6 @@ export function useBookmarks({
     loadMore,
     retryBlocked,
     retryCountdown,
+    removePost,
   };
 }
