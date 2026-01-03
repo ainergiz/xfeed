@@ -9,12 +9,9 @@ import type {
   UserData,
 } from "@/api/types";
 
-import { BookmarkFolderSelector } from "@/components/BookmarkFolderSelector";
-import { ExitConfirmationModal } from "@/components/ExitConfirmationModal";
-import { FolderPicker } from "@/components/FolderPicker";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
-import { SessionExpiredModal } from "@/components/SessionExpiredModal";
+import { useModal } from "@/contexts/ModalContext";
 import { useActions } from "@/hooks/useActions";
 import { useNavigation } from "@/hooks/useNavigation";
 import { BookmarksScreen } from "@/screens/BookmarksScreen";
@@ -57,14 +54,16 @@ export function App({ client, user: _user }: AppProps) {
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [showFooter, setShowFooter] = useState(true);
-  const [sessionExpired, setSessionExpired] = useState(false);
+
+  // Modal context
+  const { openModal, closeModal, isModalOpen } = useModal();
 
   // Set up session expired callback
   useEffect(() => {
     client.setOnSessionExpired(() => {
-      setSessionExpired(true);
+      openModal("session-expired", {});
     });
-  }, [client]);
+  }, [client, openModal]);
 
   // Ref to store BookmarksScreen's removePost function for sync
   const bookmarksRemovePostRef = useRef<((tweetId: string) => void) | null>(
@@ -274,67 +273,47 @@ export function App({ client, user: _user }: AppProps) {
     [navigate, initState]
   );
 
-  // State for folder picker modal
-  const [showFolderPicker, setShowFolderPicker] = useState(false);
-
-  // State for exit confirmation modal
-  const [showExitConfirmation, setShowExitConfirmation] = useState(false);
-
-  // State for bookmark folder selector
-  const [showBookmarkFolderSelector, setShowBookmarkFolderSelector] =
-    useState(false);
+  // State for bookmark folder selection (view state, not modal state)
   const [selectedBookmarkFolder, setSelectedBookmarkFolder] =
     useState<BookmarkFolder | null>(null);
 
-  // Open folder picker from post detail
+  // Open folder picker modal from post detail
   const handleMoveToFolder = useCallback(() => {
-    setShowFolderPicker(true);
-  }, []);
+    if (!selectedPost) return;
 
-  // Handle folder selection
-  const handleFolderSelect = useCallback(
-    async (folderId: string, folderName: string) => {
-      if (!selectedPost) return;
+    openModal("folder-picker", {
+      client,
+      tweet: selectedPost,
+      onSelect: async (folderId: string, folderName: string) => {
+        const result = await client.moveBookmarkToFolder(
+          selectedPost.id,
+          folderId
+        );
 
-      const result = await client.moveBookmarkToFolder(
-        selectedPost.id,
-        folderId
-      );
+        if (result.success) {
+          setActionMessage(`Moved to "${folderName}"`);
+        } else {
+          setActionMessage(`Error: ${result.error}`);
+        }
 
-      if (result.success) {
-        setActionMessage(`Moved to "${folderName}"`);
-      } else {
-        setActionMessage(`Error: ${result.error}`);
-      }
+        closeModal();
+      },
+      onClose: closeModal,
+    });
+  }, [client, selectedPost, openModal, closeModal]);
 
-      setShowFolderPicker(false);
-    },
-    [client, selectedPost]
-  );
-
-  // Close folder picker
-  const handleFolderPickerClose = useCallback(() => {
-    setShowFolderPicker(false);
-  }, []);
-
-  // Open bookmark folder selector
+  // Open bookmark folder selector modal
   const handleBookmarkFolderSelectorOpen = useCallback(() => {
-    setShowBookmarkFolderSelector(true);
-  }, []);
-
-  // Select bookmark folder to view
-  const handleBookmarkFolderSelect = useCallback(
-    (folder: BookmarkFolder | null) => {
-      setSelectedBookmarkFolder(folder);
-      setShowBookmarkFolderSelector(false);
-    },
-    []
-  );
-
-  // Close bookmark folder selector
-  const handleBookmarkFolderSelectorClose = useCallback(() => {
-    setShowBookmarkFolderSelector(false);
-  }, []);
+    openModal("bookmark-folder-selector", {
+      client,
+      currentFolder: selectedBookmarkFolder,
+      onSelect: (folder: BookmarkFolder | null) => {
+        setSelectedBookmarkFolder(folder);
+        closeModal();
+      },
+      onClose: closeModal,
+    });
+  }, [client, selectedBookmarkFolder, openModal, closeModal]);
 
   // Handle notification select - navigate to tweet detail or profile based on type
   const handleNotificationSelect = useCallback(
@@ -377,7 +356,7 @@ export function App({ client, user: _user }: AppProps) {
 
   useKeyboard((key) => {
     // Don't handle keys when modals are showing - they handle their own keyboard
-    if (showExitConfirmation || showBookmarkFolderSelector) {
+    if (isModalOpen) {
       return;
     }
 
@@ -401,7 +380,10 @@ export function App({ client, user: _user }: AppProps) {
       if (isMainView) {
         if (currentView === "timeline") {
           // On timeline: show exit confirmation
-          setShowExitConfirmation(true);
+          openModal("exit-confirmation", {
+            onConfirm: () => renderer.destroy(),
+            onCancel: closeModal,
+          });
         } else {
           // On bookmarks/notifications: go to timeline
           navigate("timeline");
@@ -416,7 +398,10 @@ export function App({ client, user: _user }: AppProps) {
       if (isMainView) {
         if (currentView === "timeline") {
           // On timeline: show exit confirmation (same as escape)
-          setShowExitConfirmation(true);
+          openModal("exit-confirmation", {
+            onConfirm: () => renderer.destroy(),
+            onCancel: closeModal,
+          });
         } else {
           // On bookmarks/notifications: go to timeline
           navigate("timeline");
@@ -490,7 +475,7 @@ export function App({ client, user: _user }: AppProps) {
         >
           <TimelineScreen
             client={client}
-            focused={currentView === "timeline" && !showSplash}
+            focused={currentView === "timeline" && !showSplash && !isModalOpen}
             onPostCountChange={handlePostCountChange}
             onPostSelect={handlePostSelect}
             onLike={toggleLike}
@@ -501,47 +486,26 @@ export function App({ client, user: _user }: AppProps) {
         </box>
 
         {currentView === "post-detail" && selectedPost && (
-          <>
-            <PostDetailScreen
-              client={client}
-              tweet={selectedPost}
-              focused={!showFolderPicker}
-              onBack={handleBackFromDetail}
-              onProfileOpen={handleProfileOpen}
-              onLike={() => toggleLike(selectedPost)}
-              onBookmark={() => toggleBookmark(selectedPost)}
-              onMoveToFolder={handleMoveToFolder}
-              isLiked={getState(selectedPost.id).liked}
-              isBookmarked={getState(selectedPost.id).bookmarked}
-              isJustLiked={getState(selectedPost.id).justLiked}
-              isJustBookmarked={getState(selectedPost.id).justBookmarked}
-              onReplySelect={handlePostSelect}
-              getActionState={getState}
-              onThreadView={handleThreadView}
-              onQuoteSelect={handleQuoteSelect}
-              isLoadingQuote={isLoadingQuote}
-              showFooter={showFooter}
-            />
-            {showFolderPicker && (
-              <box
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  height: "100%",
-                }}
-              >
-                <FolderPicker
-                  client={client}
-                  tweet={selectedPost}
-                  onSelect={handleFolderSelect}
-                  onClose={handleFolderPickerClose}
-                  focused={true}
-                />
-              </box>
-            )}
-          </>
+          <PostDetailScreen
+            client={client}
+            tweet={selectedPost}
+            focused={!isModalOpen}
+            onBack={handleBackFromDetail}
+            onProfileOpen={handleProfileOpen}
+            onLike={() => toggleLike(selectedPost)}
+            onBookmark={() => toggleBookmark(selectedPost)}
+            onMoveToFolder={handleMoveToFolder}
+            isLiked={getState(selectedPost.id).liked}
+            isBookmarked={getState(selectedPost.id).bookmarked}
+            isJustLiked={getState(selectedPost.id).justLiked}
+            isJustBookmarked={getState(selectedPost.id).justBookmarked}
+            onReplySelect={handlePostSelect}
+            getActionState={getState}
+            onThreadView={handleThreadView}
+            onQuoteSelect={handleQuoteSelect}
+            isLoadingQuote={isLoadingQuote}
+            showFooter={showFooter}
+          />
         )}
 
         {/* Keep ThreadScreen mounted to preserve state, hide when not active */}
@@ -598,11 +562,7 @@ export function App({ client, user: _user }: AppProps) {
         >
           <BookmarksScreen
             client={client}
-            focused={
-              currentView === "bookmarks" &&
-              !showSplash &&
-              !showBookmarkFolderSelector
-            }
+            focused={currentView === "bookmarks" && !showSplash && !isModalOpen}
             selectedFolder={selectedBookmarkFolder}
             onFolderPickerOpen={handleBookmarkFolderSelectorOpen}
             onPostCountChange={handleBookmarkCountChange}
@@ -626,7 +586,9 @@ export function App({ client, user: _user }: AppProps) {
         >
           <NotificationsScreen
             client={client}
-            focused={currentView === "notifications" && !showSplash}
+            focused={
+              currentView === "notifications" && !showSplash && !isModalOpen
+            }
             onNotificationCountChange={handleNotificationCountChange}
             onUnreadCountChange={handleUnreadCountChange}
             onNotificationSelect={handleNotificationSelect}
@@ -635,49 +597,6 @@ export function App({ client, user: _user }: AppProps) {
       </box>
 
       {!showSplash && isMainView && <Footer visible={showFooter} />}
-
-      {/* Bookmark folder selector modal - rendered at root for full-screen overlay */}
-      {showBookmarkFolderSelector && (
-        <box
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-          }}
-        >
-          <BookmarkFolderSelector
-            client={client}
-            currentFolder={selectedBookmarkFolder}
-            onSelect={handleBookmarkFolderSelect}
-            onClose={handleBookmarkFolderSelectorClose}
-            focused={true}
-          />
-        </box>
-      )}
-
-      {/* Exit confirmation modal */}
-      {showExitConfirmation && (
-        <box
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-          }}
-        >
-          <ExitConfirmationModal
-            focused={true}
-            onConfirm={() => renderer.destroy()}
-            onCancel={() => setShowExitConfirmation(false)}
-          />
-        </box>
-      )}
-
-      {/* Session expired modal overlay */}
-      {sessionExpired && <SessionExpiredModal />}
     </box>
   );
 }

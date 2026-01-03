@@ -16,6 +16,7 @@ import {
   loadConfig,
   updateConfig,
 } from "@/config/loader";
+import { ModalProvider } from "@/contexts/ModalContext";
 
 const cli = cac("xfeed");
 
@@ -264,7 +265,9 @@ cli
       });
 
       createRoot(renderer).render(
-        <App client={authResult.client} user={authResult.user} />
+        <ModalProvider>
+          <App client={authResult.client} user={authResult.user} />
+        </ModalProvider>
       );
     }
   );
