@@ -461,8 +461,8 @@ export function App({ client, user: _user }: AppProps) {
       }
     }
 
-    // Toggle footer visibility with '?' - works on all screens
-    if (key.sequence === "?") {
+    // Toggle footer visibility with '.' - works on all screens
+    if (key.sequence === ".") {
       setShowFooter((prev) => !prev);
       return;
     }
