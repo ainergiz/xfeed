@@ -26,6 +26,12 @@ import {
   type LinkMetadata,
 } from "@/lib/media";
 
+// Unicode symbols for like/bookmark states
+const HEART_EMPTY = "\u2661"; // ♡
+const HEART_FILLED = "\u2665"; // ♥
+const FLAG_EMPTY = "\u2690"; // ⚐
+const FLAG_FILLED = "\u2691"; // ⚑
+
 /**
  * Generate element ID for reply cards (for scroll targeting)
  */
@@ -77,8 +83,10 @@ interface PostDetailScreenProps {
   isLiked?: boolean;
   /** Whether the tweet is currently bookmarked */
   isBookmarked?: boolean;
-  /** External action message to display (from parent) */
-  actionMessage?: string | null;
+  /** True briefly after liking (for visual pulse feedback) */
+  isJustLiked?: boolean;
+  /** True briefly after bookmarking (for visual pulse feedback) */
+  isJustBookmarked?: boolean;
   /** Called when user selects a reply to view */
   onReplySelect?: (reply: TweetData) => void;
   /** Get action state for a tweet */
@@ -184,7 +192,8 @@ export function PostDetailScreen({
   onMoveToFolder,
   isLiked = false,
   isBookmarked = false,
-  actionMessage,
+  isJustLiked = false,
+  isJustBookmarked = false,
   onReplySelect,
   getActionState,
   onThreadView,
@@ -908,8 +917,8 @@ export function PostDetailScreen({
     </box>
   );
 
-  // Status message (for media operations and action feedback)
-  const displayMessage = actionMessage ?? statusMessage;
+  // Status message (for media operations like preview/download)
+  const displayMessage = statusMessage;
   const isError = displayMessage?.startsWith("Error:");
   const statusContent = displayMessage ? (
     <box style={{ marginTop: 1, paddingLeft: 1, paddingRight: 1 }}>
@@ -917,7 +926,7 @@ export function PostDetailScreen({
     </box>
   ) : null;
 
-  // Actions footer keybindings
+  // Actions footer keybindings with green flash animation
   const footerBindings: Keybinding[] = [
     { key: "h/Esc", label: "back" },
     {
@@ -927,19 +936,24 @@ export function PostDetailScreen({
     },
     { key: "x", label: "x.com" },
     {
-      key: "b",
-      label: "bookmark",
-      activeLabel: "⚑",
-      activeColor: colors.primary,
-      isActive: isBookmarked,
-    },
-    { key: "m", label: "folder", show: isBookmarked && !hasMentions },
-    {
       key: "l",
-      label: "like",
-      activeLabel: "♥",
-      activeColor: colors.error,
-      isActive: isLiked,
+      label: isLiked ? HEART_FILLED : HEART_EMPTY,
+      activeColor: isJustLiked
+        ? colors.success
+        : isLiked
+          ? colors.error
+          : undefined,
+      isActive: isLiked || isJustLiked,
+    },
+    {
+      key: "b",
+      label: isBookmarked ? FLAG_FILLED : FLAG_EMPTY,
+      activeColor: isJustBookmarked
+        ? colors.success
+        : isBookmarked
+          ? colors.primary
+          : undefined,
+      isActive: isBookmarked || isJustBookmarked,
     },
     { key: "p", label: "profile" },
     { key: "i", label: "preview", show: hasMedia },
@@ -960,6 +974,7 @@ export function PostDetailScreen({
       activeColor: isLoadingQuote ? colors.primary : undefined,
       show: hasQuote,
     },
+    { key: "m", label: "folder", show: isBookmarked && !hasMentions },
   ];
 
   // Main layout - always use scrollbox for thread content

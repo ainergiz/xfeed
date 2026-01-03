@@ -64,8 +64,6 @@ interface ProfileScreenProps {
     liked: boolean,
     bookmarked: boolean
   ) => void;
-  /** Action feedback message */
-  actionMessage?: string | null;
   /** Whether to show the footer */
   showFooter?: boolean;
 }
@@ -80,7 +78,6 @@ export function ProfileScreen({
   onBookmark,
   getActionState,
   initActionState,
-  actionMessage,
   showFooter = true,
 }: ProfileScreenProps) {
   const { user, tweets, loading, error, refresh } = useUserProfile({
@@ -278,17 +275,6 @@ export function ProfileScreen({
     <box style={{ flexDirection: "column", height: "100%" }}>
       {isCollapsed ? compactHeader : fullHeader}
       {separator}
-      {actionMessage ? (
-        <box style={{ paddingLeft: 1 }}>
-          <text
-            fg={
-              actionMessage.startsWith("Error:") ? colors.error : colors.success
-            }
-          >
-            {actionMessage}
-          </text>
-        </box>
-      ) : null}
       {tweets.length > 0 ? (
         <PostList
           posts={tweets}
