@@ -14,7 +14,6 @@
     "test": "bun test src/api src/lib && bun test src/auth/cookies.test.ts && bun test --preload ./src/auth/check.test.preload.ts src/auth/check.test.ts",
     "test:watch": "bun test --watch",
     "test:coverage": "bun test --coverage src/api src/lib && bun test --coverage src/auth/cookies.test.ts && bun test --coverage --preload ./src/auth/check.test.preload.ts src/auth/check.test.ts",
-    "sync-context": "bun scripts/sync-context.ts",
     "prepare": "lefthook install"
   },
   "dependencies": {
