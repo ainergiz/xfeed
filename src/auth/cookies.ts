@@ -4,6 +4,9 @@
  */
 
 import { getCookies } from "@steipete/sweet-cookie";
+import { existsSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 export interface TwitterCookies {
   authToken: string | null;
@@ -21,7 +24,13 @@ export interface CookieExtractionResult {
  * Browser sources for cookie extraction.
  * "chrome" also handles Brave, Arc, and other Chromium browsers via sweet-cookie.
  */
-export type CookieSource = "safari" | "chrome" | "brave" | "arc" | "firefox";
+export type CookieSource =
+  | "safari"
+  | "chrome"
+  | "brave"
+  | "arc"
+  | "opera"
+  | "firefox";
 
 const TWITTER_COOKIE_NAMES = ["auth_token", "ct0"] as const;
 const TWITTER_URL = "https://x.com/";
@@ -86,6 +95,8 @@ function labelForSource(source: CookieSource, profile?: string): string {
       return profile ? `Brave profile "${profile}"` : "Brave";
     case "arc":
       return profile ? `Arc profile "${profile}"` : "Arc";
+    case "opera":
+      return profile ? `Opera profile "${profile}"` : "Opera";
     case "firefox":
       return profile ? `Firefox profile "${profile}"` : "Firefox";
   }
@@ -128,30 +139,80 @@ function getSweetCookieBrowser(
     case "chrome":
     case "brave":
     case "arc":
+    case "opera":
       return "chrome";
     case "firefox":
       return "firefox";
   }
 }
 
-// TODO: Uncomment when steipete/sweet-cookie#1 is merged and published
-// /**
-//  * Map CookieSource to sweet-cookie chromiumBrowser option.
-//  * This tells sweet-cookie which specific Chromium browser to target on macOS,
-//  * avoiding multiple keychain password prompts.
-//  */
-// function getChromiumBrowser(
-//   source: CookieSource
-// ): "chrome" | "brave" | "arc" | undefined {
+/**
+ * Get explicit cookie database path for Chromium browsers.
+ * This is a workaround until steipete/sweet-cookie#1 is merged.
+ * By passing the explicit path, sweet-cookie only accesses that browser's keychain.
+ */
+function getChromiumCookiePath(source: CookieSource): string | undefined {
+  if (source === "chrome") {
+    // Chrome uses default discovery, no need for explicit path
+    return undefined;
+  }
+
+  const home = homedir();
+
+  if (source === "brave") {
+    // Try Network/Cookies first (newer Chromium), then legacy path
+    const networkPath = join(
+      home,
+      "Library/Application Support/BraveSoftware/Brave-Browser/Default/Network/Cookies"
+    );
+    if (existsSync(networkPath)) return networkPath;
+
+    const legacyPath = join(
+      home,
+      "Library/Application Support/BraveSoftware/Brave-Browser/Default/Cookies"
+    );
+    if (existsSync(legacyPath)) return legacyPath;
+  }
+
+  if (source === "arc") {
+    const networkPath = join(
+      home,
+      "Library/Application Support/Arc/User Data/Default/Network/Cookies"
+    );
+    if (existsSync(networkPath)) return networkPath;
+
+    const legacyPath = join(
+      home,
+      "Library/Application Support/Arc/User Data/Default/Cookies"
+    );
+    if (existsSync(legacyPath)) return legacyPath;
+  }
+
+  if (source === "opera") {
+    const networkPath = join(
+      home,
+      "Library/Application Support/com.operasoftware.Opera/Network/Cookies"
+    );
+    if (existsSync(networkPath)) return networkPath;
+
+    const legacyPath = join(
+      home,
+      "Library/Application Support/com.operasoftware.Opera/Cookies"
+    );
+    if (existsSync(legacyPath)) return legacyPath;
+  }
+
+  return undefined;
+}
+
+// TODO: Replace getChromiumCookiePath with chromiumBrowser option when
+// steipete/sweet-cookie#1 is merged and published
+// function getChromiumBrowser(source: CookieSource): "chrome" | "brave" | "arc" | undefined {
 //   switch (source) {
-//     case "chrome":
-//       return "chrome";
-//     case "brave":
-//       return "brave";
-//     case "arc":
-//       return "arc";
-//     default:
-//       return undefined;
+//     case "chrome": return "chrome";
+//     case "brave": return "brave";
+//     case "arc": return "arc";
+//     default: return undefined;
 //   }
 // }
 
@@ -164,8 +225,12 @@ async function readTwitterCookiesFromBrowser(options: {
   const out = buildEmpty();
 
   const browser = getSweetCookieBrowser(options.source);
-  // TODO: Add chromiumBrowser when steipete/sweet-cookie#1 is merged
-  // const chromiumBrowser = getChromiumBrowser(options.source);
+
+  // For Brave/Arc, pass explicit cookie path so sweet-cookie only accesses
+  // that browser's keychain (single password prompt instead of multiple).
+  // This is a workaround until steipete/sweet-cookie#1 adds chromiumBrowser option.
+  const chromiumPath = getChromiumCookiePath(options.source);
+  const chromeProfile = options.chromeProfile ?? chromiumPath;
 
   const { cookies, warnings: providerWarnings } = await getCookies({
     url: TWITTER_URL,
@@ -173,9 +238,8 @@ async function readTwitterCookiesFromBrowser(options: {
     names: [...TWITTER_COOKIE_NAMES],
     browsers: [browser],
     mode: "merge",
-    chromeProfile: options.chromeProfile,
+    chromeProfile,
     firefoxProfile: options.firefoxProfile,
-    // chromiumBrowser, // TODO: Uncomment when steipete/sweet-cookie#1 is merged
     timeoutMs: 30000, // 30 seconds for keychain password prompt
   });
   warnings.push(...providerWarnings);

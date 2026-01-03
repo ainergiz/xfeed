@@ -2,7 +2,13 @@
  * Browser identifiers for cookie extraction.
  * These match the browsers supported by sweet-cookie.
  */
-export type BrowserId = "safari" | "chrome" | "brave" | "arc" | "firefox";
+export type BrowserId =
+  | "safari"
+  | "chrome"
+  | "brave"
+  | "arc"
+  | "opera"
+  | "firefox";
 
 /**
  * xfeed configuration stored in ~/.config/xfeed/config.json
