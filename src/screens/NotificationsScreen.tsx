@@ -1,6 +1,6 @@
 /**
  * NotificationsScreen - Displays the user's notifications
- * Includes error handling with ErrorBanner for rate limits, auth expiry, etc.
+ * Uses TanStack Query for data fetching with background polling
  */
 
 import { useKeyboard } from "@opentui/react";
@@ -11,9 +11,8 @@ import type { NotificationData } from "@/api/types";
 
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { NotificationList } from "@/components/NotificationList";
-import { useNotifications } from "@/hooks/useNotifications";
+import { useNotificationsQuery } from "@/experiments/use-notifications-query";
 import { colors } from "@/lib/colors";
-import { formatCountdown } from "@/lib/format";
 
 interface NotificationsScreenProps {
   client: XClient;
@@ -23,7 +22,12 @@ interface NotificationsScreenProps {
   onNotificationSelect?: (notification: NotificationData) => void;
 }
 
-function ScreenHeader({ unreadCount }: { unreadCount: number }) {
+interface ScreenHeaderProps {
+  unreadCount: number;
+  isRefetching: boolean;
+}
+
+function ScreenHeader({ unreadCount, isRefetching }: ScreenHeaderProps) {
   return (
     <box
       style={{
@@ -32,12 +36,48 @@ function ScreenHeader({ unreadCount }: { unreadCount: number }) {
         paddingRight: 1,
         paddingBottom: 1,
         flexDirection: "row",
+        justifyContent: "space-between",
       }}
     >
-      <text fg={colors.primary}>
-        <b>Notifications</b>
-      </text>
-      {unreadCount > 0 && <text fg={colors.error}> ({unreadCount} new)</text>}
+      <box style={{ flexDirection: "row" }}>
+        <text fg={colors.primary}>
+          <b>Notifications</b>
+        </text>
+        {unreadCount > 0 && <text fg={colors.error}> ({unreadCount} new)</text>}
+      </box>
+      {isRefetching && (
+        <text fg={colors.muted}>
+          <i>syncing...</i>
+        </text>
+      )}
+    </box>
+  );
+}
+
+function NewNotificationsBanner({ count }: { count: number }) {
+  return (
+    <box
+      style={{
+        flexShrink: 0,
+        paddingLeft: 1,
+        paddingRight: 1,
+        paddingTop: 0,
+        paddingBottom: 1,
+      }}
+    >
+      <box
+        style={{
+          backgroundColor: colors.primary,
+          paddingLeft: 2,
+          paddingRight: 2,
+        }}
+      >
+        <text fg="#000000">
+          <b>
+            {count} new notification{count > 1 ? "s" : ""} — Press r
+          </b>
+        </text>
+      </box>
     </box>
   );
 }
@@ -52,16 +92,15 @@ export function NotificationsScreen({
   const {
     notifications,
     unreadCount,
-    loading,
-    loadingMore,
-    hasMore,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
     error,
-    apiError,
+    fetchNextPage,
     refresh,
-    loadMore,
-    retryBlocked,
-    retryCountdown,
-  } = useNotifications({ client });
+    newNotificationsCount,
+    isRefetching,
+  } = useNotificationsQuery({ client });
 
   // Report counts to parent
   useEffect(() => {
@@ -76,15 +115,15 @@ export function NotificationsScreen({
   useKeyboard((key) => {
     if (!focused) return;
 
-    if (key.name === "r" && !retryBlocked) {
+    if (key.name === "r") {
       refresh();
     }
   });
 
-  if (loading) {
+  if (isLoading) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        <ScreenHeader unreadCount={0} />
+        <ScreenHeader unreadCount={0} isRefetching={false} />
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg={colors.muted}>Loading notifications...</text>
         </box>
@@ -92,34 +131,11 @@ export function NotificationsScreen({
     );
   }
 
-  if (apiError) {
-    return (
-      <box style={{ flexDirection: "column", height: "100%" }}>
-        <ScreenHeader unreadCount={0} />
-        <ErrorBanner
-          error={apiError}
-          onRetry={refresh}
-          retryDisabled={retryBlocked}
-        />
-        {retryBlocked && retryCountdown > 0 && (
-          <box style={{ paddingLeft: 1, paddingTop: 1 }}>
-            <text fg="#ffaa00">
-              Retry available in {formatCountdown(retryCountdown)}
-            </text>
-          </box>
-        )}
-      </box>
-    );
-  }
-
   if (error) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        <ScreenHeader unreadCount={0} />
-        <box style={{ padding: 2, flexGrow: 1 }}>
-          <text fg="#ff6666">Error: {error}</text>
-          <text fg={colors.muted}> Press r to retry.</text>
-        </box>
+        <ScreenHeader unreadCount={0} isRefetching={isRefetching} />
+        <ErrorBanner error={error} onRetry={refresh} retryDisabled={false} />
       </box>
     );
   }
@@ -127,7 +143,7 @@ export function NotificationsScreen({
   if (notifications.length === 0) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        <ScreenHeader unreadCount={0} />
+        <ScreenHeader unreadCount={0} isRefetching={isRefetching} />
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg={colors.muted}>
             No notifications yet. Press r to refresh.
@@ -139,14 +155,17 @@ export function NotificationsScreen({
 
   return (
     <box style={{ flexDirection: "column", height: "100%" }}>
-      <ScreenHeader unreadCount={unreadCount} />
+      <ScreenHeader unreadCount={unreadCount} isRefetching={isRefetching} />
+      {newNotificationsCount > 0 && (
+        <NewNotificationsBanner count={newNotificationsCount} />
+      )}
       <NotificationList
         notifications={notifications}
         focused={focused}
         onNotificationSelect={onNotificationSelect}
-        onLoadMore={loadMore}
-        loadingMore={loadingMore}
-        hasMore={hasMore}
+        onLoadMore={fetchNextPage}
+        loadingMore={isFetchingNextPage}
+        hasMore={hasNextPage}
       />
     </box>
   );
