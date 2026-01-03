@@ -13,6 +13,7 @@ import type { TweetActionState } from "@/hooks/useActions";
 
 import { Footer, type Keybinding } from "@/components/Footer";
 import { PostList } from "@/components/PostList";
+import { useUserActions } from "@/experiments/use-user-actions";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { colors } from "@/lib/colors";
 import { formatCount } from "@/lib/format";
@@ -112,6 +113,24 @@ export function ProfileScreen({
     isSelf,
   });
 
+  // User actions (follow/mute) - only for other profiles
+  const userActions = useUserActions({
+    client,
+    username,
+  });
+
+  // Local state for following/muting (initialized from API, updated optimistically)
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isMuting, setIsMuting] = useState(false);
+
+  // Sync local state when user profile loads
+  useEffect(() => {
+    if (user) {
+      setIsFollowing(user.following ?? false);
+      setIsMuting(user.muting ?? false);
+    }
+  }, [user]);
+
   // Tab state (only used when isSelf)
   const [activeTab, setActiveTab] = useState<ProfileTab>("tweets");
 
@@ -208,8 +227,8 @@ export function ProfileScreen({
           openInBrowser(`https://x.com/${user.username}`);
         }
         break;
-      case "m":
-        // Handle mentions: single = direct profile, multiple = enter mode
+      case "p":
+        // Handle mentions/profiles: single = direct profile, multiple = enter mode
         if (hasMentions && !mentionsMode) {
           if (mentionCount === 1) {
             // Single mention - open profile directly
@@ -238,6 +257,22 @@ export function ProfileScreen({
           setIsCollapsed(false);
         }
         break;
+      case "f":
+        // Toggle follow (only on other profiles)
+        if (!isSelf && user) {
+          const newFollowing = !isFollowing;
+          setIsFollowing(newFollowing);
+          userActions.toggleFollow(user.id, isFollowing);
+        }
+        break;
+      case "m":
+        // Toggle mute (only on other profiles)
+        if (!isSelf && user) {
+          const newMuting = !isMuting;
+          setIsMuting(newMuting);
+          userActions.toggleMute(user.id, isMuting);
+        }
+        break;
     }
   });
 
@@ -259,6 +294,25 @@ export function ProfileScreen({
       </text>
       {user.isBlueVerified && <text fg={colors.primary}> {"\u2713"}</text>}
       <text fg={colors.muted}> @{user.username}</text>
+      {/* Follow/Mute status (only for other profiles) */}
+      {!isSelf && (
+        <>
+          <text fg={colors.dim}> | </text>
+          <text fg={isFollowing ? colors.primary : colors.muted}>
+            {userActions.isFollowPending
+              ? "..."
+              : isFollowing
+                ? "Following"
+                : "Follow"}
+          </text>
+          {isMuting && (
+            <>
+              <text fg={colors.dim}> · </text>
+              <text fg={colors.muted}>Muted</text>
+            </>
+          )}
+        </>
+      )}
     </box>
   );
 
@@ -286,6 +340,25 @@ export function ProfileScreen({
         </text>
         {user.isBlueVerified && <text fg={colors.primary}> {"\u2713"}</text>}
         <text fg={colors.muted}> @{user.username}</text>
+        {/* Follow/Mute status (only for other profiles) */}
+        {!isSelf && (
+          <>
+            <text fg={colors.dim}> | </text>
+            <text fg={isFollowing ? colors.primary : colors.muted}>
+              {userActions.isFollowPending
+                ? "..."
+                : isFollowing
+                  ? "Following"
+                  : "Follow"}
+            </text>
+            {isMuting && (
+              <>
+                <text fg={colors.dim}> · </text>
+                <text fg={colors.muted}>Muted</text>
+              </>
+            )}
+          </>
+        )}
       </box>
 
       {/* Bio - highlight @mentions in blue */}
@@ -353,7 +426,7 @@ export function ProfileScreen({
               <text fg={colors.dim}>Mentions: </text>
               <text fg={colors.primary}>@{bioMentions[0]}</text>
               <text fg={colors.dim}> (</text>
-              <text fg={colors.primary}>m</text>
+              <text fg={colors.primary}>p</text>
               <text fg={colors.dim}> profile)</text>
             </box>
           ) : mentionsMode ? (
@@ -383,7 +456,7 @@ export function ProfileScreen({
               <text fg={colors.dim}>Mentions: </text>
               <text fg={colors.primary}>@{bioMentions[0]}</text>
               <text fg={colors.dim}> +{mentionCount - 1} more (</text>
-              <text fg={colors.primary}>m</text>
+              <text fg={colors.primary}>p</text>
               <text fg={colors.dim}> to navigate)</text>
             </box>
           )}
@@ -444,8 +517,18 @@ export function ProfileScreen({
     { key: "l", label: "like" },
     { key: "b", label: "bkmk" },
     {
+      key: "f",
+      label: isFollowing ? "unfollow" : "follow",
+      show: !isSelf,
+    },
+    {
       key: "m",
-      label: mentionCount === 1 ? "@profile" : "mentions",
+      label: isMuting ? "unmute" : "mute",
+      show: !isSelf,
+    },
+    {
+      key: "p",
+      label: mentionCount === 1 ? "@profile" : "profiles",
       show: hasMentions && !mentionsMode,
     },
     { key: "a", label: "avatar", show: !!user?.profileImageUrl },
