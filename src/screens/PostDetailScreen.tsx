@@ -14,8 +14,8 @@ import type { TweetData } from "@/api/types";
 import { Footer, type Keybinding } from "@/components/Footer";
 import { PostCard } from "@/components/PostCard";
 import { QuotedPostCard } from "@/components/QuotedPostCard";
+import { usePostDetailQuery } from "@/experiments/use-post-detail-query";
 import { useListNavigation } from "@/hooks/useListNavigation";
-import { usePostDetail } from "@/hooks/usePostDetail";
 import { colors } from "@/lib/colors";
 import { formatCount, truncateText } from "@/lib/format";
 import {
@@ -166,7 +166,7 @@ export function PostDetailScreen({
     loadingMoreReplies,
     hasMoreReplies,
     loadMoreReplies,
-  } = usePostDetail({ client, tweet });
+  } = usePostDetailQuery({ client, tweet });
   const [isExpanded, setIsExpanded] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [mediaIndex, setMediaIndex] = useState(0);
