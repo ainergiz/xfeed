@@ -2,8 +2,14 @@ import { useKeyboard, useRenderer } from "@opentui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { XClient } from "@/api/client";
-import type { NotificationData, TweetData, UserData } from "@/api/types";
+import type {
+  BookmarkFolder,
+  NotificationData,
+  TweetData,
+  UserData,
+} from "@/api/types";
 
+import { BookmarkFolderSelector } from "@/components/BookmarkFolderSelector";
 import { ExitConfirmationModal } from "@/components/ExitConfirmationModal";
 import { FolderPicker } from "@/components/FolderPicker";
 import { Footer } from "@/components/Footer";
@@ -46,6 +52,7 @@ export function App({ client, user: _user }: AppProps) {
     });
   const [postCount, setPostCount] = useState(0);
   const [bookmarkCount, setBookmarkCount] = useState(0);
+  const [bookmarkHasMore, setBookmarkHasMore] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
@@ -136,6 +143,11 @@ export function App({ client, user: _user }: AppProps) {
   // Track bookmark count separately
   const handleBookmarkCountChange = useCallback((count: number) => {
     setBookmarkCount(count);
+  }, []);
+
+  // Track bookmark hasMore state
+  const handleBookmarkHasMoreChange = useCallback((hasMore: boolean) => {
+    setBookmarkHasMore(hasMore);
   }, []);
 
   // Track notification counts
@@ -231,6 +243,12 @@ export function App({ client, user: _user }: AppProps) {
   // State for exit confirmation modal
   const [showExitConfirmation, setShowExitConfirmation] = useState(false);
 
+  // State for bookmark folder selector
+  const [showBookmarkFolderSelector, setShowBookmarkFolderSelector] =
+    useState(false);
+  const [selectedBookmarkFolder, setSelectedBookmarkFolder] =
+    useState<BookmarkFolder | null>(null);
+
   // Open folder picker from post detail
   const handleMoveToFolder = useCallback(() => {
     setShowFolderPicker(true);
@@ -260,6 +278,25 @@ export function App({ client, user: _user }: AppProps) {
   // Close folder picker
   const handleFolderPickerClose = useCallback(() => {
     setShowFolderPicker(false);
+  }, []);
+
+  // Open bookmark folder selector
+  const handleBookmarkFolderSelectorOpen = useCallback(() => {
+    setShowBookmarkFolderSelector(true);
+  }, []);
+
+  // Select bookmark folder to view
+  const handleBookmarkFolderSelect = useCallback(
+    (folder: BookmarkFolder | null) => {
+      setSelectedBookmarkFolder(folder);
+      setShowBookmarkFolderSelector(false);
+    },
+    []
+  );
+
+  // Close bookmark folder selector
+  const handleBookmarkFolderSelectorClose = useCallback(() => {
+    setShowBookmarkFolderSelector(false);
   }, []);
 
   // Handle notification select - navigate to tweet detail or profile based on type
@@ -302,8 +339,8 @@ export function App({ client, user: _user }: AppProps) {
   );
 
   useKeyboard((key) => {
-    // Don't handle keys when exit confirmation modal is showing
-    if (showExitConfirmation) {
+    // Don't handle keys when modals are showing - they handle their own keyboard
+    if (showExitConfirmation || showBookmarkFolderSelector) {
       return;
     }
 
@@ -391,6 +428,7 @@ export function App({ client, user: _user }: AppProps) {
                 ? notificationCount
                 : postCount
           }
+          hasMore={currentView === "bookmarks" ? bookmarkHasMore : false}
           unreadNotificationCount={unreadNotificationCount}
         />
       ) : null}
@@ -518,8 +556,15 @@ export function App({ client, user: _user }: AppProps) {
         >
           <BookmarksScreen
             client={client}
-            focused={currentView === "bookmarks" && !showSplash}
+            focused={
+              currentView === "bookmarks" &&
+              !showSplash &&
+              !showBookmarkFolderSelector
+            }
+            selectedFolder={selectedBookmarkFolder}
+            onFolderPickerOpen={handleBookmarkFolderSelectorOpen}
             onPostCountChange={handleBookmarkCountChange}
+            onHasMoreChange={handleBookmarkHasMoreChange}
             onPostSelect={handlePostSelect}
             onLike={toggleLike}
             onBookmark={toggleBookmark}
@@ -550,6 +595,27 @@ export function App({ client, user: _user }: AppProps) {
       </box>
 
       {!showSplash && isMainView && showFooter && <Footer />}
+
+      {/* Bookmark folder selector modal - rendered at root for full-screen overlay */}
+      {showBookmarkFolderSelector && (
+        <box
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+          }}
+        >
+          <BookmarkFolderSelector
+            client={client}
+            currentFolder={selectedBookmarkFolder}
+            onSelect={handleBookmarkFolderSelect}
+            onClose={handleBookmarkFolderSelectorClose}
+            focused={true}
+          />
+        </box>
+      )}
 
       {/* Exit confirmation modal */}
       {showExitConfirmation && (

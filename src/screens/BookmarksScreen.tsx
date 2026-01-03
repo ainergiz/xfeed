@@ -1,13 +1,14 @@
 /**
  * BookmarksScreen - Displays the user's bookmarked posts
  * Includes error handling with ErrorBanner for rate limits, auth expiry, etc.
+ * Supports viewing all bookmarks or a specific folder.
  */
 
 import { useKeyboard } from "@opentui/react";
 import { useEffect } from "react";
 
 import type { XClient } from "@/api/client";
-import type { TweetData } from "@/api/types";
+import type { BookmarkFolder, TweetData } from "@/api/types";
 import type { TweetActionState } from "@/hooks/useActions";
 
 import { ErrorBanner } from "@/components/ErrorBanner";
@@ -19,7 +20,12 @@ import { formatCountdown } from "@/lib/format";
 interface BookmarksScreenProps {
   client: XClient;
   focused?: boolean;
+  /** Currently selected folder (null = all bookmarks) */
+  selectedFolder?: BookmarkFolder | null;
+  /** Called when user wants to open the folder picker (press 'f') */
+  onFolderPickerOpen?: () => void;
   onPostCountChange?: (count: number) => void;
+  onHasMoreChange?: (hasMore: boolean) => void;
   onPostSelect?: (post: TweetData) => void;
   /** Called when user presses 'l' to toggle like */
   onLike?: (post: TweetData) => void;
@@ -39,7 +45,12 @@ interface BookmarksScreenProps {
   onRegisterRemovePost?: (removePost: (tweetId: string) => void) => void;
 }
 
-function ScreenHeader() {
+interface ScreenHeaderProps {
+  folderName?: string | null;
+}
+
+function ScreenHeader({ folderName }: ScreenHeaderProps) {
+  const title = folderName ?? "All Bookmarks";
   return (
     <box
       style={{
@@ -51,8 +62,9 @@ function ScreenHeader() {
       }}
     >
       <text fg={colors.primary}>
-        <b>All Bookmarks</b>
+        <b>{title}</b>
       </text>
+      <text fg={colors.dim}> (f to switch folders)</text>
     </box>
   );
 }
@@ -60,7 +72,10 @@ function ScreenHeader() {
 export function BookmarksScreen({
   client,
   focused = false,
+  selectedFolder,
+  onFolderPickerOpen,
   onPostCountChange,
+  onHasMoreChange,
   onPostSelect,
   onLike,
   onBookmark,
@@ -81,7 +96,7 @@ export function BookmarksScreen({
     retryBlocked,
     retryCountdown,
     removePost,
-  } = useBookmarks({ client });
+  } = useBookmarks({ client, folderId: selectedFolder?.id });
 
   // Register removePost function for external bookmark sync
   useEffect(() => {
@@ -93,19 +108,31 @@ export function BookmarksScreen({
     onPostCountChange?.(posts.length);
   }, [posts.length, onPostCountChange]);
 
-  // Handle keyboard shortcuts for refresh
+  // Report hasMore state to parent
+  useEffect(() => {
+    onHasMoreChange?.(hasMore);
+  }, [hasMore, onHasMoreChange]);
+
+  // Handle keyboard shortcuts
   useKeyboard((key) => {
     if (!focused) return;
 
     if (key.name === "r" && !retryBlocked) {
       refresh();
     }
+
+    // Open folder picker with 'f'
+    if (key.name === "f") {
+      onFolderPickerOpen?.();
+    }
   });
+
+  const folderName = selectedFolder?.name ?? null;
 
   if (loading) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        <ScreenHeader />
+        <ScreenHeader folderName={folderName} />
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg={colors.muted}>Loading bookmarks...</text>
         </box>
@@ -116,7 +143,7 @@ export function BookmarksScreen({
   if (apiError) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        <ScreenHeader />
+        <ScreenHeader folderName={folderName} />
         <ErrorBanner
           error={apiError}
           onRetry={refresh}
@@ -136,7 +163,7 @@ export function BookmarksScreen({
   if (error) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        <ScreenHeader />
+        <ScreenHeader folderName={folderName} />
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg="#ff6666">Error: {error}</text>
           <text fg={colors.muted}> Press r to retry.</text>
@@ -148,9 +175,13 @@ export function BookmarksScreen({
   if (posts.length === 0) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        <ScreenHeader />
+        <ScreenHeader folderName={folderName} />
         <box style={{ padding: 2, flexGrow: 1 }}>
-          <text fg={colors.muted}>No bookmarks yet. Press r to refresh.</text>
+          <text fg={colors.muted}>
+            {selectedFolder
+              ? "No bookmarks in this folder. Press r to refresh."
+              : "No bookmarks yet. Press r to refresh."}
+          </text>
         </box>
       </box>
     );
@@ -158,7 +189,7 @@ export function BookmarksScreen({
 
   return (
     <box style={{ flexDirection: "column", height: "100%" }}>
-      <ScreenHeader />
+      <ScreenHeader folderName={folderName} />
       {actionMessage ? (
         <box style={{ paddingLeft: 1 }}>
           <text
