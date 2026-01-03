@@ -102,6 +102,14 @@ export class TwitterClient {
     this.onSessionExpired = callback;
   }
 
+  /**
+   * Get the auth cookies used by this client.
+   * Useful for persisting tokens to avoid repeated keychain prompts.
+   */
+  getCookies(): { authToken: string; ct0: string } {
+    return { authToken: this.authToken, ct0: this.ct0 };
+  }
+
   private normalizeQuoteDepth(value?: number): number {
     if (value === undefined || value === null) {
       return 1; // Default to 1 level of quoted tweets

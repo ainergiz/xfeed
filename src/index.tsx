@@ -240,6 +240,21 @@ cli
         process.exit(1);
       }
 
+      // Save tokens after successful browser auth (avoids keychain prompt on next run)
+      // Only save if we used browser auth (not manual tokens or CLI args)
+      if (browserSource && !manualTokens && !options.authToken) {
+        const cookies = authResult.client.getCookies();
+        if (cookies.authToken && cookies.ct0) {
+          updateConfig({
+            browser: browserSource,
+            authToken: cookies.authToken,
+            ct0: cookies.ct0,
+            chromeProfile: options.chromeProfile ?? config.chromeProfile,
+            firefoxProfile: options.firefoxProfile ?? config.firefoxProfile,
+          });
+        }
+      }
+
       // Clear screen before launching TUI (removes any auth flow output)
       process.stdout.write("\x1b[2J\x1b[H");
 
