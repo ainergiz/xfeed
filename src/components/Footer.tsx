@@ -1,28 +1,53 @@
+import { useTerminalDimensions } from "@opentui/react";
+
+type Shortcut = { key: string; label: string };
+
+const SHORTCUTS: Shortcut[] = [
+  { key: "j/k", label: "nav" },
+  { key: "l", label: "like" },
+  { key: "b", label: "bookmark" },
+  { key: "r", label: "refresh" },
+  { key: "n", label: "notifs" },
+  { key: "Tab", label: "view" },
+  { key: "q", label: "quit" },
+  { key: "?", label: "hide" },
+];
+
+function ShortcutItem({ shortcut }: { shortcut: Shortcut }) {
+  return (
+    <box style={{ flexDirection: "row", flexShrink: 0 }}>
+      <text fg="#ffffff">{shortcut.key}</text>
+      <text fg="#666666"> {shortcut.label}</text>
+    </box>
+  );
+}
+
 export function Footer() {
+  const { width } = useTerminalDimensions();
+  const borderLine = "─".repeat(width);
+
   return (
     <box
       style={{
         flexShrink: 0,
-        paddingLeft: 1,
-        paddingRight: 1,
-        paddingBottom: 1,
-        flexDirection: "row",
+        flexDirection: "column",
+        backgroundColor: "#1a1a1a",
       }}
     >
-      <text fg="#ffffff">j/k</text>
-      <text fg="#666666"> nav </text>
-      <text fg="#ffffff">l</text>
-      <text fg="#666666"> like </text>
-      <text fg="#ffffff">b</text>
-      <text fg="#666666"> bookmark </text>
-      <text fg="#ffffff">r</text>
-      <text fg="#666666"> refresh </text>
-      <text fg="#ffffff">n</text>
-      <text fg="#666666"> notifs </text>
-      <text fg="#ffffff">Tab</text>
-      <text fg="#666666"> view </text>
-      <text fg="#ffffff">q</text>
-      <text fg="#666666"> quit</text>
+      <text fg="#333333">{borderLine}</text>
+      <box
+        style={{
+          paddingLeft: 1,
+          paddingRight: 1,
+          flexDirection: "row",
+          flexWrap: "wrap",
+          columnGap: 2,
+        }}
+      >
+        {SHORTCUTS.map((s) => (
+          <ShortcutItem key={s.key} shortcut={s} />
+        ))}
+      </box>
     </box>
   );
 }
