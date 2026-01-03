@@ -121,6 +121,12 @@ export const queryKeys = {
     detail: (id: string) => [...queryKeys.tweet.all, id] as const,
     replies: (id: string) => [...queryKeys.tweet.all, id, "replies"] as const,
   },
+  thread: {
+    all: ["thread"] as const,
+    byTweetId: (tweetId: string) => [...queryKeys.thread.all, tweetId] as const,
+    ancestors: (tweetId: string) =>
+      [...queryKeys.thread.all, tweetId, "ancestors"] as const,
+  },
   user: {
     all: ["user"] as const,
     profile: (username: string) =>
