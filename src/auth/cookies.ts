@@ -17,7 +17,11 @@ export interface CookieExtractionResult {
   warnings: string[];
 }
 
-export type CookieSource = "safari" | "chrome" | "firefox";
+/**
+ * Browser sources for cookie extraction.
+ * "chrome" also handles Brave, Arc, and other Chromium browsers via sweet-cookie.
+ */
+export type CookieSource = "safari" | "chrome" | "brave" | "arc" | "firefox";
 
 const TWITTER_COOKIE_NAMES = ["auth_token", "ct0"] as const;
 const TWITTER_URL = "https://x.com/";
@@ -73,13 +77,18 @@ function resolveSources(
 }
 
 function labelForSource(source: CookieSource, profile?: string): string {
-  if (source === "safari") {
-    return "Safari";
+  switch (source) {
+    case "safari":
+      return "Safari";
+    case "chrome":
+      return profile ? `Chrome profile "${profile}"` : "Chrome";
+    case "brave":
+      return profile ? `Brave profile "${profile}"` : "Brave";
+    case "arc":
+      return profile ? `Arc profile "${profile}"` : "Arc";
+    case "firefox":
+      return profile ? `Firefox profile "${profile}"` : "Firefox";
   }
-  if (source === "chrome") {
-    return profile ? `Chrome profile "${profile}"` : "Chrome default profile";
-  }
-  return profile ? `Firefox profile "${profile}"` : "Firefox default profile";
 }
 
 function pickCookieValue(
@@ -106,6 +115,46 @@ function pickCookieValue(
   return matches[0]?.value ?? null;
 }
 
+/**
+ * Map CookieSource to sweet-cookie browser type.
+ * Brave, Arc, and Chrome all use "chrome" backend in sweet-cookie.
+ */
+function getSweetCookieBrowser(
+  source: CookieSource
+): "safari" | "chrome" | "firefox" {
+  switch (source) {
+    case "safari":
+      return "safari";
+    case "chrome":
+    case "brave":
+    case "arc":
+      return "chrome";
+    case "firefox":
+      return "firefox";
+  }
+}
+
+// TODO: Uncomment when steipete/sweet-cookie#1 is merged and published
+// /**
+//  * Map CookieSource to sweet-cookie chromiumBrowser option.
+//  * This tells sweet-cookie which specific Chromium browser to target on macOS,
+//  * avoiding multiple keychain password prompts.
+//  */
+// function getChromiumBrowser(
+//   source: CookieSource
+// ): "chrome" | "brave" | "arc" | undefined {
+//   switch (source) {
+//     case "chrome":
+//       return "chrome";
+//     case "brave":
+//       return "brave";
+//     case "arc":
+//       return "arc";
+//     default:
+//       return undefined;
+//   }
+// }
+
 async function readTwitterCookiesFromBrowser(options: {
   source: CookieSource;
   chromeProfile?: string;
@@ -114,14 +163,19 @@ async function readTwitterCookiesFromBrowser(options: {
   const warnings: string[] = [];
   const out = buildEmpty();
 
+  const browser = getSweetCookieBrowser(options.source);
+  // TODO: Add chromiumBrowser when steipete/sweet-cookie#1 is merged
+  // const chromiumBrowser = getChromiumBrowser(options.source);
+
   const { cookies, warnings: providerWarnings } = await getCookies({
     url: TWITTER_URL,
     origins: TWITTER_ORIGINS,
     names: [...TWITTER_COOKIE_NAMES],
-    browsers: [options.source],
+    browsers: [browser],
     mode: "merge",
     chromeProfile: options.chromeProfile,
     firefoxProfile: options.firefoxProfile,
+    // chromiumBrowser, // TODO: Uncomment when steipete/sweet-cookie#1 is merged
     timeoutMs: 30000, // 30 seconds for keychain password prompt
   });
   warnings.push(...providerWarnings);
@@ -137,28 +191,16 @@ async function readTwitterCookiesFromBrowser(options: {
 
   if (out.authToken && out.ct0) {
     out.cookieHeader = cookieHeader(out.authToken, out.ct0);
-    out.source = labelForSource(
-      options.source,
-      options.source === "chrome"
-        ? options.chromeProfile
-        : options.firefoxProfile
-    );
+    const profile =
+      browser === "chrome" ? options.chromeProfile : options.firefoxProfile;
+    out.source = labelForSource(options.source, profile);
     return { cookies: out, warnings };
   }
 
-  if (options.source === "safari") {
-    warnings.push(
-      "No Twitter cookies found in Safari. Make sure you are logged into x.com in Safari."
-    );
-  } else if (options.source === "chrome") {
-    warnings.push(
-      "No Twitter cookies found in Chrome. Make sure you are logged into x.com in Chrome."
-    );
-  } else {
-    warnings.push(
-      "No Twitter cookies found in Firefox. Make sure you are logged into x.com in Firefox and the profile exists."
-    );
-  }
+  const browserName = labelForSource(options.source);
+  warnings.push(
+    `No Twitter cookies found in ${browserName}. Make sure you are logged into x.com in ${browserName}.`
+  );
 
   return { cookies: out, warnings };
 }

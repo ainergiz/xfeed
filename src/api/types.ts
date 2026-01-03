@@ -208,6 +208,8 @@ export interface TwitterClientOptions {
   timeoutMs?: number;
   /** Max depth for quoted tweets (0 disables, default: 1) */
   quoteDepth?: number;
+  /** Callback when session expires (401/403 errors) */
+  onSessionExpired?: () => void;
 }
 
 /**

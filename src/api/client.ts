@@ -61,6 +61,8 @@ export class TwitterClient {
   private clientUserId?: string;
   private clientTransaction?: ClientTransaction;
   private transactionInitPromise?: Promise<void>;
+  private onSessionExpired?: () => void;
+  private sessionExpiredFired = false;
 
   constructor(options: TwitterClientOptions) {
     if (!options.cookies.authToken || !options.cookies.ct0) {
@@ -78,6 +80,26 @@ export class TwitterClient {
     this.quoteDepth = this.normalizeQuoteDepth(options.quoteDepth);
     this.clientUuid = randomUUID();
     this.clientDeviceId = randomUUID();
+    this.onSessionExpired = options.onSessionExpired;
+  }
+
+  /**
+   * Notify that session has expired. Only fires once.
+   */
+  private notifySessionExpired(): void {
+    if (this.sessionExpiredFired || !this.onSessionExpired) {
+      return;
+    }
+    this.sessionExpiredFired = true;
+    this.onSessionExpired();
+  }
+
+  /**
+   * Set the session expired callback.
+   * Useful for setting up the callback after the client is created.
+   */
+  setOnSessionExpired(callback: () => void): void {
+    this.onSessionExpired = callback;
   }
 
   private normalizeQuoteDepth(value?: number): number {
@@ -300,6 +322,11 @@ export class TwitterClient {
   ): ApiError {
     const errorType = this.classifyHttpError(status, body);
     const message = this.getErrorMessage(errorType, status, body);
+
+    // Notify session expired
+    if (errorType === "auth_expired") {
+      this.notifySessionExpired();
+    }
 
     const error: ApiError = {
       type: errorType,
@@ -3084,6 +3111,7 @@ export class TwitterClient {
       lowerError.includes("forbidden") ||
       lowerError.includes("bad authentication")
     ) {
+      this.notifySessionExpired();
       return {
         type: "auth_expired",
         message: "Session expired. Please log into x.com and restart xfeed.",

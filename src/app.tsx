@@ -8,6 +8,7 @@ import { ExitConfirmationModal } from "@/components/ExitConfirmationModal";
 import { FolderPicker } from "@/components/FolderPicker";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
+import { SessionExpiredModal } from "@/components/SessionExpiredModal";
 import { useActions } from "@/hooks/useActions";
 import { useNavigation } from "@/hooks/useNavigation";
 import { BookmarksScreen } from "@/screens/BookmarksScreen";
@@ -49,6 +50,14 @@ export function App({ client, user: _user }: AppProps) {
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [showFooter, setShowFooter] = useState(true);
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  // Set up session expired callback
+  useEffect(() => {
+    client.setOnSessionExpired(() => {
+      setSessionExpired(true);
+    });
+  }, [client]);
 
   // Actions hook for like/bookmark mutations
   const { toggleLike, toggleBookmark, getState, initState } = useActions({
@@ -535,6 +544,9 @@ export function App({ client, user: _user }: AppProps) {
           />
         </box>
       )}
+
+      {/* Session expired modal overlay */}
+      {sessionExpired && <SessionExpiredModal />}
     </box>
   );
 }

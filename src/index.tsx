@@ -3,12 +3,29 @@ import { createCliRenderer } from "@opentui/core";
 import { createRoot } from "@opentui/react";
 import { cac } from "cac";
 
-import type { CookieSource } from "@/auth/cookies";
+import type { BrowserId } from "@/config/types";
 
 import { App } from "@/app";
+import { detectAvailableBrowsers, isInteractive } from "@/auth/browser-detect";
+import { promptBrowserSelection } from "@/auth/browser-picker";
 import { checkAuth, formatWarnings } from "@/auth/check";
+import { promptManualTokenEntry } from "@/auth/manual-entry";
+import {
+  clearBrowserPreference,
+  getConfigPath,
+  loadConfig,
+  updateConfig,
+} from "@/config/loader";
 
 const cli = cac("xfeed");
+
+const VALID_BROWSERS: BrowserId[] = [
+  "safari",
+  "chrome",
+  "brave",
+  "arc",
+  "firefox",
+];
 
 cli
   .command("", "Launch xfeed TUI")
@@ -16,11 +33,12 @@ cli
   .option("--ct0 <token>", "Twitter ct0 cookie (CSRF token)")
   .option(
     "--browser <browser>",
-    "Browser to read cookies from (safari, chrome, firefox)"
+    "Browser to read cookies from (safari, chrome, brave, arc, firefox)"
   )
-  .option("--chrome-profile <profile>", "Chrome profile name")
+  .option("--chrome-profile <profile>", "Chrome/Brave/Arc profile name")
   .option("--firefox-profile <profile>", "Firefox profile name")
   .option("--skip-validation", "Skip API validation of credentials")
+  .option("--reset-auth", "Clear saved browser preference and re-prompt")
   .action(
     async (options: {
       authToken?: string;
@@ -29,29 +47,189 @@ cli
       chromeProfile?: string;
       firefoxProfile?: string;
       skipValidation?: boolean;
+      resetAuth?: boolean;
     }) => {
-      // Validate browser option if provided
-      const validBrowsers = ["safari", "chrome", "firefox"];
-      if (options.browser && !validBrowsers.includes(options.browser)) {
+      // Handle --reset-auth
+      if (options.resetAuth) {
+        clearBrowserPreference();
+        console.log(`Cleared saved auth from ${getConfigPath()}\n`);
+      }
+
+      // Validate browser option if provided via CLI
+      if (
+        options.browser &&
+        !VALID_BROWSERS.includes(options.browser as BrowserId)
+      ) {
         console.error(
-          `Invalid browser: ${options.browser}. Must be one of: ${validBrowsers.join(", ")}`
+          `Invalid browser: ${options.browser}. Must be one of: ${VALID_BROWSERS.join(", ")}`
         );
         process.exit(1);
       }
 
+      // Load saved config
+      const config = loadConfig();
+
+      // Determine browser source: CLI > config > prompt
+      let browserSource: BrowserId | undefined = options.browser as
+        | BrowserId
+        | undefined;
+      let manualTokens: { authToken: string; ct0: string } | undefined;
+
+      // Check for saved tokens first (unless --reset-auth)
+      if (
+        !options.authToken &&
+        config.authToken &&
+        config.ct0 &&
+        !options.resetAuth
+      ) {
+        manualTokens = { authToken: config.authToken, ct0: config.ct0 };
+      }
+
+      if (!browserSource && !options.authToken && !manualTokens) {
+        // Check saved browser preference
+        if (config.browser && !options.resetAuth) {
+          browserSource = config.browser;
+        } else {
+          // Detect available browsers
+          const availableBrowsers = detectAvailableBrowsers();
+
+          if (availableBrowsers.length === 0 && !isInteractive()) {
+            console.error(
+              "No supported browsers detected with cookie databases.\n" +
+                "Please log into x.com in Safari, Chrome, Brave, Arc, or Firefox."
+            );
+            process.exit(1);
+          }
+
+          if (isInteractive()) {
+            // Prompt user to select browser (or manual entry)
+            const pickerResult =
+              await promptBrowserSelection(availableBrowsers);
+
+            if (!pickerResult.ok) {
+              if (pickerResult.reason === "cancelled") {
+                console.log("\nCancelled.");
+                process.exit(0);
+              }
+              console.error("No browsers available.");
+              process.exit(1);
+            }
+
+            // Check if user chose manual entry
+            if ("manual" in pickerResult && pickerResult.manual) {
+              const manualResult = await promptManualTokenEntry();
+
+              if (!manualResult.ok) {
+                process.exit(0);
+              }
+
+              manualTokens = manualResult.tokens;
+
+              // Save tokens for next time
+              updateConfig({
+                authToken: manualTokens.authToken,
+                ct0: manualTokens.ct0,
+                // Clear browser preference since we're using tokens
+                browser: undefined,
+              });
+            } else if ("browser" in pickerResult) {
+              browserSource = pickerResult.browser;
+
+              // Save browser preference (and clear any saved tokens)
+              updateConfig({
+                browser: browserSource,
+                chromeProfile: options.chromeProfile,
+                firefoxProfile: options.firefoxProfile,
+                authToken: undefined,
+                ct0: undefined,
+              });
+            }
+          } else {
+            // Not interactive - auto-select first available browser
+            browserSource = availableBrowsers[0]?.id;
+            if (browserSource) {
+              console.log(
+                `Auto-selecting ${availableBrowsers[0]?.name} (non-interactive mode).`
+              );
+            }
+          }
+        }
+      }
+
       // Check authentication
-      const authResult = await checkAuth({
-        authToken: options.authToken,
-        ct0: options.ct0,
-        cookieSource: options.browser as CookieSource | undefined,
-        chromeProfile: options.chromeProfile,
-        firefoxProfile: options.firefoxProfile,
+      let authResult = await checkAuth({
+        authToken: manualTokens?.authToken ?? options.authToken,
+        ct0: manualTokens?.ct0 ?? options.ct0,
+        cookieSource: browserSource,
+        chromeProfile: options.chromeProfile ?? config.chromeProfile,
+        firefoxProfile: options.firefoxProfile ?? config.firefoxProfile,
         skipValidation: options.skipValidation,
       });
 
       // Show warnings if any (but not in error case - they're included in the error)
       if (authResult.ok && authResult.warnings.length > 0) {
         console.warn("Warnings:\n" + formatWarnings(authResult.warnings));
+      }
+
+      // If auth failed and we're interactive, show full auth options
+      if (!authResult.ok && isInteractive()) {
+        console.error(authResult.error);
+        console.log("\nLet's re-authenticate.\n");
+
+        // Clear any saved auth that might be stale
+        clearBrowserPreference();
+
+        // Re-detect browsers and show picker
+        const availableBrowsers = detectAvailableBrowsers();
+        const pickerResult = await promptBrowserSelection(availableBrowsers);
+
+        if (!pickerResult.ok) {
+          if (pickerResult.reason === "cancelled") {
+            console.log("\nCancelled.");
+            process.exit(0);
+          }
+          console.error("No browsers available.");
+          process.exit(1);
+        }
+
+        let retryTokens: { authToken: string; ct0: string } | undefined;
+        let retryBrowser: BrowserId | undefined;
+
+        if ("manual" in pickerResult && pickerResult.manual) {
+          const manualResult = await promptManualTokenEntry();
+
+          if (!manualResult.ok) {
+            process.exit(0);
+          }
+
+          retryTokens = manualResult.tokens;
+
+          // Save tokens for next time
+          updateConfig({
+            authToken: retryTokens.authToken,
+            ct0: retryTokens.ct0,
+            browser: undefined,
+          });
+        } else if ("browser" in pickerResult) {
+          retryBrowser = pickerResult.browser;
+
+          // Save browser preference
+          updateConfig({
+            browser: retryBrowser,
+            authToken: undefined,
+            ct0: undefined,
+          });
+        }
+
+        // Re-check auth with new credentials
+        authResult = await checkAuth({
+          authToken: retryTokens?.authToken,
+          ct0: retryTokens?.ct0,
+          cookieSource: retryBrowser,
+          chromeProfile: options.chromeProfile,
+          firefoxProfile: options.firefoxProfile,
+          skipValidation: options.skipValidation,
+        });
       }
 
       if (!authResult.ok) {
@@ -61,6 +239,9 @@ cli
         }
         process.exit(1);
       }
+
+      // Clear screen before launching TUI (removes any auth flow output)
+      process.stdout.write("\x1b[2J\x1b[H");
 
       // Launch TUI
       const renderer = await createCliRenderer({
