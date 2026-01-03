@@ -18,6 +18,7 @@
     "@opentui/core": "^0.1.68",
     "@opentui/react": "^0.1.68",
     "@steipete/sweet-cookie": "file:./vendor/sweet-cookie",
+    "@tanstack/react-query": "^5.90.16",
     "cac": "^6.7.14",
     "react": "^19.2.0",
     "x-client-transaction-id": "^0.1.9"
