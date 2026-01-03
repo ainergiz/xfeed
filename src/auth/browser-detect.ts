@@ -85,6 +85,23 @@ const BROWSER_CONFIGS: BrowserConfig[] = [
       ),
   },
   {
+    id: "opera",
+    name: "Opera",
+    check: () =>
+      existsSync(
+        path.join(
+          home,
+          "Library/Application Support/com.operasoftware.Opera/Cookies"
+        )
+      ) ||
+      existsSync(
+        path.join(
+          home,
+          "Library/Application Support/com.operasoftware.Opera/Network/Cookies"
+        )
+      ),
+  },
+  {
     id: "firefox",
     name: "Firefox",
     check: () => {

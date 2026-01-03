@@ -21,7 +21,13 @@ export interface CookieExtractionResult {
  * Browser sources for cookie extraction.
  * "chrome" also handles Brave, Arc, and other Chromium browsers via sweet-cookie.
  */
-export type CookieSource = "safari" | "chrome" | "brave" | "arc" | "firefox";
+export type CookieSource =
+  | "safari"
+  | "chrome"
+  | "brave"
+  | "arc"
+  | "opera"
+  | "firefox";
 
 const TWITTER_COOKIE_NAMES = ["auth_token", "ct0"] as const;
 const TWITTER_URL = "https://x.com/";
@@ -86,6 +92,8 @@ function labelForSource(source: CookieSource, profile?: string): string {
       return profile ? `Brave profile "${profile}"` : "Brave";
     case "arc":
       return profile ? `Arc profile "${profile}"` : "Arc";
+    case "opera":
+      return profile ? `Opera profile "${profile}"` : "Opera";
     case "firefox":
       return profile ? `Firefox profile "${profile}"` : "Firefox";
   }
@@ -128,32 +136,33 @@ function getSweetCookieBrowser(
     case "chrome":
     case "brave":
     case "arc":
+    case "opera":
       return "chrome";
     case "firefox":
       return "firefox";
   }
 }
 
-// TODO: Uncomment when steipete/sweet-cookie#1 is merged and published
-// /**
-//  * Map CookieSource to sweet-cookie chromiumBrowser option.
-//  * This tells sweet-cookie which specific Chromium browser to target on macOS,
-//  * avoiding multiple keychain password prompts.
-//  */
-// function getChromiumBrowser(
-//   source: CookieSource
-// ): "chrome" | "brave" | "arc" | undefined {
-//   switch (source) {
-//     case "chrome":
-//       return "chrome";
-//     case "brave":
-//       return "brave";
-//     case "arc":
-//       return "arc";
-//     default:
-//       return undefined;
-//   }
-// }
+/**
+ * Map CookieSource to sweet-cookie chromiumBrowser option.
+ * This tells sweet-cookie which Chromium browser's keychain to use for decryption.
+ */
+function getChromiumBrowser(
+  source: CookieSource
+): "chrome" | "brave" | "arc" | undefined {
+  switch (source) {
+    case "chrome":
+      return "chrome";
+    case "brave":
+      return "brave";
+    case "arc":
+      return "arc";
+    // Opera uses "chromium" keychain - but sweet-cookie doesn't support it yet
+    // For now, Opera will fall back to Chrome's keychain discovery
+    default:
+      return undefined;
+  }
+}
 
 async function readTwitterCookiesFromBrowser(options: {
   source: CookieSource;
@@ -164,8 +173,7 @@ async function readTwitterCookiesFromBrowser(options: {
   const out = buildEmpty();
 
   const browser = getSweetCookieBrowser(options.source);
-  // TODO: Add chromiumBrowser when steipete/sweet-cookie#1 is merged
-  // const chromiumBrowser = getChromiumBrowser(options.source);
+  const chromiumBrowser = getChromiumBrowser(options.source);
 
   const { cookies, warnings: providerWarnings } = await getCookies({
     url: TWITTER_URL,
@@ -175,7 +183,7 @@ async function readTwitterCookiesFromBrowser(options: {
     mode: "merge",
     chromeProfile: options.chromeProfile,
     firefoxProfile: options.firefoxProfile,
-    // chromiumBrowser, // TODO: Uncomment when steipete/sweet-cookie#1 is merged
+    chromiumBrowser,
     timeoutMs: 30000, // 30 seconds for keychain password prompt
   });
   warnings.push(...providerWarnings);
