@@ -85,6 +85,8 @@ interface PostDetailScreenProps {
   onReplySelect?: (reply: TweetData) => void;
   /** Get action state for a tweet */
   getActionState?: (tweetId: string) => { liked: boolean; bookmarked: boolean };
+  /** Called when user presses 't' to view thread */
+  onThreadView?: () => void;
 }
 
 /**
@@ -181,6 +183,7 @@ export function PostDetailScreen({
   actionMessage,
   onReplySelect,
   getActionState,
+  onThreadView,
 }: PostDetailScreenProps) {
   // Fetch thread context (parent tweet and replies)
   const { parentTweet, replies, loadingParent, loadingReplies } = usePostDetail(
@@ -552,6 +555,10 @@ export function PostDetailScreen({
             return !prev;
           });
         }
+        break;
+      case "t":
+        // Open thread view (experimental)
+        onThreadView?.();
         break;
     }
   });
@@ -937,6 +944,8 @@ export function PostDetailScreen({
           )}
         </>
       )}
+      <text fg="#ffffff"> t</text>
+      <text fg="#666666"> thread</text>
     </box>
   );
 

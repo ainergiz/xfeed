@@ -15,6 +15,7 @@ import { NotificationsScreen } from "@/screens/NotificationsScreen";
 import { PostDetailScreen } from "@/screens/PostDetailScreen";
 import { ProfileScreen } from "@/screens/ProfileScreen";
 import { SplashScreen } from "@/screens/SplashScreen";
+import { ThreadScreen } from "@/screens/ThreadScreen";
 import { TimelineScreen } from "@/screens/TimelineScreen";
 
 const SPLASH_MIN_DISPLAY_MS = 500;
@@ -24,6 +25,7 @@ export type View =
   | "bookmarks"
   | "notifications"
   | "post-detail"
+  | "thread"
   | "profile";
 
 /** Main views that can be navigated between with Tab (excludes overlay views) */
@@ -116,8 +118,24 @@ export function App({ client, user: _user }: AppProps) {
   const [postStack, setPostStack] = useState<TweetData[]>([]);
   const selectedPost = postStack[postStack.length - 1] ?? null;
 
+  // State for thread view - the tweet whose thread we're viewing
+  // Kept separate from selectedPost so thread state persists when viewing replies
+  const [threadRootTweet, setThreadRootTweet] = useState<TweetData | null>(
+    null
+  );
+
   // Navigate to post detail view (from timeline, bookmarks, profile, or a reply)
   const handlePostSelect = useCallback(
+    (post: TweetData) => {
+      setPostStack((prev) => [...prev, post]);
+      initState(post.id, post.favorited ?? false, post.bookmarked ?? false);
+      navigate("post-detail");
+    },
+    [navigate, initState]
+  );
+
+  // Navigate to post detail from thread view (selecting a reply)
+  const handlePostSelectFromThread = useCallback(
     (post: TweetData) => {
       setPostStack((prev) => [...prev, post]);
       initState(post.id, post.favorited ?? false, post.bookmarked ?? false);
@@ -143,6 +161,20 @@ export function App({ client, user: _user }: AppProps) {
     },
     [navigate]
   );
+
+  // Navigate to thread view from post detail
+  const handleThreadView = useCallback(() => {
+    if (selectedPost) {
+      setThreadRootTweet(selectedPost);
+      navigate("thread");
+    }
+  }, [navigate, selectedPost]);
+
+  // Return from thread view to post detail (clears thread state)
+  const handleBackFromThread = useCallback(() => {
+    goBack();
+    setThreadRootTweet(null);
+  }, [goBack]);
 
   // Return from profile to previous view
   const handleBackFromProfile = useCallback(() => {
@@ -376,6 +408,7 @@ export function App({ client, user: _user }: AppProps) {
               actionMessage={actionMessage}
               onReplySelect={handlePostSelect}
               getActionState={getState}
+              onThreadView={handleThreadView}
             />
             {showFolderPicker && (
               <box
@@ -398,6 +431,25 @@ export function App({ client, user: _user }: AppProps) {
             )}
           </>
         )}
+
+        {/* Keep ThreadScreen mounted to preserve state, hide when not active */}
+        <box
+          style={{
+            flexGrow: currentView === "thread" ? 1 : 0,
+            height: currentView === "thread" ? "100%" : 0,
+            overflow: "hidden",
+          }}
+        >
+          {threadRootTweet && (
+            <ThreadScreen
+              client={client}
+              tweet={threadRootTweet}
+              focused={currentView === "thread"}
+              onBack={handleBackFromThread}
+              onSelectTweet={handlePostSelectFromThread}
+            />
+          )}
+        </box>
 
         {/* Keep ProfileScreen mounted to preserve state, hide when not active */}
         <box
