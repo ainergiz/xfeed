@@ -186,10 +186,16 @@ export function PostDetailScreen({
   onThreadView,
   showFooter = true,
 }: PostDetailScreenProps) {
-  // Fetch thread context (parent tweet and replies)
-  const { parentTweet, replies, loadingParent, loadingReplies } = usePostDetail(
-    { client, tweet }
-  );
+  // Fetch thread context (parent tweet and replies) with pagination
+  const {
+    parentTweet,
+    replies,
+    loadingParent,
+    loadingReplies,
+    loadingMoreReplies,
+    hasMoreReplies,
+    loadMoreReplies,
+  } = usePostDetail({ client, tweet });
   const [isExpanded, setIsExpanded] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [mediaIndex, setMediaIndex] = useState(0);
@@ -292,6 +298,30 @@ export function PostDetailScreen({
       scrollbox.scrollBy(relativeY - topMargin);
     }
   }, [selectedReplyIndex, repliesMode, replies]);
+
+  // Trigger load more when approaching the end of replies list
+  useEffect(() => {
+    if (
+      !repliesMode ||
+      loadingMoreReplies ||
+      !hasMoreReplies ||
+      replies.length === 0
+    )
+      return;
+
+    // Load more when within 3 replies of the end
+    const threshold = 3;
+    if (selectedReplyIndex >= replies.length - threshold) {
+      loadMoreReplies();
+    }
+  }, [
+    selectedReplyIndex,
+    replies.length,
+    loadingMoreReplies,
+    hasMoreReplies,
+    repliesMode,
+    loadMoreReplies,
+  ]);
 
   // When expanding, ensure scroll starts at top
   useEffect(() => {
@@ -815,7 +845,11 @@ export function PostDetailScreen({
           <text fg="#ffffff">Replies</text>
           {hasReplies && (
             <>
-              <text fg={colors.dim}> ({replies.length}) </text>
+              <text fg={colors.dim}>
+                {" "}
+                ({replies.length}
+                {hasMoreReplies ? "+" : ""}){" "}
+              </text>
               {!repliesMode && (
                 <>
                   <text fg={colors.primary}>r</text>
@@ -845,6 +879,11 @@ export function PostDetailScreen({
                 />
               );
             })}
+            {loadingMoreReplies && (
+              <box style={{ paddingTop: 1 }}>
+                <text fg={colors.dim}>Loading more replies...</text>
+              </box>
+            )}
           </box>
         ) : (
           <box>

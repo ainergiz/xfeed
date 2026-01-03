@@ -131,6 +131,8 @@ export interface SearchResult {
   success: boolean;
   tweets?: TweetData[];
   error?: string;
+  /** Pagination cursor for loading more results (e.g., replies) */
+  nextCursor?: string;
 }
 
 /**
