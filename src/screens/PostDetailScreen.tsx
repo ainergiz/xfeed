@@ -97,6 +97,10 @@ interface PostDetailScreenProps {
   onQuoteSelect?: (quotedTweet: TweetData) => void;
   /** Whether a quote is currently being fetched */
   isLoadingQuote?: boolean;
+  /** Called when user presses 'g' to navigate to parent tweet */
+  onParentSelect?: (parentTweet: TweetData) => void;
+  /** Whether a parent tweet is currently being fetched */
+  isLoadingParent?: boolean;
   /** Whether to show the footer */
   showFooter?: boolean;
 }
@@ -199,6 +203,8 @@ export function PostDetailScreen({
   onThreadView,
   onQuoteSelect,
   isLoadingQuote = false,
+  onParentSelect,
+  isLoadingParent = false,
   showFooter = true,
 }: PostDetailScreenProps) {
   // Fetch thread context (parent tweet and replies) with pagination
@@ -607,6 +613,12 @@ export function PostDetailScreen({
         // Open thread view
         onThreadView?.();
         break;
+      case "g":
+        // Navigate to parent tweet
+        if (isReply && parentTweet && !isLoadingParent) {
+          onParentSelect?.(parentTweet);
+        }
+        break;
       case "u":
       case "return":
         // Navigate into quoted tweet (same as timeline enter behavior)
@@ -970,6 +982,12 @@ export function PostDetailScreen({
     { key: "o", label: "link", show: hasLinks },
     { key: ",/.", label: "nav", show: hasLinks && linkCount > 1 },
     { key: "t", label: "thread" },
+    {
+      key: "g",
+      label: isLoadingParent ? "loading..." : "parent",
+      activeColor: isLoadingParent ? colors.primary : undefined,
+      show: isReply && parentTweet !== null,
+    },
     {
       key: "u",
       label: isLoadingQuote ? "loading..." : "quote",
