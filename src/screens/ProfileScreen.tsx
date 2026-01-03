@@ -12,7 +12,7 @@ import type { TweetActionState } from "@/hooks/useActions";
 
 import { Footer, type Keybinding } from "@/components/Footer";
 import { PostList } from "@/components/PostList";
-import { useUserProfile } from "@/hooks/useUserProfile";
+import { useProfileQuery } from "@/experiments/use-profile-query";
 import { colors } from "@/lib/colors";
 import { formatCount } from "@/lib/format";
 import { openInBrowser, previewImageUrl } from "@/lib/media";
@@ -84,7 +84,7 @@ export function ProfileScreen({
   initActionState,
   showFooter = true,
 }: ProfileScreenProps) {
-  const { user, tweets, loading, error, refresh } = useUserProfile({
+  const { user, tweets, loading, error, refresh } = useProfileQuery({
     client,
     username,
   });
