@@ -351,6 +351,12 @@ export function App({ client, user: _user }: AppProps) {
       }
     }
 
+    // Toggle footer visibility with '?' - works on all screens
+    if (key.sequence === "?") {
+      setShowFooter((prev) => !prev);
+      return;
+    }
+
     // Don't handle other keys during splash or overlay views
     if (showSplash || !isMainView) {
       return;
@@ -364,11 +370,6 @@ export function App({ client, user: _user }: AppProps) {
     // Go to notifications with 'n'
     if (key.name === "n") {
       navigate("notifications");
-    }
-
-    // Toggle footer visibility with '?'
-    if (key.sequence === "?") {
-      setShowFooter((prev) => !prev);
     }
   });
 
@@ -442,6 +443,7 @@ export function App({ client, user: _user }: AppProps) {
               onReplySelect={handlePostSelect}
               getActionState={getState}
               onThreadView={handleThreadView}
+              showFooter={showFooter}
             />
             {showFolderPicker && (
               <box
@@ -480,6 +482,7 @@ export function App({ client, user: _user }: AppProps) {
               focused={currentView === "thread"}
               onBack={handleBackFromThread}
               onSelectTweet={handlePostSelectFromThread}
+              showFooter={showFooter}
             />
           )}
         </box>
@@ -504,6 +507,7 @@ export function App({ client, user: _user }: AppProps) {
               getActionState={getState}
               initActionState={initState}
               actionMessage={actionMessage}
+              showFooter={showFooter}
             />
           )}
         </box>
@@ -549,7 +553,7 @@ export function App({ client, user: _user }: AppProps) {
         </box>
       </box>
 
-      {!showSplash && isMainView && showFooter && <Footer />}
+      {!showSplash && isMainView && <Footer visible={showFooter} />}
 
       {/* Exit confirmation modal */}
       {showExitConfirmation && (

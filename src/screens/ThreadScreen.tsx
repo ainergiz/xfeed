@@ -20,6 +20,7 @@ interface ThreadScreenProps {
   focused?: boolean;
   onBack?: () => void;
   onSelectTweet?: (tweet: TweetData) => void;
+  showFooter?: boolean;
 }
 
 export function ThreadScreen({
@@ -28,6 +29,7 @@ export function ThreadScreen({
   focused = false,
   onBack,
   onSelectTweet,
+  showFooter = true,
 }: ThreadScreenProps) {
   const { ancestors, replyTree, loadingAncestors, loadingReplies, error } =
     useThread({
@@ -73,6 +75,7 @@ export function ThreadScreen({
       focused={focused}
       onBack={onBack}
       onSelectTweet={onSelectTweet}
+      showFooter={showFooter}
     />
   );
 }
