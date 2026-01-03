@@ -20,6 +20,7 @@ import {
 } from "@/experiments";
 import { useActions } from "@/hooks/useActions";
 import { useNavigation } from "@/hooks/useNavigation";
+import { copyToClipboard } from "@/lib/clipboard";
 import { BookmarksScreen } from "@/screens/BookmarksScreen";
 import { NotificationsScreen } from "@/screens/NotificationsScreen";
 import { PostDetailScreen } from "@/screens/PostDetailScreen";
@@ -400,6 +401,22 @@ function AppContent({ client, user }: AppProps) {
   );
 
   useKeyboard((key) => {
+    // Handle copy with 'c' - Cmd+C is intercepted by terminal
+    if (key.name === "c") {
+      const selection = renderer.getSelection();
+      if (selection) {
+        const text = selection.getSelectedText();
+        if (text) {
+          copyToClipboard(text).then((result) => {
+            if (result.success) {
+              setActionMessage("Copied to clipboard");
+            }
+          });
+          return;
+        }
+      }
+    }
+
     // Don't handle keys when modals are showing - they handle their own keyboard
     if (isModalOpen) {
       return;

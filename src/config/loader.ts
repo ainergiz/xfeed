@@ -1,4 +1,10 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 
@@ -38,6 +44,7 @@ export function saveConfig(config: XfeedConfig): void {
     mkdirSync(CONFIG_DIR, { recursive: true });
   }
   writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2) + "\n");
+  chmodSync(CONFIG_PATH, 0o600);
 }
 
 /**

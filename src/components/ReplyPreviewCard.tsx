@@ -72,7 +72,9 @@ export function ReplyPreviewCard({
 
         {/* Reply text (truncated) */}
         <box style={{ marginTop: 1 }}>
-          <text fg="#aaaaaa">{displayText}</text>
+          <text fg="#aaaaaa" selectable selectionBg="#264F78">
+            {displayText}
+          </text>
         </box>
       </box>
     </box>
