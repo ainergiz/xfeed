@@ -13,7 +13,11 @@ import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { clearBrowserPreference } from "@/config/loader";
 import { useModal } from "@/contexts/ModalContext";
-import { QueryProvider, TimelineScreenExperimental } from "@/experiments";
+import {
+  QueryProvider,
+  TimelineScreenExperimental,
+  useBookmarkMutation,
+} from "@/experiments";
 import { useActions } from "@/hooks/useActions";
 import { useNavigation } from "@/hooks/useNavigation";
 import { BookmarksScreen } from "@/screens/BookmarksScreen";
@@ -41,7 +45,19 @@ interface AppProps {
   user: UserData;
 }
 
+/**
+ * App wrapper that provides QueryProvider context
+ * The actual app content is in AppContent which can use TanStack Query hooks
+ */
 export function App({ client, user }: AppProps) {
+  return (
+    <QueryProvider>
+      <AppContent client={client} user={user} />
+    </QueryProvider>
+  );
+}
+
+function AppContent({ client, user }: AppProps) {
   const renderer = useRenderer();
   const { currentView, navigate, goBack, cycleNext, isMainView } =
     useNavigation<View>({
@@ -66,35 +82,24 @@ export function App({ client, user }: AppProps) {
     });
   }, [client, openModal]);
 
-  // Ref to store BookmarksScreen's removePost function for sync
-  const bookmarksRemovePostRef = useRef<((tweetId: string) => void) | null>(
-    null
-  );
+  // State for bookmark folder selection (moved here for useActions integration)
+  const [selectedBookmarkFolder, setSelectedBookmarkFolder] =
+    useState<BookmarkFolder | null>(null);
 
-  // Callback to register BookmarksScreen's removePost function
-  const handleRegisterRemovePost = useCallback(
-    (removePost: (tweetId: string) => void) => {
-      bookmarksRemovePostRef.current = removePost;
-    },
-    []
-  );
-
-  // Handle bookmark state changes - sync with BookmarksScreen
-  const handleBookmarkChange = useCallback(
-    (tweetId: string, isBookmarked: boolean) => {
-      if (!isBookmarked && bookmarksRemovePostRef.current) {
-        bookmarksRemovePostRef.current(tweetId);
-      }
-    },
-    []
-  );
+  // TanStack Query mutation for bookmark operations with optimistic updates
+  const bookmarkMutation = useBookmarkMutation({
+    client,
+    onSuccess: (message) => setActionMessage(message),
+    onError: (error) => setActionMessage(`Error: ${error}`),
+  });
 
   // Actions hook for like/bookmark mutations
   const { toggleLike, toggleBookmark, getState, initState } = useActions({
     client,
     onError: (error) => setActionMessage(`Error: ${error}`),
     onSuccess: (message) => setActionMessage(message),
-    onBookmarkChange: handleBookmarkChange,
+    bookmarkMutation,
+    currentFolderId: selectedBookmarkFolder?.id,
   });
 
   // Clear action message after 3 seconds
@@ -317,10 +322,6 @@ export function App({ client, user }: AppProps) {
     [navigate, initState]
   );
 
-  // State for bookmark folder selection (view state, not modal state)
-  const [selectedBookmarkFolder, setSelectedBookmarkFolder] =
-    useState<BookmarkFolder | null>(null);
-
   // Open folder picker modal from post detail
   const handleMoveToFolder = useCallback(() => {
     if (!selectedPost) return;
@@ -491,180 +492,173 @@ export function App({ client, user }: AppProps) {
   });
 
   return (
-    <QueryProvider>
+    <box
+      style={{
+        flexDirection: "column",
+        height: "100%",
+      }}
+    >
+      {showSplash ? (
+        <SplashScreen />
+      ) : isMainView ? (
+        <Header
+          currentView={currentView}
+          postCount={
+            currentView === "bookmarks"
+              ? bookmarkCount
+              : currentView === "notifications"
+                ? notificationCount
+                : postCount
+          }
+          hasMore={currentView === "bookmarks" ? bookmarkHasMore : false}
+          unreadNotificationCount={unreadNotificationCount}
+        />
+      ) : null}
+
+      {/* Content area - always mount TimelineScreen to preserve state */}
       <box
         style={{
-          flexDirection: "column",
-          height: "100%",
+          flexGrow: 1,
+          // Hide during splash but keep mounted
+          height: showSplash ? 0 : undefined,
+          overflow: showSplash ? "hidden" : undefined,
         }}
       >
-        {showSplash ? (
-          <SplashScreen />
-        ) : isMainView ? (
-          <Header
-            currentView={currentView}
-            postCount={
-              currentView === "bookmarks"
-                ? bookmarkCount
-                : currentView === "notifications"
-                  ? notificationCount
-                  : postCount
-            }
-            hasMore={currentView === "bookmarks" ? bookmarkHasMore : false}
-            unreadNotificationCount={unreadNotificationCount}
-          />
-        ) : null}
-
-        {/* Content area - always mount TimelineScreen to preserve state */}
+        {/* TanStack Query experiment: TimelineScreenExperimental */}
         <box
           style={{
-            flexGrow: 1,
-            // Hide during splash but keep mounted
-            height: showSplash ? 0 : undefined,
-            overflow: showSplash ? "hidden" : undefined,
+            flexGrow: currentView === "timeline" ? 1 : 0,
+            height: currentView === "timeline" ? "100%" : 0,
+            overflow: "hidden",
           }}
         >
-          {/* TanStack Query experiment: TimelineScreenExperimental */}
-          <box
-            style={{
-              flexGrow: currentView === "timeline" ? 1 : 0,
-              height: currentView === "timeline" ? "100%" : 0,
-              overflow: "hidden",
-            }}
-          >
-            <TimelineScreenExperimental
-              client={client}
-              focused={
-                currentView === "timeline" && !showSplash && !isModalOpen
-              }
-              onPostCountChange={handlePostCountChange}
-              onPostSelect={handlePostSelect}
-              onLike={toggleLike}
-              onBookmark={toggleBookmark}
-              getActionState={getState}
-              initActionState={initState}
-            />
-          </box>
+          <TimelineScreenExperimental
+            client={client}
+            focused={currentView === "timeline" && !showSplash && !isModalOpen}
+            onPostCountChange={handlePostCountChange}
+            onPostSelect={handlePostSelect}
+            onLike={toggleLike}
+            onBookmark={toggleBookmark}
+            getActionState={getState}
+            initActionState={initState}
+          />
+        </box>
 
-          {currentView === "post-detail" && selectedPost && (
-            <PostDetailScreen
+        {currentView === "post-detail" && selectedPost && (
+          <PostDetailScreen
+            client={client}
+            tweet={selectedPost}
+            focused={!isModalOpen}
+            onBack={handleBackFromDetail}
+            onProfileOpen={handleProfileOpen}
+            onLike={() => toggleLike(selectedPost)}
+            onBookmark={() => toggleBookmark(selectedPost)}
+            onMoveToFolder={handleMoveToFolder}
+            isLiked={getState(selectedPost.id).liked}
+            isBookmarked={getState(selectedPost.id).bookmarked}
+            isJustLiked={getState(selectedPost.id).justLiked}
+            isJustBookmarked={getState(selectedPost.id).justBookmarked}
+            onReplySelect={handlePostSelect}
+            getActionState={getState}
+            onThreadView={handleThreadView}
+            onQuoteSelect={handleQuoteSelect}
+            isLoadingQuote={isLoadingQuote}
+            onParentSelect={handleParentSelect}
+            isLoadingParent={isLoadingParent}
+            showFooter={showFooter}
+          />
+        )}
+
+        {/* Keep ThreadScreen mounted to preserve state, hide when not active */}
+        <box
+          style={{
+            flexGrow: currentView === "thread" ? 1 : 0,
+            height: currentView === "thread" ? "100%" : 0,
+            overflow: "hidden",
+          }}
+        >
+          {threadRootTweet && (
+            <ThreadScreen
               client={client}
-              tweet={selectedPost}
-              focused={!isModalOpen}
-              onBack={handleBackFromDetail}
-              onProfileOpen={handleProfileOpen}
-              onLike={() => toggleLike(selectedPost)}
-              onBookmark={() => toggleBookmark(selectedPost)}
-              onMoveToFolder={handleMoveToFolder}
-              isLiked={getState(selectedPost.id).liked}
-              isBookmarked={getState(selectedPost.id).bookmarked}
-              isJustLiked={getState(selectedPost.id).justLiked}
-              isJustBookmarked={getState(selectedPost.id).justBookmarked}
-              onReplySelect={handlePostSelect}
-              getActionState={getState}
-              onThreadView={handleThreadView}
-              onQuoteSelect={handleQuoteSelect}
-              isLoadingQuote={isLoadingQuote}
-              onParentSelect={handleParentSelect}
-              isLoadingParent={isLoadingParent}
+              tweet={threadRootTweet}
+              focused={currentView === "thread"}
+              onBack={handleBackFromThread}
+              onSelectTweet={handlePostSelectFromThread}
               showFooter={showFooter}
             />
           )}
+        </box>
 
-          {/* Keep ThreadScreen mounted to preserve state, hide when not active */}
-          <box
-            style={{
-              flexGrow: currentView === "thread" ? 1 : 0,
-              height: currentView === "thread" ? "100%" : 0,
-              overflow: "hidden",
-            }}
-          >
-            {threadRootTweet && (
-              <ThreadScreen
-                client={client}
-                tweet={threadRootTweet}
-                focused={currentView === "thread"}
-                onBack={handleBackFromThread}
-                onSelectTweet={handlePostSelectFromThread}
-                showFooter={showFooter}
-              />
-            )}
-          </box>
-
-          {/* Keep ProfileScreen mounted to preserve state, hide when not active */}
-          <box
-            style={{
-              flexGrow: currentView === "profile" ? 1 : 0,
-              height: currentView === "profile" ? "100%" : 0,
-              overflow: "hidden",
-            }}
-          >
-            {profileUsername && (
-              <ProfileScreen
-                client={client}
-                username={profileUsername}
-                currentUser={user}
-                focused={currentView === "profile"}
-                onBack={handleBackFromProfile}
-                onPostSelect={handlePostSelectFromProfile}
-                onProfileOpen={handleProfileOpen}
-                onLike={toggleLike}
-                onBookmark={toggleBookmark}
-                getActionState={getState}
-                initActionState={initState}
-                showFooter={showFooter}
-              />
-            )}
-          </box>
-
-          {/* Keep BookmarksScreen mounted to preserve state, hide when not active */}
-          <box
-            style={{
-              flexGrow: currentView === "bookmarks" ? 1 : 0,
-              height: currentView === "bookmarks" ? "100%" : 0,
-              overflow: "hidden",
-            }}
-          >
-            <BookmarksScreen
+        {/* Keep ProfileScreen mounted to preserve state, hide when not active */}
+        <box
+          style={{
+            flexGrow: currentView === "profile" ? 1 : 0,
+            height: currentView === "profile" ? "100%" : 0,
+            overflow: "hidden",
+          }}
+        >
+          {profileUsername && (
+            <ProfileScreen
               client={client}
-              focused={
-                currentView === "bookmarks" && !showSplash && !isModalOpen
-              }
-              selectedFolder={selectedBookmarkFolder}
-              onFolderPickerOpen={handleBookmarkFolderSelectorOpen}
-              onPostCountChange={handleBookmarkCountChange}
-              onHasMoreChange={handleBookmarkHasMoreChange}
-              onPostSelect={handlePostSelect}
+              username={profileUsername}
+              currentUser={user}
+              focused={currentView === "profile"}
+              onBack={handleBackFromProfile}
+              onPostSelect={handlePostSelectFromProfile}
+              onProfileOpen={handleProfileOpen}
               onLike={toggleLike}
               onBookmark={toggleBookmark}
               getActionState={getState}
               initActionState={initState}
-              onRegisterRemovePost={handleRegisterRemovePost}
+              showFooter={showFooter}
             />
-          </box>
-
-          {/* Keep NotificationsScreen mounted to preserve state, hide when not active */}
-          <box
-            style={{
-              flexGrow: currentView === "notifications" ? 1 : 0,
-              height: currentView === "notifications" ? "100%" : 0,
-              overflow: "hidden",
-            }}
-          >
-            <NotificationsScreen
-              client={client}
-              focused={
-                currentView === "notifications" && !showSplash && !isModalOpen
-              }
-              onNotificationCountChange={handleNotificationCountChange}
-              onUnreadCountChange={handleUnreadCountChange}
-              onNotificationSelect={handleNotificationSelect}
-            />
-          </box>
+          )}
         </box>
 
-        {!showSplash && isMainView && <Footer visible={showFooter} />}
+        {/* Keep BookmarksScreen mounted to preserve state, hide when not active */}
+        <box
+          style={{
+            flexGrow: currentView === "bookmarks" ? 1 : 0,
+            height: currentView === "bookmarks" ? "100%" : 0,
+            overflow: "hidden",
+          }}
+        >
+          <BookmarksScreen
+            client={client}
+            focused={currentView === "bookmarks" && !showSplash && !isModalOpen}
+            selectedFolder={selectedBookmarkFolder}
+            onFolderPickerOpen={handleBookmarkFolderSelectorOpen}
+            onPostCountChange={handleBookmarkCountChange}
+            onHasMoreChange={handleBookmarkHasMoreChange}
+            onPostSelect={handlePostSelect}
+            onLike={toggleLike}
+            onBookmark={toggleBookmark}
+            getActionState={getState}
+            initActionState={initState}
+          />
+        </box>
+
+        {/* Keep NotificationsScreen mounted to preserve state, hide when not active */}
+        <box
+          style={{
+            flexGrow: currentView === "notifications" ? 1 : 0,
+            height: currentView === "notifications" ? "100%" : 0,
+            overflow: "hidden",
+          }}
+        >
+          <NotificationsScreen
+            client={client}
+            focused={
+              currentView === "notifications" && !showSplash && !isModalOpen
+            }
+            onNotificationCountChange={handleNotificationCountChange}
+            onUnreadCountChange={handleUnreadCountChange}
+            onNotificationSelect={handleNotificationSelect}
+          />
+        </box>
       </box>
-    </QueryProvider>
+
+      {!showSplash && isMainView && <Footer visible={showFooter} />}
+    </box>
   );
 }
