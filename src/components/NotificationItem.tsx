@@ -4,19 +4,18 @@
 
 import type { NotificationData, NotificationIcon } from "@/api/types";
 
+import { colors } from "@/lib/colors";
 import { formatRelativeTime, truncateText } from "@/lib/format";
-
-const SELECTED_BG = "#1a1a2e";
 
 const ICON_MAP: Record<
   NotificationIcon,
   { symbol: string; color: string; label: string }
 > = {
-  heart_icon: { symbol: "\u2665", color: "#E0245E", label: "like" },
-  person_icon: { symbol: "\u2603", color: "#1DA1F2", label: "follow" },
+  heart_icon: { symbol: "\u2665", color: colors.error, label: "like" },
+  person_icon: { symbol: "\u2603", color: colors.primary, label: "follow" },
   bird_icon: { symbol: "\u2699", color: "#794BC4", label: "system" },
-  retweet_icon: { symbol: "\u21BB", color: "#17BF63", label: "repost" },
-  reply_icon: { symbol: "\u21A9", color: "#1DA1F2", label: "reply" },
+  retweet_icon: { symbol: "\u21BB", color: colors.success, label: "repost" },
+  reply_icon: { symbol: "\u21A9", color: colors.primary, label: "reply" },
 };
 
 interface NotificationItemProps {
@@ -32,7 +31,7 @@ export function NotificationItem({
 }: NotificationItemProps) {
   const iconInfo = ICON_MAP[notification.icon] ?? {
     symbol: "?",
-    color: "#888888",
+    color: colors.muted,
     label: "notification",
   };
   const timeAgo = formatRelativeTime(notification.timestamp);
@@ -46,7 +45,7 @@ export function NotificationItem({
         paddingLeft: 1,
         paddingRight: 1,
         paddingTop: 1,
-        backgroundColor: isSelected ? SELECTED_BG : undefined,
+        backgroundColor: isSelected ? colors.selectedBg : undefined,
       }}
     >
       {/* Icon and message line */}
@@ -54,13 +53,13 @@ export function NotificationItem({
         <text fg={iconInfo.color}>{isSelected ? "> " : "  "}</text>
         <text fg={iconInfo.color}>{iconInfo.symbol} </text>
         <text fg="#ffffff">{notification.message}</text>
-        {timeAgo && <text fg="#666666"> · {timeAgo}</text>}
+        {timeAgo && <text fg={colors.dim}> · {timeAgo}</text>}
       </box>
 
       {/* Show tweet preview if available */}
       {notification.targetTweet && (
         <box style={{ paddingLeft: 4, marginTop: 1 }}>
-          <text fg="#888888">
+          <text fg={colors.muted}>
             "{truncateText(notification.targetTweet.text, 2, 70)}"
           </text>
         </box>
@@ -71,7 +70,7 @@ export function NotificationItem({
         notification.fromUsers &&
         notification.fromUsers.length > 0 && (
           <box style={{ paddingLeft: 4, marginTop: 1 }}>
-            <text fg="#666666">
+            <text fg={colors.dim}>
               @{notification.fromUsers[0]?.username ?? "unknown"}
             </text>
           </box>

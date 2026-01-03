@@ -1,5 +1,7 @@
 import { useKeyboard, useRenderer } from "@opentui/react";
 
+import { colors } from "@/lib/colors";
+
 export function SessionExpiredModal() {
   const renderer = useRenderer();
 
@@ -29,10 +31,10 @@ export function SessionExpiredModal() {
           alignItems: "center",
           gap: 1,
         }}
-        backgroundColor="#1a1a2e"
-        borderColor="#e63946"
+        backgroundColor={colors.selectedBg}
+        borderColor={colors.error}
       >
-        <text fg="#e63946">Session Expired</text>
+        <text fg={colors.error}>Session Expired</text>
         <text fg="#a8a8a8">Your tokens are no longer valid.</text>
         <box style={{ marginTop: 1, flexDirection: "row" }}>
           <text fg="#6b6b6b">Press </text>

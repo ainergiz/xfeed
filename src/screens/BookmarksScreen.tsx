@@ -13,6 +13,7 @@ import type { TweetActionState } from "@/hooks/useActions";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { PostList } from "@/components/PostList";
 import { useBookmarks } from "@/hooks/useBookmarks";
+import { colors } from "@/lib/colors";
 
 interface BookmarksScreenProps {
   client: XClient;
@@ -46,7 +47,7 @@ function ScreenHeader() {
         flexDirection: "row",
       }}
     >
-      <text fg="#1DA1F2">
+      <text fg={colors.primary}>
         <b>All Bookmarks</b>
       </text>
     </box>
@@ -109,7 +110,7 @@ export function BookmarksScreen({
       <box style={{ flexDirection: "column", height: "100%" }}>
         <ScreenHeader />
         <box style={{ padding: 2, flexGrow: 1 }}>
-          <text fg="#888888">Loading bookmarks...</text>
+          <text fg={colors.muted}>Loading bookmarks...</text>
         </box>
       </box>
     );
@@ -141,7 +142,7 @@ export function BookmarksScreen({
         <ScreenHeader />
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg="#ff6666">Error: {error}</text>
-          <text fg="#888888"> Press r to retry.</text>
+          <text fg={colors.muted}> Press r to retry.</text>
         </box>
       </box>
     );
@@ -152,7 +153,7 @@ export function BookmarksScreen({
       <box style={{ flexDirection: "column", height: "100%" }}>
         <ScreenHeader />
         <box style={{ padding: 2, flexGrow: 1 }}>
-          <text fg="#888888">No bookmarks yet. Press r to refresh.</text>
+          <text fg={colors.muted}>No bookmarks yet. Press r to refresh.</text>
         </box>
       </box>
     );
@@ -163,7 +164,7 @@ export function BookmarksScreen({
       <ScreenHeader />
       {actionMessage ? (
         <box style={{ paddingLeft: 1 }}>
-          <text fg={actionMessage.startsWith("Error:") ? "#E0245E" : "#17BF63"}>
+          <text fg={actionMessage.startsWith("Error:") ? colors.error : colors.success}>
             {actionMessage}
           </text>
         </box>

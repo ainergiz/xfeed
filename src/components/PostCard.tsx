@@ -4,15 +4,12 @@
 
 import type { TweetData } from "@/api/types";
 
+import { colors } from "@/lib/colors";
 import { formatCount, formatRelativeTime, truncateText } from "@/lib/format";
 
 import { QuotedPostCard } from "./QuotedPostCard";
 
 const MAX_TEXT_LINES = 3;
-const SELECTED_BG = "#1a1a2e";
-const X_BLUE = "#1DA1F2";
-const COLOR_SUCCESS = "#17BF63";
-const COLOR_WARNING = "#FFAD1F";
 
 interface PostCardProps {
   post: TweetData;
@@ -44,14 +41,14 @@ export function PostCard({
         paddingLeft: 1,
         paddingRight: 1,
         paddingTop: 1,
-        backgroundColor: isSelected ? SELECTED_BG : undefined,
+        backgroundColor: isSelected ? colors.selectedBg : undefined,
       }}
     >
       {/* Author line with selection indicator */}
       <box style={{ flexDirection: "row" }}>
-        <text fg={X_BLUE}>{isSelected ? "> " : "  "}</text>
-        <text fg={X_BLUE}>@{post.author.username}</text>
-        <text fg="#666666">
+        <text fg={colors.primary}>{isSelected ? "> " : "  "}</text>
+        <text fg={colors.primary}>@{post.author.username}</text>
+        <text fg={colors.dim}>
           {" "}
           · {post.author.name}
           {timeAgo ? ` · ${timeAgo}` : ""}
@@ -72,19 +69,19 @@ export function PostCard({
 
       {/* Stats line */}
       <box style={{ flexDirection: "row", marginTop: 1, paddingLeft: 2 }}>
-        <text fg="#888888">
+        <text fg={colors.muted}>
           {formatCount(post.replyCount)} replies {"  "}
           {formatCount(post.retweetCount)} reposts {"  "}
           {formatCount(post.likeCount)} likes
         </text>
         {isLiked ? (
-          <text fg="#E0245E">
+          <text fg={colors.error}>
             {"  "}
             {"\u2665"} liked
           </text>
         ) : null}
         {isBookmarked ? (
-          <text fg={X_BLUE}>
+          <text fg={colors.primary}>
             {"  "}
             {"\u2691"} saved
           </text>
@@ -107,10 +104,10 @@ export function PostCard({
                   : "GIF";
             const typeColor =
               item.type === "photo"
-                ? X_BLUE
+                ? colors.primary
                 : item.type === "video"
-                  ? COLOR_WARNING
-                  : COLOR_SUCCESS;
+                  ? colors.warning
+                  : colors.success;
             return (
               <text key={item.id} fg={typeColor}>
                 • {typeLabel}

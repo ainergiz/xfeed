@@ -10,6 +10,7 @@ import type { NotificationData } from "@/api/types";
 
 import { NotificationItem } from "@/components/NotificationItem";
 import { useListNavigation } from "@/hooks/useListNavigation";
+import { colors } from "@/lib/colors";
 
 interface NotificationListProps {
   notifications: NotificationData[];
@@ -119,7 +120,7 @@ export function NotificationList({
   if (notifications.length === 0) {
     return (
       <box style={{ padding: 2 }}>
-        <text fg="#888888">No notifications</text>
+        <text fg={colors.muted}>No notifications</text>
       </box>
     );
   }
@@ -143,12 +144,12 @@ export function NotificationList({
       ))}
       {loadingMore ? (
         <box style={{ padding: 1, paddingLeft: 2 }}>
-          <text fg="#888888">Loading more...</text>
+          <text fg={colors.muted}>Loading more...</text>
         </box>
       ) : null}
       {!hasMore && notifications.length > 0 ? (
         <box style={{ padding: 1, paddingLeft: 2 }}>
-          <text fg="#666666">No more notifications</text>
+          <text fg={colors.dim}>No more notifications</text>
         </box>
       ) : null}
     </scrollbox>

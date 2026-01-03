@@ -8,7 +8,7 @@
 import { useKeyboard } from "@opentui/react";
 import { useState } from "react";
 
-const X_BLUE = "#1DA1F2";
+import { colors } from "@/lib/colors";
 
 interface ExitConfirmationModalProps {
   /** Called when user confirms exit (y or Enter on Yes) */
@@ -89,24 +89,24 @@ export function ExitConfirmationModal({
           backgroundColor="#000000"
         >
           <box style={{ paddingBottom: 1 }}>
-            <text fg={X_BLUE}>Exit xfeed?</text>
+            <text fg={colors.primary}>Exit xfeed?</text>
           </box>
 
           <box style={{ flexDirection: "row" }}>
-            <text fg={selectedIndex === 0 ? X_BLUE : "#888888"}>
+            <text fg={selectedIndex === 0 ? colors.primary : colors.muted}>
               {selectedIndex === 0 ? "> " : "  "}Yes
             </text>
           </box>
           <box style={{ flexDirection: "row" }}>
-            <text fg={selectedIndex === 1 ? X_BLUE : "#888888"}>
+            <text fg={selectedIndex === 1 ? colors.primary : colors.muted}>
               {selectedIndex === 1 ? "> " : "  "}No
             </text>
           </box>
 
           <box style={{ paddingTop: 1, flexDirection: "row" }}>
-            <text fg="#666666">y</text>
+            <text fg={colors.dim}>y</text>
             <text fg="#444444"> yes </text>
-            <text fg="#666666">n/Esc</text>
+            <text fg={colors.dim}>n/Esc</text>
             <text fg="#444444"> no</text>
           </box>
         </box>

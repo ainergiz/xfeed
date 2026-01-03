@@ -7,6 +7,8 @@ import { useState, useEffect } from "react";
 
 import type { ApiError, ApiErrorType } from "@/api/types";
 
+import { colors } from "@/lib/colors";
+
 interface ErrorBannerProps {
   /** The error to display */
   error: ApiError;
@@ -147,7 +149,7 @@ export function ErrorBanner({
       </box>
       {actionHint && (
         <box style={{ paddingTop: 1, paddingLeft: 4 }}>
-          <text fg="#888888">{actionHint}</text>
+          <text fg={colors.muted}>{actionHint}</text>
         </box>
       )}
     </box>
@@ -179,10 +181,10 @@ export function OfflineIndicator() {
         flexDirection: "row",
       }}
     >
-      <text fg="#ffaa00">
+      <text fg={colors.warning}>
         <b>[~]</b>{" "}
       </text>
-      <text fg="#888888">Offline - Check your connection</text>
+      <text fg={colors.muted}>Offline - Check your connection</text>
     </box>
   );
 }

@@ -12,10 +12,9 @@ import type { TweetActionState } from "@/hooks/useActions";
 
 import { PostList } from "@/components/PostList";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { colors } from "@/lib/colors";
 import { formatCount } from "@/lib/format";
 import { openInBrowser, previewImageUrl } from "@/lib/media";
-
-const X_BLUE = "#1DA1F2";
 
 /**
  * Format X's created_at date to "Joined Month Year"
@@ -142,12 +141,12 @@ export function ProfileScreen({
         flexDirection: "row",
       }}
     >
-      <text fg="#666666">{"<- "}</text>
+      <text fg={colors.dim}>{"<- "}</text>
       <text fg="#ffffff">
         <b>{user.name}</b>
       </text>
-      {user.isBlueVerified && <text fg={X_BLUE}> {"\u2713"}</text>}
-      <text fg="#888888"> @{user.username}</text>
+      {user.isBlueVerified && <text fg={colors.primary}> {"\u2713"}</text>}
+      <text fg={colors.muted}> @{user.username}</text>
     </box>
   );
 
@@ -159,12 +158,12 @@ export function ProfileScreen({
     <box style={{ flexShrink: 0, flexDirection: "column" }}>
       {/* Back hint + Name + Handle on same line */}
       <box style={{ paddingLeft: 1, paddingRight: 1, flexDirection: "row" }}>
-        <text fg="#666666">{"<- "}</text>
+        <text fg={colors.dim}>{"<- "}</text>
         <text fg="#ffffff">
           <b>{user.name}</b>
         </text>
-        {user.isBlueVerified && <text fg={X_BLUE}> {"\u2713"}</text>}
-        <text fg="#888888"> @{user.username}</text>
+        {user.isBlueVerified && <text fg={colors.primary}> {"\u2713"}</text>}
+        <text fg={colors.muted}> @{user.username}</text>
       </box>
 
       {/* Bio */}
@@ -179,25 +178,25 @@ export function ProfileScreen({
         <box style={{ paddingLeft: 1, paddingRight: 1, flexDirection: "row" }}>
           {user.location && (
             <>
-              <text fg="#888888">{"\u{1F4CD}"} </text>
+              <text fg={colors.muted}>{"\u{1F4CD}"} </text>
               <text fg="#aaaaaa">{user.location}</text>
             </>
           )}
           {user.location && websiteDomain && (
-            <text fg="#666666"> {"\u00B7"} </text>
+            <text fg={colors.dim}> {"\u00B7"} </text>
           )}
           {websiteDomain && (
             <>
-              <text fg="#888888">{"\u{1F517}"} </text>
-              <text fg={X_BLUE}>{websiteDomain}</text>
+              <text fg={colors.muted}>{"\u{1F517}"} </text>
+              <text fg={colors.primary}>{websiteDomain}</text>
             </>
           )}
           {(user.location || websiteDomain) && joinDate && (
-            <text fg="#666666"> {"\u00B7"} </text>
+            <text fg={colors.dim}> {"\u00B7"} </text>
           )}
           {joinDate && (
             <>
-              <text fg="#888888">{"\u{1F4C5}"} </text>
+              <text fg={colors.muted}>{"\u{1F4C5}"} </text>
               <text fg="#aaaaaa">{joinDate}</text>
             </>
           )}
@@ -207,10 +206,10 @@ export function ProfileScreen({
       {/* Stats */}
       <box style={{ paddingLeft: 1, paddingRight: 1, flexDirection: "row" }}>
         <text fg="#ffffff">{formatCount(user.followersCount)}</text>
-        <text fg="#888888"> Followers </text>
-        <text fg="#666666">{"\u00B7"} </text>
+        <text fg={colors.muted}> Followers </text>
+        <text fg={colors.dim}>{"\u00B7"} </text>
         <text fg="#ffffff">{formatCount(user.followingCount)}</text>
-        <text fg="#888888"> Following</text>
+        <text fg={colors.muted}> Following</text>
       </box>
     </box>
   );
@@ -233,35 +232,35 @@ export function ProfileScreen({
       }}
     >
       <text fg="#ffffff">h/Esc</text>
-      <text fg="#666666"> back </text>
+      <text fg={colors.dim}> back </text>
       <text fg="#ffffff">j/k</text>
-      <text fg="#666666"> nav </text>
+      <text fg={colors.dim}> nav </text>
       <text fg="#ffffff">l</text>
-      <text fg="#666666"> like </text>
+      <text fg={colors.dim}> like </text>
       <text fg="#ffffff">b</text>
-      <text fg="#666666"> bkmk </text>
+      <text fg={colors.dim}> bkmk </text>
       {user?.profileImageUrl && (
         <>
           <text fg="#ffffff">a</text>
-          <text fg="#666666"> avatar </text>
+          <text fg={colors.dim}> avatar </text>
         </>
       )}
       {user?.bannerImageUrl && (
         <>
           <text fg="#ffffff">v</text>
-          <text fg="#666666"> banner </text>
+          <text fg={colors.dim}> banner </text>
         </>
       )}
       {user?.websiteUrl && (
         <>
           <text fg="#ffffff">w</text>
-          <text fg="#666666"> web </text>
+          <text fg={colors.dim}> web </text>
         </>
       )}
       <text fg="#ffffff">x</text>
-      <text fg="#666666"> x.com </text>
+      <text fg={colors.dim}> x.com </text>
       <text fg="#ffffff">r</text>
-      <text fg="#666666"> refresh</text>
+      <text fg={colors.dim}> refresh</text>
     </box>
   );
 
@@ -270,8 +269,8 @@ export function ProfileScreen({
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
         <box style={{ padding: 1, flexDirection: "row" }}>
-          <text fg="#666666">{"<- "}</text>
-          <text fg="#888888">Loading profile...</text>
+          <text fg={colors.dim}>{"<- "}</text>
+          <text fg={colors.muted}>Loading profile...</text>
         </box>
       </box>
     );
@@ -282,7 +281,7 @@ export function ProfileScreen({
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
         <box style={{ padding: 1, flexDirection: "row" }}>
-          <text fg="#666666">{"<- "}</text>
+          <text fg={colors.dim}>{"<- "}</text>
           <text fg="#ff6666">Error: {error}</text>
         </box>
       </box>
@@ -294,8 +293,8 @@ export function ProfileScreen({
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
         <box style={{ padding: 1, flexDirection: "row" }}>
-          <text fg="#666666">{"<- "}</text>
-          <text fg="#888888">User not found</text>
+          <text fg={colors.dim}>{"<- "}</text>
+          <text fg={colors.muted}>User not found</text>
         </box>
       </box>
     );
@@ -307,7 +306,7 @@ export function ProfileScreen({
       {separator}
       {actionMessage ? (
         <box style={{ paddingLeft: 1 }}>
-          <text fg={actionMessage.startsWith("Error:") ? "#E0245E" : "#17BF63"}>
+          <text fg={actionMessage.startsWith("Error:") ? colors.error : colors.success}>
             {actionMessage}
           </text>
         </box>
@@ -325,7 +324,7 @@ export function ProfileScreen({
         />
       ) : (
         <box style={{ padding: 1, flexGrow: 1 }}>
-          <text fg="#888888">No tweets to display</text>
+          <text fg={colors.muted}>No tweets to display</text>
         </box>
       )}
       {footerContent}

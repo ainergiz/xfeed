@@ -12,6 +12,7 @@ import type { NotificationData } from "@/api/types";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { NotificationList } from "@/components/NotificationList";
 import { useNotifications } from "@/hooks/useNotifications";
+import { colors } from "@/lib/colors";
 
 interface NotificationsScreenProps {
   client: XClient;
@@ -34,10 +35,10 @@ function ScreenHeader({ unreadCount }: { unreadCount: number }) {
         flexDirection: "row",
       }}
     >
-      <text fg="#1DA1F2">
+      <text fg={colors.primary}>
         <b>Notifications</b>
       </text>
-      {unreadCount > 0 && <text fg="#E0245E"> ({unreadCount} new)</text>}
+      {unreadCount > 0 && <text fg={colors.error}> ({unreadCount} new)</text>}
     </box>
   );
 }
@@ -100,7 +101,7 @@ export function NotificationsScreen({
       <box style={{ flexDirection: "column", height: "100%" }}>
         <ScreenHeader unreadCount={0} />
         <box style={{ padding: 2, flexGrow: 1 }}>
-          <text fg="#888888">Loading notifications...</text>
+          <text fg={colors.muted}>Loading notifications...</text>
         </box>
       </box>
     );
@@ -132,7 +133,7 @@ export function NotificationsScreen({
         <ScreenHeader unreadCount={0} />
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg="#ff6666">Error: {error}</text>
-          <text fg="#888888"> Press r to retry.</text>
+          <text fg={colors.muted}> Press r to retry.</text>
         </box>
       </box>
     );
@@ -143,7 +144,7 @@ export function NotificationsScreen({
       <box style={{ flexDirection: "column", height: "100%" }}>
         <ScreenHeader unreadCount={0} />
         <box style={{ padding: 2, flexGrow: 1 }}>
-          <text fg="#888888">No notifications yet. Press r to refresh.</text>
+          <text fg={colors.muted}>No notifications yet. Press r to refresh.</text>
         </box>
       </box>
     );
@@ -154,7 +155,7 @@ export function NotificationsScreen({
       <ScreenHeader unreadCount={unreadCount} />
       {actionMessage ? (
         <box style={{ paddingLeft: 1 }}>
-          <text fg={actionMessage.startsWith("Error:") ? "#E0245E" : "#17BF63"}>
+          <text fg={actionMessage.startsWith("Error:") ? colors.error : colors.success}>
             {actionMessage}
           </text>
         </box>

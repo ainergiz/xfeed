@@ -13,8 +13,7 @@ import type { TweetData } from "@/api/types";
 
 import { useBookmarkFolders } from "@/hooks/useBookmarkFolders";
 import { useListNavigation } from "@/hooks/useListNavigation";
-
-const X_BLUE = "#1DA1F2";
+import { colors } from "@/lib/colors";
 
 interface FolderPickerProps {
   client: XClient;
@@ -103,11 +102,11 @@ export function FolderPicker({
             backgroundColor="#000000"
           >
             <box style={{ paddingBottom: 1 }}>
-              <text fg={X_BLUE}>Move to folder</text>
+              <text fg={colors.primary}>Move to folder</text>
             </box>
-            <text fg="#888888">Loading folders...</text>
+            <text fg={colors.muted}>Loading folders...</text>
             <box style={{ paddingTop: 1 }}>
-              <text fg="#666666">Esc</text>
+              <text fg={colors.dim}>Esc</text>
               <text fg="#444444"> cancel</text>
             </box>
           </box>
@@ -139,17 +138,17 @@ export function FolderPicker({
           <box
             style={{
               borderStyle: "rounded",
-              borderColor: "#E0245E",
+              borderColor: colors.error,
               padding: 1,
             }}
             backgroundColor="#000000"
           >
             <box style={{ paddingBottom: 1 }}>
-              <text fg={X_BLUE}>Move to folder</text>
+              <text fg={colors.primary}>Move to folder</text>
             </box>
-            <text fg="#E0245E">Error: {error}</text>
+            <text fg={colors.error}>Error: {error}</text>
             <box style={{ paddingTop: 1 }}>
-              <text fg="#666666">Esc</text>
+              <text fg={colors.dim}>Esc</text>
               <text fg="#444444"> close</text>
             </box>
           </box>
@@ -187,12 +186,12 @@ export function FolderPicker({
             backgroundColor="#000000"
           >
             <box style={{ paddingBottom: 1 }}>
-              <text fg={X_BLUE}>Move to folder</text>
+              <text fg={colors.primary}>Move to folder</text>
             </box>
-            <text fg="#888888">No folders yet.</text>
-            <text fg="#666666">Create folders on x.com</text>
+            <text fg={colors.muted}>No folders yet.</text>
+            <text fg={colors.dim}>Create folders on x.com</text>
             <box style={{ paddingTop: 1 }}>
-              <text fg="#666666">Esc</text>
+              <text fg={colors.dim}>Esc</text>
               <text fg="#444444"> close</text>
             </box>
           </box>
@@ -237,13 +236,13 @@ export function FolderPicker({
           backgroundColor="#000000"
         >
           <box style={{ paddingBottom: 1, flexDirection: "row" }}>
-            <text fg={X_BLUE}>Move to folder</text>
-            <text fg="#666666"> ({folders.length} folders)</text>
+            <text fg={colors.primary}>Move to folder</text>
+            <text fg={colors.dim}> ({folders.length} folders)</text>
           </box>
 
           {hasMoreAbove ? (
             <box style={{ flexDirection: "row" }}>
-              <text fg="#666666"> ↑ more</text>
+              <text fg={colors.dim}> ↑ more</text>
             </box>
           ) : null}
 
@@ -252,7 +251,7 @@ export function FolderPicker({
             const isSelected = actualIndex === selectedIndex;
             return (
               <box key={folder.id} style={{ flexDirection: "row" }}>
-                <text fg={isSelected ? X_BLUE : "#888888"}>
+                <text fg={isSelected ? colors.primary : colors.muted}>
                   {isSelected ? "> " : "  "}
                   {folder.name}
                 </text>
@@ -262,16 +261,16 @@ export function FolderPicker({
 
           {hasMoreBelow ? (
             <box style={{ flexDirection: "row" }}>
-              <text fg="#666666"> ↓ more</text>
+              <text fg={colors.dim}> ↓ more</text>
             </box>
           ) : null}
 
           <box style={{ paddingTop: 1, flexDirection: "row" }}>
-            <text fg="#666666">j/k</text>
+            <text fg={colors.dim}>j/k</text>
             <text fg="#444444"> nav </text>
-            <text fg="#666666">Enter</text>
+            <text fg={colors.dim}>Enter</text>
             <text fg="#444444"> select </text>
-            <text fg="#666666">Esc</text>
+            <text fg={colors.dim}>Esc</text>
             <text fg="#444444"> cancel</text>
           </box>
         </box>

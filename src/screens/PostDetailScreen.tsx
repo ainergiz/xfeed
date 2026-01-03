@@ -16,6 +16,7 @@ import { QuotedPostCard } from "@/components/QuotedPostCard";
 import { useListNavigation } from "@/hooks/useListNavigation";
 import { usePostDetail } from "@/hooks/usePostDetail";
 import { formatCount, truncateText } from "@/lib/format";
+import { colors } from "@/lib/colors";
 import {
   previewMedia,
   downloadMedia,
@@ -23,10 +24,6 @@ import {
   fetchLinkMetadata,
   type LinkMetadata,
 } from "@/lib/media";
-
-const X_BLUE = "#1DA1F2";
-const COLOR_SUCCESS = "#17BF63";
-const COLOR_WARNING = "#FFAD1F";
 
 /**
  * Generate element ID for reply cards (for scroll targeting)
@@ -574,11 +571,11 @@ export function PostDetailScreen({
         flexDirection: "row",
       }}
     >
-      <text fg="#888888">
+      <text fg={colors.muted}>
         {repliesMode || mentionsMode ? "<- Back (Esc) | " : "<- Back (Esc)"}
       </text>
-      {repliesMode && <text fg={X_BLUE}>Navigating replies</text>}
-      {mentionsMode && <text fg={X_BLUE}>Navigating mentions</text>}
+      {repliesMode && <text fg={colors.primary}>Navigating replies</text>}
+      {mentionsMode && <text fg={colors.primary}>Navigating mentions</text>}
     </box>
   );
 
@@ -595,13 +592,13 @@ export function PostDetailScreen({
         }}
       >
         {loadingParent ? (
-          <text fg="#666666">Loading parent tweet...</text>
+          <text fg={colors.dim}>Loading parent tweet...</text>
         ) : parentTweet ? (
           <box style={{ flexDirection: "column" }}>
             <box style={{ flexDirection: "row" }}>
-              <text fg="#666666">Replying to </text>
-              <text fg={X_BLUE}>@{parentTweet.author.username}</text>
-              <text fg="#888888"> · {parentTweet.author.name}</text>
+              <text fg={colors.dim}>Replying to </text>
+              <text fg={colors.primary}>@{parentTweet.author.username}</text>
+              <text fg={colors.muted}> · {parentTweet.author.name}</text>
             </box>
             <box style={{ marginTop: 1 }}>
               <text fg="#aaaaaa">{truncateText(parentTweet.text, 3)}</text>
@@ -615,12 +612,12 @@ export function PostDetailScreen({
   const authorContent = (
     <box style={{ flexDirection: "column", paddingLeft: 1, paddingRight: 1 }}>
       <box style={{ flexDirection: "row" }}>
-        <text fg={X_BLUE}>@{tweet.author.username}</text>
+        <text fg={colors.primary}>@{tweet.author.username}</text>
         <text fg="#ffffff"> · {tweet.author.name}</text>
       </box>
       {fullTimestamp && (
         <box style={{ marginTop: 0 }}>
-          <text fg="#666666">{fullTimestamp}</text>
+          <text fg={colors.dim}>{fullTimestamp}</text>
         </box>
       )}
     </box>
@@ -630,7 +627,7 @@ export function PostDetailScreen({
   const postContent = (
     <box style={{ marginTop: 1, paddingLeft: 1, paddingRight: 1 }}>
       {hasMentions ? (
-        renderTextWithMentions(displayText, X_BLUE, "#ffffff")
+        renderTextWithMentions(displayText, colors.primary, "#ffffff")
       ) : (
         <text fg="#ffffff">{displayText}</text>
       )}
@@ -640,8 +637,8 @@ export function PostDetailScreen({
   // Truncation indicator
   const truncationIndicator = showTruncated ? (
     <box style={{ paddingLeft: 1, marginTop: 1 }}>
-      <text fg="#666666">... </text>
-      <text fg={X_BLUE}>[e] Expand</text>
+      <text fg={colors.dim}>... </text>
+      <text fg={colors.primary}>[e] Expand</text>
     </box>
   ) : null;
 
@@ -656,7 +653,7 @@ export function PostDetailScreen({
   const statsContent = (
     <box style={{ marginTop: 1, paddingLeft: 1, paddingRight: 1 }}>
       <box style={{ flexDirection: "row" }}>
-        <text fg="#888888">
+        <text fg={colors.muted}>
           {formatCount(tweet.replyCount)} replies {"  "}
           {formatCount(tweet.retweetCount)} reposts {"  "}
           {formatCount(tweet.likeCount)} likes
@@ -680,10 +677,10 @@ export function PostDetailScreen({
                 : "GIF";
           const typeColor =
             item.type === "photo"
-              ? X_BLUE
+              ? colors.primary
               : item.type === "video"
-                ? COLOR_WARNING
-                : COLOR_SUCCESS;
+                ? colors.warning
+                : colors.success;
           const isSelected = idx === mediaIndex;
           return (
             <text key={item.id} fg={typeColor}>
@@ -694,11 +691,11 @@ export function PostDetailScreen({
             </text>
           );
         })}
-        <text fg="#666666">(</text>
-        <text fg={X_BLUE}>i</text>
-        <text fg="#666666"> view, </text>
-        <text fg={X_BLUE}>d</text>
-        <text fg="#666666"> download)</text>
+        <text fg={colors.dim}>(</text>
+        <text fg={colors.primary}>i</text>
+        <text fg={colors.dim}> view, </text>
+        <text fg={colors.primary}>d</text>
+        <text fg={colors.dim}> download)</text>
       </box>
     </box>
   ) : null;
@@ -708,15 +705,15 @@ export function PostDetailScreen({
     <box style={{ marginTop: 1, paddingLeft: 1, paddingRight: 1 }}>
       <box style={{ flexDirection: "column" }}>
         <box style={{ flexDirection: "row" }}>
-          <text fg="#666666">Links: </text>
+          <text fg={colors.dim}>Links: </text>
           {linkCount > 1 && (
             <>
-              <text fg={X_BLUE}>,/.</text>
-              <text fg="#666666"> navigate </text>
+              <text fg={colors.primary}>,/.</text>
+              <text fg={colors.dim}> navigate </text>
             </>
           )}
-          <text fg={X_BLUE}>o</text>
-          <text fg="#666666"> open</text>
+          <text fg={colors.primary}>o</text>
+          <text fg={colors.dim}> open</text>
         </box>
         {tweet.urls?.map((link, idx) => {
           const isSelected = idx === linkIndex;
@@ -727,18 +724,18 @@ export function PostDetailScreen({
               style={{ flexDirection: "column", marginTop: idx === 0 ? 1 : 0 }}
             >
               <box style={{ flexDirection: "row" }}>
-                <text fg={isSelected ? X_BLUE : "#888888"}>
+                <text fg={isSelected ? colors.primary : colors.muted}>
                   {isSelected ? ">" : " "} {link.displayUrl}
                 </text>
               </box>
               {showMetadata && linkMetadata.title && (
                 <box style={{ paddingLeft: 2 }}>
-                  <text fg="#666666"> "{linkMetadata.title}"</text>
+                  <text fg={colors.dim}> "{linkMetadata.title}"</text>
                 </box>
               )}
               {isSelected && isLoadingMetadata && (
                 <box style={{ paddingLeft: 2 }}>
-                  <text fg="#666666"> Loading...</text>
+                  <text fg={colors.dim}> Loading...</text>
                 </box>
               )}
             </box>
@@ -756,24 +753,24 @@ export function PostDetailScreen({
         {mentionCount === 1 ? (
           // Single mention - show directly with profile shortcut
           <box style={{ flexDirection: "row" }}>
-            <text fg="#666666">Mentions: </text>
-            <text fg={X_BLUE}>@{firstMention?.username}</text>
+            <text fg={colors.dim}>Mentions: </text>
+            <text fg={colors.primary}>@{firstMention?.username}</text>
             {firstMention?.name && (
-              <text fg="#666666"> · {firstMention.name}</text>
+              <text fg={colors.dim}> · {firstMention.name}</text>
             )}
-            <text fg="#666666"> (</text>
-            <text fg={X_BLUE}>m</text>
-            <text fg="#666666"> profile)</text>
+            <text fg={colors.dim}> (</text>
+            <text fg={colors.primary}>m</text>
+            <text fg={colors.dim}> profile)</text>
           </box>
         ) : mentionsMode ? (
           // Multiple mentions - navigation mode active
           <>
             <box style={{ flexDirection: "row" }}>
-              <text fg="#666666">Mentions ({mentionCount}): </text>
-              <text fg={X_BLUE}>j/k</text>
-              <text fg="#666666"> navigate </text>
-              <text fg={X_BLUE}>Enter</text>
-              <text fg="#666666"> profile</text>
+              <text fg={colors.dim}>Mentions ({mentionCount}): </text>
+              <text fg={colors.primary}>j/k</text>
+              <text fg={colors.dim}> navigate </text>
+              <text fg={colors.primary}>Enter</text>
+              <text fg={colors.dim}> profile</text>
             </box>
             {tweet.mentions?.map((mention, idx) => {
               const isSelected = idx === mentionIndex;
@@ -782,10 +779,10 @@ export function PostDetailScreen({
                   key={mention.username}
                   style={{ flexDirection: "row", marginTop: idx === 0 ? 1 : 0 }}
                 >
-                  <text fg={isSelected ? X_BLUE : "#888888"}>
+                  <text fg={isSelected ? colors.primary : colors.muted}>
                     {isSelected ? ">" : " "} @{mention.username}
                   </text>
-                  {mention.name && <text fg="#666666"> · {mention.name}</text>}
+                  {mention.name && <text fg={colors.dim}> · {mention.name}</text>}
                 </box>
               );
             })}
@@ -793,11 +790,11 @@ export function PostDetailScreen({
         ) : (
           // Multiple mentions - collapsed view
           <box style={{ flexDirection: "row" }}>
-            <text fg="#666666">Mentions: </text>
-            <text fg={X_BLUE}>@{firstMention?.username}</text>
-            <text fg="#666666"> +{mentionCount - 1} more (</text>
-            <text fg={X_BLUE}>m</text>
-            <text fg="#666666"> to navigate)</text>
+            <text fg={colors.dim}>Mentions: </text>
+            <text fg={colors.primary}>@{firstMention?.username}</text>
+            <text fg={colors.dim}> +{mentionCount - 1} more (</text>
+            <text fg={colors.primary}>m</text>
+            <text fg={colors.dim}> to navigate)</text>
           </box>
         )}
       </box>
@@ -812,11 +809,11 @@ export function PostDetailScreen({
           <text fg="#ffffff">Replies</text>
           {hasReplies && (
             <>
-              <text fg="#666666"> ({replies.length}) </text>
+              <text fg={colors.dim}> ({replies.length}) </text>
               {!repliesMode && (
                 <>
-                  <text fg={X_BLUE}>r</text>
-                  <text fg="#666666"> to navigate</text>
+                  <text fg={colors.primary}>r</text>
+                  <text fg={colors.dim}> to navigate</text>
                 </>
               )}
             </>
@@ -825,7 +822,7 @@ export function PostDetailScreen({
 
         {loadingReplies ? (
           <box>
-            <text fg="#666666">Loading replies...</text>
+            <text fg={colors.dim}>Loading replies...</text>
           </box>
         ) : hasReplies ? (
           <box style={{ flexDirection: "column" }}>
@@ -845,7 +842,7 @@ export function PostDetailScreen({
           </box>
         ) : (
           <box>
-            <text fg="#666666">No replies yet</text>
+            <text fg={colors.dim}>No replies yet</text>
           </box>
         )}
       </box>
@@ -857,7 +854,7 @@ export function PostDetailScreen({
   const isError = displayMessage?.startsWith("Error:");
   const statusContent = displayMessage ? (
     <box style={{ marginTop: 1, paddingLeft: 1, paddingRight: 1 }}>
-      <text fg={isError ? "#E0245E" : "#00aa00"}>{displayMessage}</text>
+      <text fg={isError ? colors.error : colors.success}>{displayMessage}</text>
     </box>
   ) : null;
 
@@ -874,46 +871,46 @@ export function PostDetailScreen({
       }}
     >
       <text fg="#ffffff">h/Esc</text>
-      <text fg="#666666"> back </text>
+      <text fg={colors.dim}> back </text>
       {showTruncated ? (
         <>
           <text fg="#ffffff">e</text>
-          <text fg="#666666"> expand </text>
+          <text fg={colors.dim}> expand </text>
         </>
       ) : isExpanded ? (
         <>
           <text fg="#ffffff">e</text>
-          <text fg="#666666"> collapse </text>
+          <text fg={colors.dim}> collapse </text>
         </>
       ) : null}
       <text fg="#ffffff">x</text>
-      <text fg="#666666"> x.com </text>
+      <text fg={colors.dim}> x.com </text>
       <text fg="#ffffff">b</text>
-      <text fg={isBookmarked ? X_BLUE : "#666666"}>
+      <text fg={isBookmarked ? colors.primary : colors.dim}>
         {isBookmarked ? " ⚑" : " bookmark"}{" "}
       </text>
       {isBookmarked && !hasMentions && (
         <>
           <text fg="#ffffff">m</text>
-          <text fg="#666666"> folder </text>
+          <text fg={colors.dim}> folder </text>
         </>
       )}
       <text fg="#ffffff">l</text>
-      <text fg={isLiked ? "#E0245E" : "#666666"}>
+      <text fg={isLiked ? colors.error : colors.dim}>
         {isLiked ? " ♥" : " like"}{" "}
       </text>
       <text fg="#ffffff">p</text>
-      <text fg="#666666"> profile</text>
+      <text fg={colors.dim}> profile</text>
       {hasMedia && (
         <>
           <text fg="#ffffff"> i</text>
-          <text fg="#666666"> preview </text>
+          <text fg={colors.dim}> preview </text>
           <text fg="#ffffff">d</text>
-          <text fg="#666666"> download</text>
+          <text fg={colors.dim}> download</text>
           {mediaCount > 1 && (
             <>
               <text fg="#ffffff"> [/]</text>
-              <text fg="#666666"> media</text>
+              <text fg={colors.dim}> media</text>
             </>
           )}
         </>
@@ -921,7 +918,7 @@ export function PostDetailScreen({
       {hasMentions && !mentionsMode && (
         <>
           <text fg="#ffffff"> m</text>
-          <text fg="#666666">
+          <text fg={colors.dim}>
             {mentionCount === 1 ? " @profile" : " mentions"}
           </text>
         </>
@@ -929,23 +926,23 @@ export function PostDetailScreen({
       {hasReplies && !repliesMode && (
         <>
           <text fg="#ffffff"> r</text>
-          <text fg="#666666"> replies</text>
+          <text fg={colors.dim}> replies</text>
         </>
       )}
       {hasLinks && (
         <>
           <text fg="#ffffff"> o</text>
-          <text fg="#666666"> link</text>
+          <text fg={colors.dim}> link</text>
           {linkCount > 1 && (
             <>
               <text fg="#ffffff"> ,/.</text>
-              <text fg="#666666"> nav</text>
+              <text fg={colors.dim}> nav</text>
             </>
           )}
         </>
       )}
       <text fg="#ffffff"> t</text>
-      <text fg="#666666"> thread</text>
+      <text fg={colors.dim}> thread</text>
     </box>
   );
 
