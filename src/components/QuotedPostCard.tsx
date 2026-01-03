@@ -13,9 +13,14 @@ const QUOTE_BG = "#0d0d14";
 
 interface QuotedPostCardProps {
   post: TweetData;
+  /** Show [t] navigation hint */
+  showNavigationHint?: boolean;
 }
 
-export function QuotedPostCard({ post }: QuotedPostCardProps) {
+export function QuotedPostCard({
+  post,
+  showNavigationHint = false,
+}: QuotedPostCardProps) {
   const displayText = truncateText(post.text, MAX_TEXT_LINES);
 
   return (
@@ -35,6 +40,7 @@ export function QuotedPostCard({ post }: QuotedPostCardProps) {
         <box style={{ flexDirection: "row" }}>
           <text fg={colors.primary}>@{post.author.username}</text>
           <text fg={colors.dim}> · {post.author.name}</text>
+          {showNavigationHint && <text fg={colors.dim}> [u]</text>}
         </box>
 
         {/* Quoted text (truncated) */}

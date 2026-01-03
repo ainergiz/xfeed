@@ -151,6 +151,9 @@ export function App({ client, user: _user }: AppProps) {
   const [postStack, setPostStack] = useState<TweetData[]>([]);
   const selectedPost = postStack[postStack.length - 1] ?? null;
 
+  // Loading state for quote navigation
+  const [isLoadingQuote, setIsLoadingQuote] = useState(false);
+
   // State for thread view - the tweet whose thread we're viewing
   // Kept separate from selectedPost so thread state persists when viewing replies
   const [threadRootTweet, setThreadRootTweet] = useState<TweetData | null>(
@@ -175,6 +178,40 @@ export function App({ client, user: _user }: AppProps) {
       navigate("post-detail");
     },
     [navigate, initState]
+  );
+
+  // Navigate into a quoted tweet (fetch full data and push to stack)
+  const handleQuoteSelect = useCallback(
+    async (quotedTweet: TweetData) => {
+      if (isLoadingQuote) return;
+
+      // Prevent circular navigation (tweet already in stack)
+      if (postStack.some((p) => p.id === quotedTweet.id)) {
+        setActionMessage("Already viewing this tweet");
+        return;
+      }
+
+      setIsLoadingQuote(true);
+      try {
+        // Fetch full tweet data (the embedded quote only has partial data)
+        const result = await client.getTweet(quotedTweet.id);
+        if (result.success && result.tweet) {
+          setPostStack((prev) => [...prev, result.tweet!]);
+          initState(
+            result.tweet.id,
+            result.tweet.favorited ?? false,
+            result.tweet.bookmarked ?? false
+          );
+          // Push to navigation history to keep stacks in sync with handleBackFromDetail
+          navigate("post-detail");
+        } else {
+          setActionMessage(result.error || "Could not load quoted tweet");
+        }
+      } finally {
+        setIsLoadingQuote(false);
+      }
+    },
+    [client, initState, isLoadingQuote, navigate, postStack]
   );
 
   // Return from post detail to previous view
@@ -351,6 +388,12 @@ export function App({ client, user: _user }: AppProps) {
       }
     }
 
+    // Toggle footer visibility with '?' - works on all screens
+    if (key.sequence === "?") {
+      setShowFooter((prev) => !prev);
+      return;
+    }
+
     // Don't handle other keys during splash or overlay views
     if (showSplash || !isMainView) {
       return;
@@ -364,11 +407,6 @@ export function App({ client, user: _user }: AppProps) {
     // Go to notifications with 'n'
     if (key.name === "n") {
       navigate("notifications");
-    }
-
-    // Toggle footer visibility with '?'
-    if (key.sequence === "?") {
-      setShowFooter((prev) => !prev);
     }
   });
 
@@ -442,6 +480,9 @@ export function App({ client, user: _user }: AppProps) {
               onReplySelect={handlePostSelect}
               getActionState={getState}
               onThreadView={handleThreadView}
+              onQuoteSelect={handleQuoteSelect}
+              isLoadingQuote={isLoadingQuote}
+              showFooter={showFooter}
             />
             {showFolderPicker && (
               <box
@@ -480,6 +521,7 @@ export function App({ client, user: _user }: AppProps) {
               focused={currentView === "thread"}
               onBack={handleBackFromThread}
               onSelectTweet={handlePostSelectFromThread}
+              showFooter={showFooter}
             />
           )}
         </box>
@@ -503,6 +545,7 @@ export function App({ client, user: _user }: AppProps) {
               onBookmark={toggleBookmark}
               getActionState={getState}
               initActionState={initState}
+              showFooter={showFooter}
             />
           )}
         </box>
@@ -546,7 +589,7 @@ export function App({ client, user: _user }: AppProps) {
         </box>
       </box>
 
-      {!showSplash && isMainView && showFooter && <Footer />}
+      {!showSplash && isMainView && <Footer visible={showFooter} />}
 
       {/* Exit confirmation modal */}
       {showExitConfirmation && (

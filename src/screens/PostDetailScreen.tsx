@@ -11,6 +11,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import type { XClient } from "@/api/client";
 import type { TweetData } from "@/api/types";
 
+import { Footer, type Keybinding } from "@/components/Footer";
 import { PostCard } from "@/components/PostCard";
 import { QuotedPostCard } from "@/components/QuotedPostCard";
 import { useListNavigation } from "@/hooks/useListNavigation";
@@ -90,8 +91,14 @@ interface PostDetailScreenProps {
   onReplySelect?: (reply: TweetData) => void;
   /** Get action state for a tweet */
   getActionState?: (tweetId: string) => { liked: boolean; bookmarked: boolean };
-  /** Called when user presses 't' to view thread */
+  /** Called when user presses 't' to view thread (when no quoted tweet) */
   onThreadView?: () => void;
+  /** Called when user presses 'u' to navigate into a quoted tweet */
+  onQuoteSelect?: (quotedTweet: TweetData) => void;
+  /** Whether a quote is currently being fetched */
+  isLoadingQuote?: boolean;
+  /** Whether to show the footer */
+  showFooter?: boolean;
 }
 
 /**
@@ -190,11 +197,20 @@ export function PostDetailScreen({
   onReplySelect,
   getActionState,
   onThreadView,
+  onQuoteSelect,
+  isLoadingQuote = false,
+  showFooter = true,
 }: PostDetailScreenProps) {
-  // Fetch thread context (parent tweet and replies)
-  const { parentTweet, replies, loadingParent, loadingReplies } = usePostDetail(
-    { client, tweet }
-  );
+  // Fetch thread context (parent tweet and replies) with pagination
+  const {
+    parentTweet,
+    replies,
+    loadingParent,
+    loadingReplies,
+    loadingMoreReplies,
+    hasMoreReplies,
+    loadMoreReplies,
+  } = usePostDetail({ client, tweet });
   const [isExpanded, setIsExpanded] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [mediaIndex, setMediaIndex] = useState(0);
@@ -245,6 +261,7 @@ export function PostDetailScreen({
 
   const hasReplies = replies.length > 0;
   const isReply = !!tweet.inReplyToStatusId;
+  const hasQuote = !!tweet.quotedTweet;
 
   // List navigation for replies
   const {
@@ -297,6 +314,30 @@ export function PostDetailScreen({
       scrollbox.scrollBy(relativeY - topMargin);
     }
   }, [selectedReplyIndex, repliesMode, replies]);
+
+  // Trigger load more when approaching the end of replies list
+  useEffect(() => {
+    if (
+      !repliesMode ||
+      loadingMoreReplies ||
+      !hasMoreReplies ||
+      replies.length === 0
+    )
+      return;
+
+    // Load more when within 3 replies of the end
+    const threshold = 3;
+    if (selectedReplyIndex >= replies.length - threshold) {
+      loadMoreReplies();
+    }
+  }, [
+    selectedReplyIndex,
+    replies.length,
+    loadingMoreReplies,
+    hasMoreReplies,
+    repliesMode,
+    loadMoreReplies,
+  ]);
 
   // When expanding, ensure scroll starts at top
   useEffect(() => {
@@ -563,8 +604,15 @@ export function PostDetailScreen({
         }
         break;
       case "t":
-        // Open thread view (experimental)
+        // Open thread view
         onThreadView?.();
+        break;
+      case "u":
+      case "return":
+        // Navigate into quoted tweet (same as timeline enter behavior)
+        if (hasQuote && tweet.quotedTweet && !isLoadingQuote) {
+          onQuoteSelect?.(tweet.quotedTweet);
+        }
         break;
     }
   });
@@ -654,7 +702,7 @@ export function PostDetailScreen({
   // Quoted tweet (if present)
   const quotedContent = tweet.quotedTweet ? (
     <box style={{ paddingLeft: 1, paddingRight: 1, marginTop: 1 }}>
-      <QuotedPostCard post={tweet.quotedTweet} />
+      <QuotedPostCard post={tweet.quotedTweet} showNavigationHint />
     </box>
   ) : null;
 
@@ -820,7 +868,11 @@ export function PostDetailScreen({
           <text fg="#ffffff">Replies</text>
           {hasReplies && (
             <>
-              <text fg={colors.dim}> ({replies.length}) </text>
+              <text fg={colors.dim}>
+                {" "}
+                ({replies.length}
+                {hasMoreReplies ? "+" : ""}){" "}
+              </text>
               {!repliesMode && (
                 <>
                   <text fg={colors.primary}>r</text>
@@ -850,6 +902,11 @@ export function PostDetailScreen({
                 />
               );
             })}
+            {loadingMoreReplies && (
+              <box style={{ paddingTop: 1 }}>
+                <text fg={colors.dim}>Loading more replies...</text>
+              </box>
+            )}
           </box>
         ) : (
           <box>
@@ -869,110 +926,56 @@ export function PostDetailScreen({
     </box>
   ) : null;
 
-  // Actions footer
-  const footerContent = (
-    <box
-      style={{
-        flexShrink: 0,
-        paddingLeft: 1,
-        paddingRight: 1,
-        paddingTop: 1,
-        flexDirection: "row",
-        flexWrap: "wrap",
-      }}
-    >
-      <text fg="#ffffff">h/Esc</text>
-      <text fg={colors.dim}> back </text>
-      {showTruncated ? (
-        <>
-          <text fg="#ffffff">e</text>
-          <text fg={colors.dim}> expand </text>
-        </>
-      ) : isExpanded ? (
-        <>
-          <text fg="#ffffff">e</text>
-          <text fg={colors.dim}> collapse </text>
-        </>
-      ) : null}
-      <text fg="#ffffff">x</text>
-      <text fg={colors.dim}> x.com </text>
-      {/* Like with icon - always visible */}
-      <text fg="#ffffff">l</text>
-      <text
-        fg={
-          isJustLiked ? colors.success : isLiked ? colors.error : colors.muted
-        }
-      >
-        {" "}
-        {isLiked ? HEART_FILLED : <b>{HEART_EMPTY}</b>}{" "}
-      </text>
-      {/* Bookmark with icon - always visible */}
-      <text fg="#ffffff">b</text>
-      <text
-        fg={
-          isJustBookmarked
-            ? colors.success
-            : isBookmarked
-              ? colors.primary
-              : colors.muted
-        }
-      >
-        {" "}
-        {isBookmarked ? FLAG_FILLED : <b>{FLAG_EMPTY}</b>}{" "}
-      </text>
-      <text fg="#ffffff">p</text>
-      <text fg={colors.dim}> profile</text>
-      {hasMedia && (
-        <>
-          <text fg="#ffffff"> i</text>
-          <text fg={colors.dim}> preview </text>
-          <text fg="#ffffff">d</text>
-          <text fg={colors.dim}> download</text>
-          {mediaCount > 1 && (
-            <>
-              <text fg="#ffffff"> [/]</text>
-              <text fg={colors.dim}> media</text>
-            </>
-          )}
-        </>
-      )}
-      {hasMentions && !mentionsMode && (
-        <>
-          <text fg="#ffffff"> m</text>
-          <text fg={colors.dim}>
-            {mentionCount === 1 ? " @profile" : " mentions"}
-          </text>
-        </>
-      )}
-      {hasReplies && !repliesMode && (
-        <>
-          <text fg="#ffffff"> r</text>
-          <text fg={colors.dim}> replies</text>
-        </>
-      )}
-      {hasLinks && (
-        <>
-          <text fg="#ffffff"> o</text>
-          <text fg={colors.dim}> link</text>
-          {linkCount > 1 && (
-            <>
-              <text fg="#ffffff"> ,/.</text>
-              <text fg={colors.dim}> nav</text>
-            </>
-          )}
-        </>
-      )}
-      <text fg="#ffffff"> t</text>
-      <text fg={colors.dim}> thread</text>
-      {/* Folder option - only when bookmarked and no mentions mode */}
-      {isBookmarked && !hasMentions && (
-        <>
-          <text fg="#ffffff"> m</text>
-          <text fg={colors.dim}> folder</text>
-        </>
-      )}
-    </box>
-  );
+  // Actions footer keybindings with green flash animation
+  const footerBindings: Keybinding[] = [
+    { key: "h/Esc", label: "back" },
+    {
+      key: "e",
+      label: showTruncated ? "expand" : "collapse",
+      show: showTruncated || isExpanded,
+    },
+    { key: "x", label: "x.com" },
+    {
+      key: "l",
+      label: isLiked ? HEART_FILLED : HEART_EMPTY,
+      activeColor: isJustLiked
+        ? colors.success
+        : isLiked
+          ? colors.error
+          : undefined,
+      isActive: isLiked || isJustLiked,
+    },
+    {
+      key: "b",
+      label: isBookmarked ? FLAG_FILLED : FLAG_EMPTY,
+      activeColor: isJustBookmarked
+        ? colors.success
+        : isBookmarked
+          ? colors.primary
+          : undefined,
+      isActive: isBookmarked || isJustBookmarked,
+    },
+    { key: "p", label: "profile" },
+    { key: "i", label: "preview", show: hasMedia },
+    { key: "d", label: "download", show: hasMedia },
+    { key: "[/]", label: "media", show: hasMedia && mediaCount > 1 },
+    {
+      key: "m",
+      label: mentionCount === 1 ? "@profile" : "mentions",
+      show: hasMentions && !mentionsMode,
+    },
+    { key: "r", label: "replies", show: hasReplies && !repliesMode },
+    { key: "o", label: "link", show: hasLinks },
+    { key: ",/.", label: "nav", show: hasLinks && linkCount > 1 },
+    { key: "t", label: "thread" },
+    {
+      key: "u",
+      label: isLoadingQuote ? "loading..." : "quote",
+      activeColor: isLoadingQuote ? colors.primary : undefined,
+      show: hasQuote,
+    },
+    { key: "m", label: "folder", show: isBookmarked && !hasMentions },
+  ];
 
   // Main layout - always use scrollbox for thread content
   return (
@@ -995,7 +998,7 @@ export function PostDetailScreen({
         {repliesContent}
       </scrollbox>
       {statusContent}
-      {footerContent}
+      <Footer bindings={footerBindings} visible={showFooter} />
     </box>
   );
 }
