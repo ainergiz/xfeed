@@ -212,6 +212,8 @@ export function PostList({
             isSelected={index === selectedIndex}
             isLiked={actionState?.liked}
             isBookmarked={actionState?.bookmarked}
+            isJustLiked={actionState?.justLiked}
+            isJustBookmarked={actionState?.justBookmarked}
           />
         );
       })}

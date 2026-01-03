@@ -33,8 +33,6 @@ interface TimelineScreenProps {
     liked: boolean,
     bookmarked: boolean
   ) => void;
-  /** Action feedback message */
-  actionMessage?: string | null;
 }
 
 interface TabBarProps {
@@ -72,7 +70,6 @@ export function TimelineScreen({
   onBookmark,
   getActionState,
   initActionState,
-  actionMessage,
 }: TimelineScreenProps) {
   const {
     tab,
@@ -174,17 +171,6 @@ export function TimelineScreen({
   return (
     <box style={{ flexDirection: "column", height: "100%" }}>
       {focused && <TabBar activeTab={tab} />}
-      {actionMessage ? (
-        <box style={{ paddingLeft: 1 }}>
-          <text
-            fg={
-              actionMessage.startsWith("Error:") ? colors.error : colors.success
-            }
-          >
-            {actionMessage}
-          </text>
-        </box>
-      ) : null}
       <PostList
         posts={posts}
         focused={focused}

@@ -1,12 +1,17 @@
 /**
  * usePostDetail - Hook for fetching thread context (parent tweet and replies)
  * Shows initial tweet immediately, then fetches additional context in background
+ * Supports infinite scroll pagination for replies
  */
 
 import { useState, useEffect, useCallback } from "react";
 
 import type { XClient } from "@/api/client";
 import type { TweetData } from "@/api/types";
+
+import type { PaginatedFetchResult } from "./usePaginatedData";
+
+import { usePaginatedData } from "./usePaginatedData";
 
 export interface UsePostDetailOptions {
   /** X API client */
@@ -24,14 +29,20 @@ export interface UsePostDetailResult {
   replies: TweetData[];
   /** Whether parent tweet is loading */
   loadingParent: boolean;
-  /** Whether replies are loading */
+  /** Whether replies are loading (initial load) */
   loadingReplies: boolean;
+  /** Whether more replies are loading (pagination) */
+  loadingMoreReplies: boolean;
+  /** Whether there are more replies to load */
+  hasMoreReplies: boolean;
   /** Error fetching parent (if any) */
   parentError: string | null;
   /** Error fetching replies (if any) */
   repliesError: string | null;
-  /** Refresh replies */
+  /** Refresh replies (resets to first page) */
   refreshReplies: () => void;
+  /** Load more replies (pagination) */
+  loadMoreReplies: () => void;
 }
 
 export function usePostDetail({
@@ -39,11 +50,8 @@ export function usePostDetail({
   tweet,
 }: UsePostDetailOptions): UsePostDetailResult {
   const [parentTweet, setParentTweet] = useState<TweetData | null>(null);
-  const [replies, setReplies] = useState<TweetData[]>([]);
   const [loadingParent, setLoadingParent] = useState(false);
-  const [loadingReplies, setLoadingReplies] = useState(false);
   const [parentError, setParentError] = useState<string | null>(null);
-  const [repliesError, setRepliesError] = useState<string | null>(null);
 
   // Fetch parent tweet if this is a reply
   useEffect(() => {
@@ -73,25 +81,45 @@ export function usePostDetail({
     };
   }, [client, tweet.inReplyToStatusId]);
 
-  // Fetch replies
-  const fetchReplies = useCallback(async () => {
-    setLoadingReplies(true);
-    setRepliesError(null);
+  // Create fetch function for paginated replies
+  const fetchReplies = useCallback(
+    async (cursor?: string): Promise<PaginatedFetchResult<TweetData>> => {
+      const result = await client.getReplies(tweet.id, cursor);
 
-    const result = await client.getReplies(tweet.id);
+      if (result.success && result.tweets) {
+        return {
+          success: true,
+          items: result.tweets,
+          nextCursor: result.nextCursor,
+        };
+      }
+      return {
+        success: false,
+        error: {
+          type: "unknown",
+          message: result.error ?? "Failed to fetch replies",
+        },
+      };
+    },
+    [client, tweet.id]
+  );
 
-    setLoadingReplies(false);
-    if (result.success && result.tweets) {
-      setReplies(result.tweets);
-    } else {
-      setRepliesError(result.error ?? "Failed to fetch replies");
-    }
-  }, [client, tweet.id]);
+  const getId = useCallback((reply: TweetData) => reply.id, []);
 
-  // Fetch replies on mount
-  useEffect(() => {
-    fetchReplies();
-  }, [fetchReplies]);
+  // Use paginated data hook for replies
+  const {
+    data: replies,
+    loading: loadingReplies,
+    loadingMore: loadingMoreReplies,
+    hasMore: hasMoreReplies,
+    error: repliesError,
+    refresh: refreshReplies,
+    loadMore: loadMoreReplies,
+  } = usePaginatedData({
+    fetchFn: fetchReplies,
+    getId,
+    deps: [tweet.id],
+  });
 
   return {
     tweet,
@@ -99,8 +127,11 @@ export function usePostDetail({
     replies,
     loadingParent,
     loadingReplies,
+    loadingMoreReplies,
+    hasMoreReplies,
     parentError,
     repliesError,
-    refreshReplies: fetchReplies,
+    refreshReplies,
+    loadMoreReplies,
   };
 }
