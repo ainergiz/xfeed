@@ -224,6 +224,61 @@ export async function previewMedia(
 }
 
 /**
+ * Preview an image URL using Quick Look (macOS) or browser fallback
+ * Used for profile photos and banners
+ */
+export async function previewImageUrl(
+  url: string,
+  name: string
+): Promise<MediaResult> {
+  const os = platform();
+
+  // On macOS: Quick Look
+  if (os === "darwin") {
+    try {
+      // Determine extension from URL
+      const urlPath = url.split("?")[0] ?? "";
+      const ext = extname(urlPath) || ".jpg";
+      const tempPath = join(tmpdir(), `xfeed_${name}${ext}`);
+
+      const response = await fetch(url, { headers: MEDIA_FETCH_HEADERS });
+      if (!response.ok) {
+        return { success: false, error: `Download failed: ${response.status}` };
+      }
+
+      const buffer = await response.arrayBuffer();
+      await writeFile(tempPath, Buffer.from(buffer));
+
+      // Open with Quick Look
+      return new Promise((resolve) => {
+        const child = spawn("qlmanage", ["-p", tempPath], {
+          stdio: "ignore",
+        });
+
+        child.on("close", () => {
+          unlink(tempPath).catch(() => {});
+          resolve({ success: true, message: "Closed Quick Look" });
+        });
+
+        child.on("error", () => {
+          resolve({ success: false, error: "Failed to open Quick Look" });
+        });
+      });
+    } catch {
+      return { success: false, error: "Failed to preview image" };
+    }
+  }
+
+  // Linux/other: Open URL in browser
+  try {
+    await openInBrowser(url);
+    return { success: true, message: "Opened image in browser" };
+  } catch {
+    return { success: false, error: "Failed to open browser" };
+  }
+}
+
+/**
  * Download media to ~/Downloads/xfeed/
  *
  * Filename format: {tweet_id}_{index}.{ext}
