@@ -55,6 +55,7 @@ export interface BookmarkFolderSelectorModalProps {
 
 /** Props for ExitConfirmationModal */
 export interface ExitConfirmationModalProps {
+  onLogout: () => void;
   onConfirm: () => void;
   onCancel: () => void;
 }

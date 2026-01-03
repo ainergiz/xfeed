@@ -11,6 +11,7 @@ import type {
 
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
+import { clearBrowserPreference } from "@/config/loader";
 import { useModal } from "@/contexts/ModalContext";
 import { useActions } from "@/hooks/useActions";
 import { useNavigation } from "@/hooks/useNavigation";
@@ -423,6 +424,10 @@ export function App({ client, user: _user }: AppProps) {
         if (currentView === "timeline") {
           // On timeline: show exit confirmation
           openModal("exit-confirmation", {
+            onLogout: () => {
+              clearBrowserPreference();
+              renderer.destroy();
+            },
             onConfirm: () => renderer.destroy(),
             onCancel: closeModal,
           });
@@ -441,6 +446,10 @@ export function App({ client, user: _user }: AppProps) {
         if (currentView === "timeline") {
           // On timeline: show exit confirmation (same as escape)
           openModal("exit-confirmation", {
+            onLogout: () => {
+              clearBrowserPreference();
+              renderer.destroy();
+            },
             onConfirm: () => renderer.destroy(),
             onCancel: closeModal,
           });
