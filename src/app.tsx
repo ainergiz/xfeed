@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { TwitterClient } from "@/api/client";
 import type { NotificationData, TweetData, UserData } from "@/api/types";
 
+import { ExitConfirmationModal } from "@/components/ExitConfirmationModal";
 import { FolderPicker } from "@/components/FolderPicker";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
@@ -162,6 +163,9 @@ export function App({ client, user: _user }: AppProps) {
   // State for folder picker modal
   const [showFolderPicker, setShowFolderPicker] = useState(false);
 
+  // State for exit confirmation modal
+  const [showExitConfirmation, setShowExitConfirmation] = useState(false);
+
   // Open folder picker from post detail
   const handleMoveToFolder = useCallback(() => {
     setShowFolderPicker(true);
@@ -233,11 +237,51 @@ export function App({ client, user: _user }: AppProps) {
   );
 
   useKeyboard((key) => {
-    // Always allow quit, even during splash
-    if (key.name === "q" || key.name === "escape") {
-      // Don't quit during splash unless in main view (post-detail and profile handle their own)
+    // Don't handle keys when exit confirmation modal is showing
+    if (showExitConfirmation) {
+      return;
+    }
+
+    // Always allow quit with 'q', even during splash
+    if (key.name === "q") {
       if (showSplash || isMainView) {
         renderer.destroy();
+        return;
+      }
+    }
+
+    // Handle 'escape' key
+    if (key.name === "escape") {
+      // During splash, quit immediately
+      if (showSplash) {
+        renderer.destroy();
+        return;
+      }
+
+      // In main views: navigate to timeline or show exit confirmation
+      if (isMainView) {
+        if (currentView === "timeline") {
+          // On timeline: show exit confirmation
+          setShowExitConfirmation(true);
+        } else {
+          // On bookmarks/notifications: go to timeline
+          navigate("timeline");
+        }
+        return;
+      }
+      // Overlay views (post-detail, profile) handle their own escape
+    }
+
+    // Handle 'h' key for vim-style navigation (go back/left to home)
+    if (key.name === "h") {
+      if (isMainView) {
+        if (currentView === "timeline") {
+          // On timeline: show exit confirmation (same as escape)
+          setShowExitConfirmation(true);
+        } else {
+          // On bookmarks/notifications: go to timeline
+          navigate("timeline");
+        }
         return;
       }
     }
@@ -420,6 +464,25 @@ export function App({ client, user: _user }: AppProps) {
       </box>
 
       {!showSplash && isMainView && showFooter && <Footer />}
+
+      {/* Exit confirmation modal */}
+      {showExitConfirmation && (
+        <box
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+          }}
+        >
+          <ExitConfirmationModal
+            focused={true}
+            onConfirm={() => renderer.destroy()}
+            onCancel={() => setShowExitConfirmation(false)}
+          />
+        </box>
+      )}
     </box>
   );
 }
