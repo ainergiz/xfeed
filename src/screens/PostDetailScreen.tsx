@@ -11,6 +11,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import type { XClient } from "@/api/client";
 import type { TweetData } from "@/api/types";
 
+import { Footer, type Keybinding } from "@/components/Footer";
 import { PostCard } from "@/components/PostCard";
 import { QuotedPostCard } from "@/components/QuotedPostCard";
 import { useListNavigation } from "@/hooks/useListNavigation";
@@ -84,6 +85,8 @@ interface PostDetailScreenProps {
   getActionState?: (tweetId: string) => { liked: boolean; bookmarked: boolean };
   /** Called when user presses 't' to view thread */
   onThreadView?: () => void;
+  /** Whether to show the footer */
+  showFooter?: boolean;
 }
 
 /**
@@ -181,6 +184,7 @@ export function PostDetailScreen({
   onReplySelect,
   getActionState,
   onThreadView,
+  showFooter = true,
 }: PostDetailScreenProps) {
   // Fetch thread context (parent tweet and replies)
   const { parentTweet, replies, loadingParent, loadingReplies } = usePostDetail(
@@ -860,93 +864,44 @@ export function PostDetailScreen({
     </box>
   ) : null;
 
-  // Actions footer
-  const footerContent = (
-    <box
-      style={{
-        flexShrink: 0,
-        paddingLeft: 1,
-        paddingRight: 1,
-        paddingTop: 1,
-        flexDirection: "row",
-        flexWrap: "wrap",
-      }}
-    >
-      <text fg="#ffffff">h/Esc</text>
-      <text fg={colors.dim}> back </text>
-      {showTruncated ? (
-        <>
-          <text fg="#ffffff">e</text>
-          <text fg={colors.dim}> expand </text>
-        </>
-      ) : isExpanded ? (
-        <>
-          <text fg="#ffffff">e</text>
-          <text fg={colors.dim}> collapse </text>
-        </>
-      ) : null}
-      <text fg="#ffffff">x</text>
-      <text fg={colors.dim}> x.com </text>
-      <text fg="#ffffff">b</text>
-      <text fg={isBookmarked ? colors.primary : colors.dim}>
-        {isBookmarked ? " ⚑" : " bookmark"}{" "}
-      </text>
-      {isBookmarked && !hasMentions && (
-        <>
-          <text fg="#ffffff">m</text>
-          <text fg={colors.dim}> folder </text>
-        </>
-      )}
-      <text fg="#ffffff">l</text>
-      <text fg={isLiked ? colors.error : colors.dim}>
-        {isLiked ? " ♥" : " like"}{" "}
-      </text>
-      <text fg="#ffffff">p</text>
-      <text fg={colors.dim}> profile</text>
-      {hasMedia && (
-        <>
-          <text fg="#ffffff"> i</text>
-          <text fg={colors.dim}> preview </text>
-          <text fg="#ffffff">d</text>
-          <text fg={colors.dim}> download</text>
-          {mediaCount > 1 && (
-            <>
-              <text fg="#ffffff"> [/]</text>
-              <text fg={colors.dim}> media</text>
-            </>
-          )}
-        </>
-      )}
-      {hasMentions && !mentionsMode && (
-        <>
-          <text fg="#ffffff"> m</text>
-          <text fg={colors.dim}>
-            {mentionCount === 1 ? " @profile" : " mentions"}
-          </text>
-        </>
-      )}
-      {hasReplies && !repliesMode && (
-        <>
-          <text fg="#ffffff"> r</text>
-          <text fg={colors.dim}> replies</text>
-        </>
-      )}
-      {hasLinks && (
-        <>
-          <text fg="#ffffff"> o</text>
-          <text fg={colors.dim}> link</text>
-          {linkCount > 1 && (
-            <>
-              <text fg="#ffffff"> ,/.</text>
-              <text fg={colors.dim}> nav</text>
-            </>
-          )}
-        </>
-      )}
-      <text fg="#ffffff"> t</text>
-      <text fg={colors.dim}> thread</text>
-    </box>
-  );
+  // Actions footer keybindings
+  const footerBindings: Keybinding[] = [
+    { key: "h/Esc", label: "back" },
+    {
+      key: "e",
+      label: showTruncated ? "expand" : "collapse",
+      show: showTruncated || isExpanded,
+    },
+    { key: "x", label: "x.com" },
+    {
+      key: "b",
+      label: "bookmark",
+      activeLabel: "⚑",
+      activeColor: colors.primary,
+      isActive: isBookmarked,
+    },
+    { key: "m", label: "folder", show: isBookmarked && !hasMentions },
+    {
+      key: "l",
+      label: "like",
+      activeLabel: "♥",
+      activeColor: colors.error,
+      isActive: isLiked,
+    },
+    { key: "p", label: "profile" },
+    { key: "i", label: "preview", show: hasMedia },
+    { key: "d", label: "download", show: hasMedia },
+    { key: "[/]", label: "media", show: hasMedia && mediaCount > 1 },
+    {
+      key: "m",
+      label: mentionCount === 1 ? "@profile" : "mentions",
+      show: hasMentions && !mentionsMode,
+    },
+    { key: "r", label: "replies", show: hasReplies && !repliesMode },
+    { key: "o", label: "link", show: hasLinks },
+    { key: ",/.", label: "nav", show: hasLinks && linkCount > 1 },
+    { key: "t", label: "thread" },
+  ];
 
   // Main layout - always use scrollbox for thread content
   return (
@@ -969,7 +924,7 @@ export function PostDetailScreen({
         {repliesContent}
       </scrollbox>
       {statusContent}
-      {footerContent}
+      <Footer bindings={footerBindings} visible={showFooter} />
     </box>
   );
 }

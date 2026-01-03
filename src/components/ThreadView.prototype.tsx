@@ -14,6 +14,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 
 import type { TweetData } from "@/api/types";
 
+import { Footer, type Keybinding } from "@/components/Footer";
 import { colors } from "@/lib/colors";
 import { formatRelativeTime, truncateText } from "@/lib/format";
 
@@ -50,6 +51,8 @@ interface ThreadViewProps {
   onBack?: () => void;
   /** Called when user selects a tweet to view in detail */
   onSelectTweet?: (tweet: TweetData) => void;
+  /** Whether to show the footer */
+  showFooter?: boolean;
 }
 
 /**
@@ -291,6 +294,7 @@ export function ThreadViewPrototype({
   focused = false,
   onBack,
   onSelectTweet,
+  showFooter = true,
 }: ThreadViewProps) {
   const scrollRef = useRef<ScrollBoxRenderable>(null);
   const savedScrollTop = useRef(0);
@@ -452,25 +456,12 @@ export function ThreadViewPrototype({
     </box>
   );
 
-  // Footer with keyboard hints
-  const footer = (
-    <box
-      style={{
-        flexShrink: 0,
-        paddingLeft: 1,
-        paddingRight: 1,
-        paddingTop: 1,
-        flexDirection: "row",
-      }}
-    >
-      <text fg="#ffffff">j/k</text>
-      <text fg={colors.dim}> nav </text>
-      <text fg="#ffffff">Enter</text>
-      <text fg={colors.dim}> view </text>
-      <text fg="#ffffff">h/Esc</text>
-      <text fg={colors.dim}> back</text>
-    </box>
-  );
+  // Footer keybindings
+  const footerBindings: Keybinding[] = [
+    { key: "j/k", label: "nav" },
+    { key: "Enter", label: "view" },
+    { key: "h/Esc", label: "back" },
+  ];
 
   return (
     <box style={{ flexDirection: "column", height: "100%" }}>
@@ -536,7 +527,7 @@ export function ThreadViewPrototype({
           </box>
         )}
       </scrollbox>
-      {footer}
+      <Footer bindings={footerBindings} visible={showFooter} />
     </box>
   );
 }

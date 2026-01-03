@@ -10,6 +10,7 @@ import type { XClient } from "@/api/client";
 import type { TweetData } from "@/api/types";
 import type { TweetActionState } from "@/hooks/useActions";
 
+import { Footer, type Keybinding } from "@/components/Footer";
 import { PostList } from "@/components/PostList";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { colors } from "@/lib/colors";
@@ -65,6 +66,8 @@ interface ProfileScreenProps {
   ) => void;
   /** Action feedback message */
   actionMessage?: string | null;
+  /** Whether to show the footer */
+  showFooter?: boolean;
 }
 
 export function ProfileScreen({
@@ -78,6 +81,7 @@ export function ProfileScreen({
   getActionState,
   initActionState,
   actionMessage,
+  showFooter = true,
 }: ProfileScreenProps) {
   const { user, tweets, loading, error, refresh } = useUserProfile({
     client,
@@ -221,48 +225,18 @@ export function ProfileScreen({
     </box>
   );
 
-  // Footer - show available actions based on what data exists
-  const footerContent = (
-    <box
-      style={{
-        flexShrink: 0,
-        paddingLeft: 1,
-        paddingRight: 1,
-        flexDirection: "row",
-      }}
-    >
-      <text fg="#ffffff">h/Esc</text>
-      <text fg={colors.dim}> back </text>
-      <text fg="#ffffff">j/k</text>
-      <text fg={colors.dim}> nav </text>
-      <text fg="#ffffff">l</text>
-      <text fg={colors.dim}> like </text>
-      <text fg="#ffffff">b</text>
-      <text fg={colors.dim}> bkmk </text>
-      {user?.profileImageUrl && (
-        <>
-          <text fg="#ffffff">a</text>
-          <text fg={colors.dim}> avatar </text>
-        </>
-      )}
-      {user?.bannerImageUrl && (
-        <>
-          <text fg="#ffffff">v</text>
-          <text fg={colors.dim}> banner </text>
-        </>
-      )}
-      {user?.websiteUrl && (
-        <>
-          <text fg="#ffffff">w</text>
-          <text fg={colors.dim}> web </text>
-        </>
-      )}
-      <text fg="#ffffff">x</text>
-      <text fg={colors.dim}> x.com </text>
-      <text fg="#ffffff">r</text>
-      <text fg={colors.dim}> refresh</text>
-    </box>
-  );
+  // Footer keybindings - show available actions based on what data exists
+  const footerBindings: Keybinding[] = [
+    { key: "h/Esc", label: "back" },
+    { key: "j/k", label: "nav" },
+    { key: "l", label: "like" },
+    { key: "b", label: "bkmk" },
+    { key: "a", label: "avatar", show: !!user?.profileImageUrl },
+    { key: "v", label: "banner", show: !!user?.bannerImageUrl },
+    { key: "w", label: "web", show: !!user?.websiteUrl },
+    { key: "x", label: "x.com" },
+    { key: "r", label: "refresh" },
+  ];
 
   // Loading state
   if (loading) {
@@ -331,7 +305,7 @@ export function ProfileScreen({
           <text fg={colors.muted}>No tweets to display</text>
         </box>
       )}
-      {footerContent}
+      <Footer bindings={footerBindings} visible={showFooter} />
     </box>
   );
 }
