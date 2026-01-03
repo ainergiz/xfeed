@@ -53,6 +53,8 @@ export interface PaginatedDataResult<T> {
   retryCountdown: number;
   /** Reset all data and state (useful for tab switches) */
   reset: () => void;
+  /** Remove an item by ID (useful for unbookmarking, etc.) */
+  removeItem: (id: string) => void;
 }
 
 export function usePaginatedData<T>({
@@ -190,6 +192,14 @@ export function usePaginatedData<T>({
     seenIds.current.clear();
   }, []);
 
+  const removeItem = useCallback(
+    (id: string) => {
+      setData((prev) => prev.filter((item) => getId(item) !== id));
+      seenIds.current.delete(id);
+    },
+    [getId]
+  );
+
   return {
     data,
     loading,
@@ -202,5 +212,6 @@ export function usePaginatedData<T>({
     retryBlocked: retryCountdown > 0,
     retryCountdown,
     reset,
+    removeItem,
   };
 }

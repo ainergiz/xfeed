@@ -74,15 +74,18 @@ export function useBookmarks({
     loadMore,
     retryBlocked,
     retryCountdown,
+    removeItem,
   } = usePaginatedData({
     fetchFn,
     getId,
   });
 
-  const removePost = useCallback((tweetId: string) => {
-    setPosts((prev) => prev.filter((post) => post.id !== tweetId));
-    seenIds.current.delete(tweetId);
-  }, []);
+  const removePost = useCallback(
+    (tweetId: string) => {
+      removeItem(tweetId);
+    },
+    [removeItem]
+  );
 
   return {
     posts,
