@@ -33,8 +33,6 @@ interface BookmarksScreenProps {
     liked: boolean,
     bookmarked: boolean
   ) => void;
-  /** Action feedback message */
-  actionMessage?: string | null;
   /** Callback to register the removePost function for external sync */
   onRegisterRemovePost?: (removePost: (tweetId: string) => void) => void;
 }
@@ -66,7 +64,6 @@ export function BookmarksScreen({
   onBookmark,
   getActionState,
   initActionState,
-  actionMessage,
   onRegisterRemovePost,
 }: BookmarksScreenProps) {
   const {
@@ -159,17 +156,6 @@ export function BookmarksScreen({
   return (
     <box style={{ flexDirection: "column", height: "100%" }}>
       <ScreenHeader />
-      {actionMessage ? (
-        <box style={{ paddingLeft: 1 }}>
-          <text
-            fg={
-              actionMessage.startsWith("Error:") ? colors.error : colors.success
-            }
-          >
-            {actionMessage}
-          </text>
-        </box>
-      ) : null}
       <PostList
         posts={posts}
         focused={focused}

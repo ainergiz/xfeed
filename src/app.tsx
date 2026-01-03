@@ -421,7 +421,6 @@ export function App({ client, user: _user }: AppProps) {
             onBookmark={toggleBookmark}
             getActionState={getState}
             initActionState={initState}
-            actionMessage={actionMessage}
           />
         </box>
 
@@ -438,7 +437,8 @@ export function App({ client, user: _user }: AppProps) {
               onMoveToFolder={handleMoveToFolder}
               isLiked={getState(selectedPost.id).liked}
               isBookmarked={getState(selectedPost.id).bookmarked}
-              actionMessage={actionMessage}
+              isJustLiked={getState(selectedPost.id).justLiked}
+              isJustBookmarked={getState(selectedPost.id).justBookmarked}
               onReplySelect={handlePostSelect}
               getActionState={getState}
               onThreadView={handleThreadView}
@@ -503,7 +503,6 @@ export function App({ client, user: _user }: AppProps) {
               onBookmark={toggleBookmark}
               getActionState={getState}
               initActionState={initState}
-              actionMessage={actionMessage}
             />
           )}
         </box>
@@ -525,7 +524,6 @@ export function App({ client, user: _user }: AppProps) {
             onBookmark={toggleBookmark}
             getActionState={getState}
             initActionState={initState}
-            actionMessage={actionMessage}
             onRegisterRemovePost={handleRegisterRemovePost}
           />
         </box>
@@ -544,7 +542,6 @@ export function App({ client, user: _user }: AppProps) {
             onNotificationCountChange={handleNotificationCountChange}
             onUnreadCountChange={handleUnreadCountChange}
             onNotificationSelect={handleNotificationSelect}
-            actionMessage={actionMessage}
           />
         </box>
       </box>

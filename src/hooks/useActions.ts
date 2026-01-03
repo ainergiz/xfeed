@@ -4,7 +4,7 @@
  * Provides toggle functions with optimistic updates and error handling.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 
 import type { XClient } from "@/api/client";
 import type { TweetData } from "@/api/types";
@@ -28,6 +28,10 @@ export interface TweetActionState {
   likePending: boolean;
   /** Whether a bookmark action is in progress */
   bookmarkPending: boolean;
+  /** True briefly after liking (for visual feedback) */
+  justLiked: boolean;
+  /** True briefly after bookmarking (for visual feedback) */
+  justBookmarked: boolean;
 }
 
 export interface UseActionsResult {
@@ -46,7 +50,12 @@ const DEFAULT_STATE: TweetActionState = {
   bookmarked: false,
   likePending: false,
   bookmarkPending: false,
+  justLiked: false,
+  justBookmarked: false,
 };
+
+/** Duration for "just acted" visual feedback in ms */
+const JUST_ACTED_DURATION = 600;
 
 export function useActions({
   client,
@@ -58,6 +67,14 @@ export function useActions({
   const [states, setStates] = useState<Map<string, TweetActionState>>(
     new Map()
   );
+
+  // Track timeouts for clearing "just acted" states
+  const justLikedTimeouts = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map()
+  );
+  const justBookmarkedTimeouts = useRef<
+    Map<string, ReturnType<typeof setTimeout>>
+  >(new Map());
 
   const getState = useCallback(
     (tweetId: string): TweetActionState => {
@@ -113,7 +130,23 @@ export function useActions({
           : await client.unlikeTweet(tweet.id);
 
         if (result.success) {
-          updateState(tweet.id, { likePending: false });
+          // Set justLiked for visual feedback (only when liking)
+          if (newLiked) {
+            // Clear any existing timeout
+            const existingTimeout = justLikedTimeouts.current.get(tweet.id);
+            if (existingTimeout) clearTimeout(existingTimeout);
+
+            updateState(tweet.id, { likePending: false, justLiked: true });
+
+            // Auto-clear justLiked after duration
+            const timeout = setTimeout(() => {
+              updateState(tweet.id, { justLiked: false });
+              justLikedTimeouts.current.delete(tweet.id);
+            }, JUST_ACTED_DURATION);
+            justLikedTimeouts.current.set(tweet.id, timeout);
+          } else {
+            updateState(tweet.id, { likePending: false });
+          }
           onSuccess?.(newLiked ? "Liked" : "Unliked");
         } else {
           // Check if error indicates the tweet was already in the target state
@@ -174,7 +207,28 @@ export function useActions({
           : await client.deleteBookmark(tweet.id);
 
         if (result.success) {
-          updateState(tweet.id, { bookmarkPending: false });
+          // Set justBookmarked for visual feedback (only when bookmarking)
+          if (newBookmarked) {
+            // Clear any existing timeout
+            const existingTimeout = justBookmarkedTimeouts.current.get(
+              tweet.id
+            );
+            if (existingTimeout) clearTimeout(existingTimeout);
+
+            updateState(tweet.id, {
+              bookmarkPending: false,
+              justBookmarked: true,
+            });
+
+            // Auto-clear justBookmarked after duration
+            const timeout = setTimeout(() => {
+              updateState(tweet.id, { justBookmarked: false });
+              justBookmarkedTimeouts.current.delete(tweet.id);
+            }, JUST_ACTED_DURATION);
+            justBookmarkedTimeouts.current.set(tweet.id, timeout);
+          } else {
+            updateState(tweet.id, { bookmarkPending: false });
+          }
           onSuccess?.(newBookmarked ? "Bookmarked" : "Removed bookmark");
           onBookmarkChange?.(tweet.id, newBookmarked);
         } else {

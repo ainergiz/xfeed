@@ -21,8 +21,6 @@ interface NotificationsScreenProps {
   onNotificationCountChange?: (count: number) => void;
   onUnreadCountChange?: (count: number) => void;
   onNotificationSelect?: (notification: NotificationData) => void;
-  /** Action feedback message */
-  actionMessage?: string | null;
 }
 
 function ScreenHeader({ unreadCount }: { unreadCount: number }) {
@@ -50,7 +48,6 @@ export function NotificationsScreen({
   onNotificationCountChange,
   onUnreadCountChange,
   onNotificationSelect,
-  actionMessage,
 }: NotificationsScreenProps) {
   const {
     notifications,
@@ -143,17 +140,6 @@ export function NotificationsScreen({
   return (
     <box style={{ flexDirection: "column", height: "100%" }}>
       <ScreenHeader unreadCount={unreadCount} />
-      {actionMessage ? (
-        <box style={{ paddingLeft: 1 }}>
-          <text
-            fg={
-              actionMessage.startsWith("Error:") ? colors.error : colors.success
-            }
-          >
-            {actionMessage}
-          </text>
-        </box>
-      ) : null}
       <NotificationList
         notifications={notifications}
         focused={focused}

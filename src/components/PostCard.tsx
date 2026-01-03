@@ -19,7 +19,17 @@ interface PostCardProps {
   isLiked?: boolean;
   /** Whether the tweet is bookmarked by the current user */
   isBookmarked?: boolean;
+  /** True briefly after liking (for visual pulse feedback) */
+  isJustLiked?: boolean;
+  /** True briefly after bookmarking (for visual pulse feedback) */
+  isJustBookmarked?: boolean;
 }
+
+// Unicode symbols for like/bookmark states
+const HEART_EMPTY = "\u2661"; // ♡
+const HEART_FILLED = "\u2665"; // ♥
+const FLAG_EMPTY = "\u2690"; // ⚐
+const FLAG_FILLED = "\u2691"; // ⚑
 
 export function PostCard({
   post,
@@ -27,6 +37,8 @@ export function PostCard({
   id,
   isLiked,
   isBookmarked,
+  isJustLiked,
+  isJustBookmarked,
 }: PostCardProps) {
   const displayText = truncateText(post.text, MAX_TEXT_LINES);
   const timeAgo = formatRelativeTime(post.createdAt);
@@ -67,25 +79,39 @@ export function PostCard({
         </box>
       ) : null}
 
-      {/* Stats line */}
+      {/* Stats line with action indicators */}
       <box style={{ flexDirection: "row", marginTop: 1, paddingLeft: 2 }}>
         <text fg={colors.muted}>
           {formatCount(post.replyCount)} replies {"  "}
           {formatCount(post.retweetCount)} reposts {"  "}
           {formatCount(post.likeCount)} likes
         </text>
-        {isLiked ? (
-          <text fg={colors.error}>
-            {"  "}
-            {"\u2665"} liked
-          </text>
-        ) : null}
-        {isBookmarked ? (
-          <text fg={colors.primary}>
-            {"  "}
-            {"\u2691"} saved
-          </text>
-        ) : null}
+        {/* Like indicator - always visible, filled/empty based on state */}
+        <text
+          fg={
+            isJustLiked
+              ? colors.success // Bright green flash
+              : isLiked
+                ? colors.error // Red when liked
+                : colors.muted // Muted when not liked (more visible than dim)
+          }
+        >
+          {"  "}
+          {isLiked ? HEART_FILLED : <b>{HEART_EMPTY}</b>}
+        </text>
+        {/* Bookmark indicator - always visible, filled/empty based on state */}
+        <text
+          fg={
+            isJustBookmarked
+              ? colors.success // Bright green flash
+              : isBookmarked
+                ? colors.primary // Blue when bookmarked
+                : colors.muted // Muted when not bookmarked (more visible than dim)
+          }
+        >
+          {"  "}
+          {isBookmarked ? FLAG_FILLED : <b>{FLAG_EMPTY}</b>}
+        </text>
       </box>
 
       {/* Media indicators - colored labels */}

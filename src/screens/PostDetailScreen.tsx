@@ -25,6 +25,12 @@ import {
   type LinkMetadata,
 } from "@/lib/media";
 
+// Unicode symbols for like/bookmark states
+const HEART_EMPTY = "\u2661"; // ♡
+const HEART_FILLED = "\u2665"; // ♥
+const FLAG_EMPTY = "\u2690"; // ⚐
+const FLAG_FILLED = "\u2691"; // ⚑
+
 /**
  * Generate element ID for reply cards (for scroll targeting)
  */
@@ -76,8 +82,10 @@ interface PostDetailScreenProps {
   isLiked?: boolean;
   /** Whether the tweet is currently bookmarked */
   isBookmarked?: boolean;
-  /** External action message to display (from parent) */
-  actionMessage?: string | null;
+  /** True briefly after liking (for visual pulse feedback) */
+  isJustLiked?: boolean;
+  /** True briefly after bookmarking (for visual pulse feedback) */
+  isJustBookmarked?: boolean;
   /** Called when user selects a reply to view */
   onReplySelect?: (reply: TweetData) => void;
   /** Get action state for a tweet */
@@ -177,7 +185,8 @@ export function PostDetailScreen({
   onMoveToFolder,
   isLiked = false,
   isBookmarked = false,
-  actionMessage,
+  isJustLiked = false,
+  isJustBookmarked = false,
   onReplySelect,
   getActionState,
   onThreadView,
@@ -851,8 +860,8 @@ export function PostDetailScreen({
     </box>
   );
 
-  // Status message (for media operations and action feedback)
-  const displayMessage = actionMessage ?? statusMessage;
+  // Status message (for media operations like preview/download)
+  const displayMessage = statusMessage;
   const isError = displayMessage?.startsWith("Error:");
   const statusContent = displayMessage ? (
     <box style={{ marginTop: 1, paddingLeft: 1, paddingRight: 1 }}>
@@ -887,19 +896,29 @@ export function PostDetailScreen({
       ) : null}
       <text fg="#ffffff">x</text>
       <text fg={colors.dim}> x.com </text>
-      <text fg="#ffffff">b</text>
-      <text fg={isBookmarked ? colors.primary : colors.dim}>
-        {isBookmarked ? " ⚑" : " bookmark"}{" "}
-      </text>
-      {isBookmarked && !hasMentions && (
-        <>
-          <text fg="#ffffff">m</text>
-          <text fg={colors.dim}> folder </text>
-        </>
-      )}
+      {/* Like with icon - always visible */}
       <text fg="#ffffff">l</text>
-      <text fg={isLiked ? colors.error : colors.dim}>
-        {isLiked ? " ♥" : " like"}{" "}
+      <text
+        fg={
+          isJustLiked ? colors.success : isLiked ? colors.error : colors.muted
+        }
+      >
+        {" "}
+        {isLiked ? HEART_FILLED : <b>{HEART_EMPTY}</b>}{" "}
+      </text>
+      {/* Bookmark with icon - always visible */}
+      <text fg="#ffffff">b</text>
+      <text
+        fg={
+          isJustBookmarked
+            ? colors.success
+            : isBookmarked
+              ? colors.primary
+              : colors.muted
+        }
+      >
+        {" "}
+        {isBookmarked ? FLAG_FILLED : <b>{FLAG_EMPTY}</b>}{" "}
       </text>
       <text fg="#ffffff">p</text>
       <text fg={colors.dim}> profile</text>
@@ -945,6 +964,13 @@ export function PostDetailScreen({
       )}
       <text fg="#ffffff"> t</text>
       <text fg={colors.dim}> thread</text>
+      {/* Folder option - only when bookmarked and no mentions mode */}
+      {isBookmarked && !hasMentions && (
+        <>
+          <text fg="#ffffff"> m</text>
+          <text fg={colors.dim}> folder</text>
+        </>
+      )}
     </box>
   );
 
