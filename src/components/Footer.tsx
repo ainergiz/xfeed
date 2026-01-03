@@ -1,5 +1,7 @@
 import { useTerminalDimensions } from "@opentui/react";
 
+import { colors } from "@/lib/colors";
+
 type Shortcut = { key: string; label: string };
 
 const SHORTCUTS: Shortcut[] = [
@@ -17,7 +19,7 @@ function ShortcutItem({ shortcut }: { shortcut: Shortcut }) {
   return (
     <box style={{ flexDirection: "row", flexShrink: 0 }}>
       <text fg="#ffffff">{shortcut.key}</text>
-      <text fg="#666666"> {shortcut.label}</text>
+      <text fg={colors.dim}> {shortcut.label}</text>
     </box>
   );
 }

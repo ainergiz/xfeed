@@ -4,12 +4,12 @@
 
 import type { TweetData } from "@/api/types";
 
+import { colors } from "@/lib/colors";
 import { truncateText } from "@/lib/format";
 
 const MAX_TEXT_LINES = 2;
 const QUOTE_BORDER_COLOR = "#444444";
 const QUOTE_BG = "#0d0d14";
-const X_BLUE = "#1DA1F2";
 
 interface QuotedPostCardProps {
   post: TweetData;
@@ -33,8 +33,8 @@ export function QuotedPostCard({ post }: QuotedPostCardProps) {
       >
         {/* Quoted author line */}
         <box style={{ flexDirection: "row" }}>
-          <text fg={X_BLUE}>@{post.author.username}</text>
-          <text fg="#666666"> · {post.author.name}</text>
+          <text fg={colors.primary}>@{post.author.username}</text>
+          <text fg={colors.dim}> · {post.author.name}</text>
         </box>
 
         {/* Quoted text (truncated) */}

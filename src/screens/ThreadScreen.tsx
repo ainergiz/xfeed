@@ -12,6 +12,7 @@ import type { TweetData } from "@/api/types";
 
 import { ThreadViewPrototype } from "@/components/ThreadView.prototype";
 import { useThread } from "@/hooks/useThread.prototype";
+import { colors } from "@/lib/colors";
 
 interface ThreadScreenProps {
   client: XClient;
@@ -40,7 +41,7 @@ export function ThreadScreen({
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
         <box style={{ paddingLeft: 1, paddingTop: 1 }}>
-          <text fg="#888888">
+          <text fg={colors.muted}>
             Loading thread...
             {loadingAncestors && " (ancestors)"}
             {loadingReplies && " (replies)"}
@@ -55,10 +56,10 @@ export function ThreadScreen({
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
         <box style={{ paddingLeft: 1, paddingTop: 1 }}>
-          <text fg="#E0245E">Error: {error}</text>
+          <text fg={colors.error}>Error: {error}</text>
         </box>
         <box style={{ paddingLeft: 1, paddingTop: 1 }}>
-          <text fg="#666666">Press h or Esc to go back</text>
+          <text fg={colors.dim}>Press h or Esc to go back</text>
         </box>
       </box>
     );

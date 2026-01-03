@@ -13,6 +13,8 @@ import type { TweetActionState } from "@/hooks/useActions";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { PostList } from "@/components/PostList";
 import { useTimeline, type TimelineTab } from "@/hooks/useTimeline";
+import { colors } from "@/lib/colors";
+import { formatCountdown } from "@/lib/format";
 
 interface TimelineScreenProps {
   client: XClient;
@@ -50,28 +52,15 @@ function TabBar({ activeTab }: TabBarProps) {
         flexDirection: "row",
       }}
     >
-      <text fg={activeTab === "for_you" ? "#1DA1F2" : "#666666"}>
+      <text fg={activeTab === "for_you" ? colors.primary : colors.dim}>
         {activeTab === "for_you" ? <b>[1] For You</b> : " 1  For You"}
       </text>
-      <text fg="#666666"> | </text>
-      <text fg={activeTab === "following" ? "#1DA1F2" : "#666666"}>
+      <text fg={colors.dim}> | </text>
+      <text fg={activeTab === "following" ? colors.primary : colors.dim}>
         {activeTab === "following" ? <b>[2] Following</b> : " 2  Following"}
       </text>
     </box>
   );
-}
-
-/**
- * Format seconds into a readable countdown string
- */
-function formatCountdown(seconds: number): string {
-  if (seconds <= 0) return "";
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  if (mins > 0) {
-    return `${mins}m ${secs}s`;
-  }
-  return `${secs}s`;
 }
 
 export function TimelineScreen({
@@ -131,7 +120,7 @@ export function TimelineScreen({
       <box style={{ flexDirection: "column", height: "100%" }}>
         {focused && <TabBar activeTab={tab} />}
         <box style={{ padding: 2, flexGrow: 1 }}>
-          <text fg="#888888">Loading timeline...</text>
+          <text fg={colors.muted}>Loading timeline...</text>
         </box>
       </box>
     );
@@ -163,7 +152,7 @@ export function TimelineScreen({
         {focused && <TabBar activeTab={tab} />}
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg="#ff6666">Error: {error}</text>
-          <text fg="#888888"> Press r to retry.</text>
+          <text fg={colors.muted}> Press r to retry.</text>
         </box>
       </box>
     );
@@ -174,7 +163,9 @@ export function TimelineScreen({
       <box style={{ flexDirection: "column", height: "100%" }}>
         {focused && <TabBar activeTab={tab} />}
         <box style={{ padding: 2, flexGrow: 1 }}>
-          <text fg="#888888">No posts to display. Press r to refresh.</text>
+          <text fg={colors.muted}>
+            No posts to display. Press r to refresh.
+          </text>
         </box>
       </box>
     );
@@ -185,7 +176,11 @@ export function TimelineScreen({
       {focused && <TabBar activeTab={tab} />}
       {actionMessage ? (
         <box style={{ paddingLeft: 1 }}>
-          <text fg={actionMessage.startsWith("Error:") ? "#E0245E" : "#17BF63"}>
+          <text
+            fg={
+              actionMessage.startsWith("Error:") ? colors.error : colors.success
+            }
+          >
             {actionMessage}
           </text>
         </box>

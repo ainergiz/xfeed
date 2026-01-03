@@ -14,10 +14,9 @@ import { useState, useRef, useEffect, useMemo } from "react";
 
 import type { TweetData } from "@/api/types";
 
+import { colors } from "@/lib/colors";
 import { formatRelativeTime, truncateText } from "@/lib/format";
 
-const X_BLUE = "#1DA1F2";
-const FOCUSED_BG = "#1a1a2e";
 const SELECTED_BG = "#2a2a3e";
 
 // Tree drawing characters
@@ -153,7 +152,7 @@ function CompactPostCard({
       style={{
         flexDirection: "column",
         backgroundColor: isFocused
-          ? FOCUSED_BG
+          ? colors.selectedBg
           : isSelected
             ? SELECTED_BG
             : undefined,
@@ -163,12 +162,12 @@ function CompactPostCard({
       }}
     >
       <box style={{ flexDirection: "row" }}>
-        <text fg="#666666">{prefix}</text>
-        <text fg={isSelected ? X_BLUE : "#888888"}>
+        <text fg={colors.dim}>{prefix}</text>
+        <text fg={isSelected ? colors.primary : colors.muted}>
           {isSelected ? ">" : " "}
         </text>
-        <text fg={X_BLUE}>@{tweet.author.username}</text>
-        <text fg="#666666"> · {timeAgo}</text>
+        <text fg={colors.primary}>@{tweet.author.username}</text>
+        <text fg={colors.dim}> · {timeAgo}</text>
       </box>
       <box style={{ paddingLeft: prefix.length + 2 }}>
         <text fg={isFocused ? "#ffffff" : "#cccccc"}>{truncatedText}</text>
@@ -176,7 +175,7 @@ function CompactPostCard({
       {/* Stats line for focused tweet */}
       {isFocused && (
         <box style={{ paddingLeft: prefix.length + 2, marginTop: 1 }}>
-          <text fg="#888888">
+          <text fg={colors.muted}>
             {tweet.replyCount ?? 0} replies · {tweet.retweetCount ?? 0} reposts
             · {tweet.likeCount ?? 0} likes
           </text>
@@ -203,7 +202,7 @@ function AncestorChain({ ancestors }: { ancestors: TweetData[] }) {
       }}
     >
       <box style={{ marginBottom: 1 }}>
-        <text fg="#666666">Thread context:</text>
+        <text fg={colors.dim}>Thread context:</text>
       </box>
       {ancestors.map((tweet, idx) => {
         const isLast = idx === ancestors.length - 1;
@@ -214,12 +213,15 @@ function AncestorChain({ ancestors }: { ancestors: TweetData[] }) {
           <box key={tweet.id} style={{ flexDirection: "column" }}>
             <box style={{ flexDirection: "row" }}>
               <text fg="#555555">{prefix}</text>
-              <text fg={X_BLUE}>@{tweet.author.username}</text>
-              <text fg="#666666"> · {formatRelativeTime(tweet.createdAt)}</text>
+              <text fg={colors.primary}>@{tweet.author.username}</text>
+              <text fg={colors.dim}>
+                {" "}
+                · {formatRelativeTime(tweet.createdAt)}
+              </text>
             </box>
             <box style={{ flexDirection: "row" }}>
               <text fg="#555555">{verticalLine} </text>
-              <text fg="#888888">{truncateText(tweet.text, 2)}</text>
+              <text fg={colors.muted}>{truncateText(tweet.text, 2)}</text>
             </box>
           </box>
         );
@@ -443,10 +445,10 @@ export function ThreadViewPrototype({
         flexDirection: "row",
       }}
     >
-      <text fg="#888888">Thread View</text>
-      <text fg="#666666"> · </text>
-      <text fg={X_BLUE}>{flatNodes.length}</text>
-      <text fg="#666666"> tweets</text>
+      <text fg={colors.muted}>Thread View</text>
+      <text fg={colors.dim}> · </text>
+      <text fg={colors.primary}>{flatNodes.length}</text>
+      <text fg={colors.dim}> tweets</text>
     </box>
   );
 
@@ -462,11 +464,11 @@ export function ThreadViewPrototype({
       }}
     >
       <text fg="#ffffff">j/k</text>
-      <text fg="#666666"> nav </text>
+      <text fg={colors.dim}> nav </text>
       <text fg="#ffffff">Enter</text>
-      <text fg="#666666"> view </text>
+      <text fg={colors.dim}> view </text>
       <text fg="#ffffff">h/Esc</text>
-      <text fg="#666666"> back</text>
+      <text fg={colors.dim}> back</text>
     </box>
   );
 
@@ -485,21 +487,21 @@ export function ThreadViewPrototype({
         <box
           style={{
             borderStyle: "single",
-            borderColor: X_BLUE,
+            borderColor: colors.primary,
             marginBottom: 1,
             paddingLeft: 1,
             paddingRight: 1,
           }}
         >
           <box style={{ flexDirection: "row" }}>
-            <text fg={X_BLUE}>@{focusedTweet.author.username}</text>
+            <text fg={colors.primary}>@{focusedTweet.author.username}</text>
             <text fg="#ffffff"> · {focusedTweet.author.name}</text>
           </box>
           <box style={{ marginTop: 1 }}>
             <text fg="#ffffff">{focusedTweet.text}</text>
           </box>
           <box style={{ marginTop: 1 }}>
-            <text fg="#888888">
+            <text fg={colors.muted}>
               {focusedTweet.replyCount ?? 0} replies ·{" "}
               {focusedTweet.retweetCount ?? 0} reposts ·{" "}
               {focusedTweet.likeCount ?? 0} likes
@@ -512,7 +514,7 @@ export function ThreadViewPrototype({
           <box style={{ marginTop: 1 }}>
             <box style={{ paddingLeft: 1, marginBottom: 1 }}>
               <text fg="#ffffff">Replies</text>
-              <text fg="#666666"> ({flatNodes.length})</text>
+              <text fg={colors.dim}> ({flatNodes.length})</text>
             </box>
             {treeState.children.map((child, idx) => (
               <TreeNode
@@ -530,7 +532,7 @@ export function ThreadViewPrototype({
         {/* No replies message */}
         {(!treeState || treeState.children.length === 0) && (
           <box style={{ paddingLeft: 1, marginTop: 1 }}>
-            <text fg="#666666">No replies yet</text>
+            <text fg={colors.dim}>No replies yet</text>
           </box>
         )}
       </scrollbox>

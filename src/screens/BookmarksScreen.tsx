@@ -13,6 +13,8 @@ import type { TweetActionState } from "@/hooks/useActions";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { PostList } from "@/components/PostList";
 import { useBookmarks } from "@/hooks/useBookmarks";
+import { colors } from "@/lib/colors";
+import { formatCountdown } from "@/lib/format";
 
 interface BookmarksScreenProps {
   client: XClient;
@@ -33,6 +35,8 @@ interface BookmarksScreenProps {
   ) => void;
   /** Action feedback message */
   actionMessage?: string | null;
+  /** Callback to register the removePost function for external sync */
+  onRegisterRemovePost?: (removePost: (tweetId: string) => void) => void;
 }
 
 function ScreenHeader() {
@@ -46,24 +50,11 @@ function ScreenHeader() {
         flexDirection: "row",
       }}
     >
-      <text fg="#1DA1F2">
+      <text fg={colors.primary}>
         <b>All Bookmarks</b>
       </text>
     </box>
   );
-}
-
-/**
- * Format seconds into a readable countdown string
- */
-function formatCountdown(seconds: number): string {
-  if (seconds <= 0) return "";
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  if (mins > 0) {
-    return `${mins}m ${secs}s`;
-  }
-  return `${secs}s`;
 }
 
 export function BookmarksScreen({
@@ -76,6 +67,7 @@ export function BookmarksScreen({
   getActionState,
   initActionState,
   actionMessage,
+  onRegisterRemovePost,
 }: BookmarksScreenProps) {
   const {
     posts,
@@ -88,7 +80,13 @@ export function BookmarksScreen({
     loadMore,
     retryBlocked,
     retryCountdown,
+    removePost,
   } = useBookmarks({ client });
+
+  // Register removePost function for external bookmark sync
+  useEffect(() => {
+    onRegisterRemovePost?.(removePost);
+  }, [onRegisterRemovePost, removePost]);
 
   // Report post count to parent
   useEffect(() => {
@@ -109,7 +107,7 @@ export function BookmarksScreen({
       <box style={{ flexDirection: "column", height: "100%" }}>
         <ScreenHeader />
         <box style={{ padding: 2, flexGrow: 1 }}>
-          <text fg="#888888">Loading bookmarks...</text>
+          <text fg={colors.muted}>Loading bookmarks...</text>
         </box>
       </box>
     );
@@ -141,7 +139,7 @@ export function BookmarksScreen({
         <ScreenHeader />
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg="#ff6666">Error: {error}</text>
-          <text fg="#888888"> Press r to retry.</text>
+          <text fg={colors.muted}> Press r to retry.</text>
         </box>
       </box>
     );
@@ -152,7 +150,7 @@ export function BookmarksScreen({
       <box style={{ flexDirection: "column", height: "100%" }}>
         <ScreenHeader />
         <box style={{ padding: 2, flexGrow: 1 }}>
-          <text fg="#888888">No bookmarks yet. Press r to refresh.</text>
+          <text fg={colors.muted}>No bookmarks yet. Press r to refresh.</text>
         </box>
       </box>
     );
@@ -163,7 +161,11 @@ export function BookmarksScreen({
       <ScreenHeader />
       {actionMessage ? (
         <box style={{ paddingLeft: 1 }}>
-          <text fg={actionMessage.startsWith("Error:") ? "#E0245E" : "#17BF63"}>
+          <text
+            fg={
+              actionMessage.startsWith("Error:") ? colors.error : colors.success
+            }
+          >
             {actionMessage}
           </text>
         </box>

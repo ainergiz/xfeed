@@ -5,6 +5,8 @@
 
 import { useEffect, useState } from "react";
 
+import { colors } from "@/lib/colors";
+
 // ASCII art logo
 const LOGO = [
   "          ██╗  ██╗███████╗███████╗███████╗██████╗ ",
@@ -17,9 +19,6 @@ const LOGO = [
 
 const SPINNER_FRAMES = ["◢", "◣", "◤", "◥"];
 const SPINNER_INTERVAL_MS = 100;
-
-const PRIMARY = "#ffffff"; // White
-const DIM = "#666666"; // Gray
 
 export function SplashScreen() {
   const [spinnerIndex, setSpinnerIndex] = useState(0);
@@ -42,13 +41,13 @@ export function SplashScreen() {
       }}
     >
       {/* Top border */}
-      <text fg={DIM}>{"─".repeat(52)}</text>
+      <text fg={colors.dim}>{"─".repeat(52)}</text>
 
       <box style={{ marginTop: 1 }} />
 
       {/* Logo */}
       {LOGO.map((line, i) => (
-        <text key={i} fg={PRIMARY}>
+        <text key={i} fg="#ffffff">
           {line}
         </text>
       ))}
@@ -56,17 +55,17 @@ export function SplashScreen() {
       <box style={{ marginTop: 1 }} />
 
       {/* Tagline */}
-      <text fg={DIM}>{"[terminal client for X, everything app]"}</text>
+      <text fg={colors.dim}>{"[terminal client for X, everything app]"}</text>
 
       <box style={{ marginTop: 1 }} />
 
       {/* Bottom border */}
-      <text fg={DIM}>{"─".repeat(52)}</text>
+      <text fg={colors.dim}>{"─".repeat(52)}</text>
 
       {/* Spinner and loading text */}
       <box style={{ marginTop: 2, flexDirection: "row" }}>
-        <text fg={PRIMARY}>{SPINNER_FRAMES[spinnerIndex]}</text>
-        <text fg={DIM}> initializing...</text>
+        <text fg="#ffffff">{SPINNER_FRAMES[spinnerIndex]}</text>
+        <text fg={colors.dim}> initializing...</text>
       </box>
     </box>
   );

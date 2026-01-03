@@ -12,6 +12,7 @@ import type { TweetActionState } from "@/hooks/useActions";
 
 import { PostCard } from "@/components/PostCard";
 import { useListNavigation } from "@/hooks/useListNavigation";
+import { colors } from "@/lib/colors";
 
 interface PostListProps {
   posts: TweetData[];
@@ -187,7 +188,7 @@ export function PostList({
   if (posts.length === 0) {
     return (
       <box style={{ padding: 2 }}>
-        <text fg="#888888">No posts to display</text>
+        <text fg={colors.muted}>No posts to display</text>
       </box>
     );
   }
@@ -216,12 +217,12 @@ export function PostList({
       })}
       {loadingMore ? (
         <box style={{ padding: 1, paddingLeft: 2 }}>
-          <text fg="#888888">Loading more posts...</text>
+          <text fg={colors.muted}>Loading more posts...</text>
         </box>
       ) : null}
       {!hasMore && posts.length > 0 ? (
         <box style={{ padding: 1, paddingLeft: 2 }}>
-          <text fg="#666666">No more posts</text>
+          <text fg={colors.dim}>No more posts</text>
         </box>
       ) : null}
     </scrollbox>

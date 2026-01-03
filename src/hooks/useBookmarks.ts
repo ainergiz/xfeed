@@ -3,10 +3,14 @@
  * with infinite scroll pagination and typed error handling with rate limit detection
  */
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useCallback } from "react";
 
 import type { XClient } from "@/api/client";
 import type { ApiError, TweetData } from "@/api/types";
+
+import type { PaginatedFetchResult } from "./usePaginatedData";
+
+import { usePaginatedData } from "./usePaginatedData";
 
 export interface UseBookmarksOptions {
   client: XClient;
@@ -33,127 +37,55 @@ export interface UseBookmarksResult {
   retryBlocked: boolean;
   /** Seconds until retry is allowed (for rate limit countdown) */
   retryCountdown: number;
+  /** Remove a post from the list (used when unbookmarked from detail view) */
+  removePost: (tweetId: string) => void;
 }
 
 export function useBookmarks({
   client,
 }: UseBookmarksOptions): UseBookmarksResult {
-  const [posts, setPosts] = useState<TweetData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [apiError, setApiError] = useState<ApiError | null>(null);
-  const [refreshCounter, setRefreshCounter] = useState(0);
-  const [retryCountdown, setRetryCountdown] = useState(0);
-  const [nextCursor, setNextCursor] = useState<string | undefined>();
-  const [hasMore, setHasMore] = useState(true);
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Create fetch function that adapts client API to PaginatedFetchResult
+  const fetchFn = useCallback(
+    async (cursor?: string): Promise<PaginatedFetchResult<TweetData>> => {
+      const result = await client.getBookmarksV2(30, cursor);
 
-  // Track seen IDs to deduplicate posts across pages
-  const seenIds = useRef(new Set<string>());
-
-  // Clear countdown timer on unmount
-  useEffect(() => {
-    return () => {
-      if (countdownRef.current) {
-        clearInterval(countdownRef.current);
+      if (result.success) {
+        return {
+          success: true,
+          items: result.tweets,
+          nextCursor: result.nextCursor,
+        };
       }
-    };
-  }, []);
+      return { success: false, error: result.error };
+    },
+    [client]
+  );
 
-  const fetchBookmarks = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setApiError(null);
-    // Reset pagination state for fresh fetch
-    seenIds.current.clear();
+  const getId = useCallback((tweet: TweetData) => tweet.id, []);
 
-    const result = await client.getBookmarksV2(30);
+  const {
+    data: posts,
+    loading,
+    loadingMore,
+    hasMore,
+    error,
+    apiError,
+    refresh,
+    loadMore,
+    retryBlocked,
+    retryCountdown,
+    removeItem,
+  } = usePaginatedData({
+    fetchFn,
+    getId,
+  });
 
-    if (result.success) {
-      // Populate seen IDs with initial posts
-      for (const tweet of result.tweets) {
-        seenIds.current.add(tweet.id);
-      }
-      setPosts(result.tweets);
-      setNextCursor(result.nextCursor);
-      setHasMore(!!result.nextCursor && result.tweets.length > 0);
-      setRetryCountdown(0);
-      if (countdownRef.current) {
-        clearInterval(countdownRef.current);
-        countdownRef.current = null;
-      }
-    } else {
-      setError(result.error.message);
-      setApiError(result.error);
-      setHasMore(false);
-
-      // Start countdown for rate limits
-      if (result.error.type === "rate_limit" && result.error.retryAfter) {
-        setRetryCountdown(result.error.retryAfter);
-
-        // Clear any existing countdown
-        if (countdownRef.current) {
-          clearInterval(countdownRef.current);
-        }
-
-        // Start new countdown
-        countdownRef.current = setInterval(() => {
-          setRetryCountdown((prev) => {
-            if (prev <= 1) {
-              if (countdownRef.current) {
-                clearInterval(countdownRef.current);
-                countdownRef.current = null;
-              }
-              return 0;
-            }
-            return prev - 1;
-          });
-        }, 1000);
-      }
-    }
-
-    setLoading(false);
-  }, [client]);
-
-  // Fetch on mount and when refresh is triggered
-  useEffect(() => {
-    fetchBookmarks();
-  }, [fetchBookmarks, refreshCounter]);
-
-  const loadMore = useCallback(async () => {
-    if (!nextCursor || loadingMore || !hasMore) return;
-
-    setLoadingMore(true);
-
-    const result = await client.getBookmarksV2(30, nextCursor);
-
-    if (result.success) {
-      // Filter out duplicates using seenIds
-      const newPosts = result.tweets.filter((t) => !seenIds.current.has(t.id));
-      for (const tweet of newPosts) {
-        seenIds.current.add(tweet.id);
-      }
-
-      setPosts((prev) => [...prev, ...newPosts]);
-      setNextCursor(result.nextCursor);
-      setHasMore(!!result.nextCursor && result.tweets.length > 0);
-    } else {
-      // On error, don't clear existing posts, just stop pagination
-      setHasMore(false);
-    }
-
-    setLoadingMore(false);
-  }, [client, nextCursor, loadingMore, hasMore]);
-
-  const refresh = useCallback(() => {
-    // Don't allow refresh during rate limit countdown
-    if (retryCountdown > 0) return;
-    // Reset pagination state before refresh
-    setNextCursor(undefined);
-    setHasMore(true);
-    setRefreshCounter((prev) => prev + 1);
-  }, [retryCountdown]);
+  const removePost = useCallback(
+    (tweetId: string) => {
+      removeItem(tweetId);
+    },
+    [removeItem]
+  );
 
   return {
     posts,
@@ -164,7 +96,8 @@ export function useBookmarks({
     apiError,
     refresh,
     loadMore,
-    retryBlocked: retryCountdown > 0,
+    retryBlocked,
     retryCountdown,
+    removePost,
   };
 }

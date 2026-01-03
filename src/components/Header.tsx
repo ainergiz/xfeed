@@ -1,5 +1,7 @@
 import type { View } from "@/app";
 
+import { colors } from "@/lib/colors";
+
 interface HeaderProps {
   currentView: View;
   postCount?: number;
@@ -33,14 +35,14 @@ export function Header({
         flexDirection: "row",
       }}
     >
-      <text fg="#1DA1F2">xfeed</text>
+      <text fg={colors.primary}>xfeed</text>
       {unreadNotificationCount !== undefined && unreadNotificationCount > 0 && (
-        <text fg="#E0245E"> ({unreadNotificationCount})</text>
+        <text fg={colors.error}> ({unreadNotificationCount})</text>
       )}
-      <text fg="#666666"> | </text>
+      <text fg={colors.dim}> | </text>
       <text fg="#ffffff">{viewLabel}</text>
       {postCount !== undefined && postCount > 0 && (
-        <text fg="#666666"> ({getCountLabel(currentView, postCount)})</text>
+        <text fg={colors.dim}> ({getCountLabel(currentView, postCount)})</text>
       )}
     </box>
   );
