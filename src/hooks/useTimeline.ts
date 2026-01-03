@@ -9,6 +9,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import type { XClient } from "@/api/client";
 import type { ApiError, TweetData } from "@/api/types";
 
+import { useCountdown } from "@/hooks/useCountdown";
+
 export type TimelineTab = "for_you" | "following";
 
 export interface UseTimelineOptions {
@@ -54,22 +56,12 @@ export function useTimeline({
   const [error, setError] = useState<string | null>(null);
   const [apiError, setApiError] = useState<ApiError | null>(null);
   const [refreshCounter, setRefreshCounter] = useState(0);
-  const [retryCountdown, setRetryCountdown] = useState(0);
   const [nextCursor, setNextCursor] = useState<string | undefined>();
   const [hasMore, setHasMore] = useState(true);
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { countdown: retryCountdown, start: startCountdown, stop: stopCountdown } = useCountdown();
 
   // Track seen IDs to deduplicate posts across pages
   const seenIds = useRef(new Set<string>());
-
-  // Clear countdown timer on unmount
-  useEffect(() => {
-    return () => {
-      if (countdownRef.current) {
-        clearInterval(countdownRef.current);
-      }
-    };
-  }, []);
 
   const fetchTimeline = useCallback(async () => {
     setLoading(true);
@@ -91,11 +83,7 @@ export function useTimeline({
       setPosts(result.tweets);
       setNextCursor(result.nextCursor);
       setHasMore(!!result.nextCursor && result.tweets.length > 0);
-      setRetryCountdown(0);
-      if (countdownRef.current) {
-        clearInterval(countdownRef.current);
-        countdownRef.current = null;
-      }
+      stopCountdown();
     } else {
       setError(result.error.message);
       setApiError(result.error);
@@ -103,31 +91,12 @@ export function useTimeline({
 
       // Start countdown for rate limits
       if (result.error.type === "rate_limit" && result.error.retryAfter) {
-        setRetryCountdown(result.error.retryAfter);
-
-        // Clear any existing countdown
-        if (countdownRef.current) {
-          clearInterval(countdownRef.current);
-        }
-
-        // Start new countdown
-        countdownRef.current = setInterval(() => {
-          setRetryCountdown((prev) => {
-            if (prev <= 1) {
-              if (countdownRef.current) {
-                clearInterval(countdownRef.current);
-                countdownRef.current = null;
-              }
-              return 0;
-            }
-            return prev - 1;
-          });
-        }, 1000);
+        startCountdown(result.error.retryAfter);
       }
     }
 
     setLoading(false);
-  }, [client, tab]);
+  }, [client, tab, startCountdown, stopCountdown]);
 
   // Fetch when tab changes or refresh is triggered
   useEffect(() => {

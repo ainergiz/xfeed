@@ -8,6 +8,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { XClient } from "@/api/client";
 import type { ApiError, NotificationData } from "@/api/types";
 
+import { useCountdown } from "@/hooks/useCountdown";
+
 export interface UseNotificationsOptions {
   client: XClient;
 }
@@ -49,18 +51,8 @@ export function useNotifications({
   const [error, setError] = useState<string | null>(null);
   const [apiError, setApiError] = useState<ApiError | null>(null);
   const [refreshCounter, setRefreshCounter] = useState(0);
-  const [retryCountdown, setRetryCountdown] = useState(0);
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { countdown: retryCountdown, start: startCountdown, stop: stopCountdown } = useCountdown();
   const seenIds = useRef(new Set<string>());
-
-  // Clear countdown timer on unmount
-  useEffect(() => {
-    return () => {
-      if (countdownRef.current) {
-        clearInterval(countdownRef.current);
-      }
-    };
-  }, []);
 
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
@@ -90,42 +82,19 @@ export function useNotifications({
         setUnreadCount(0);
       }
 
-      setRetryCountdown(0);
-      if (countdownRef.current) {
-        clearInterval(countdownRef.current);
-        countdownRef.current = null;
-      }
+      stopCountdown();
     } else {
       setError(result.error.message);
       setApiError(result.error);
 
       // Start countdown for rate limits
       if (result.error.type === "rate_limit" && result.error.retryAfter) {
-        setRetryCountdown(result.error.retryAfter);
-
-        // Clear any existing countdown
-        if (countdownRef.current) {
-          clearInterval(countdownRef.current);
-        }
-
-        // Start new countdown
-        countdownRef.current = setInterval(() => {
-          setRetryCountdown((prev) => {
-            if (prev <= 1) {
-              if (countdownRef.current) {
-                clearInterval(countdownRef.current);
-                countdownRef.current = null;
-              }
-              return 0;
-            }
-            return prev - 1;
-          });
-        }, 1000);
+        startCountdown(result.error.retryAfter);
       }
     }
 
     setLoading(false);
-  }, [client]);
+  }, [client, startCountdown, stopCountdown]);
 
   // Fetch on mount and when refresh is triggered
   useEffect(() => {

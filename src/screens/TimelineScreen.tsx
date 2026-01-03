@@ -13,6 +13,7 @@ import type { TweetActionState } from "@/hooks/useActions";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { PostList } from "@/components/PostList";
 import { useTimeline, type TimelineTab } from "@/hooks/useTimeline";
+import { formatCountdown } from "@/lib/format";
 
 interface TimelineScreenProps {
   client: XClient;
@@ -59,19 +60,6 @@ function TabBar({ activeTab }: TabBarProps) {
       </text>
     </box>
   );
-}
-
-/**
- * Format seconds into a readable countdown string
- */
-function formatCountdown(seconds: number): string {
-  if (seconds <= 0) return "";
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  if (mins > 0) {
-    return `${mins}m ${secs}s`;
-  }
-  return `${secs}s`;
 }
 
 export function TimelineScreen({
