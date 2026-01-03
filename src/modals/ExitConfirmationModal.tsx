@@ -1,7 +1,7 @@
 /**
- * ExitConfirmationModal - Modal for confirming app exit
+ * ExitConfirmationModal - Modal for confirming app exit with logout option
  *
- * Shows a simple Yes/No confirmation when user attempts to exit from timeline.
+ * Shows options: Logout and exit, Just exit, Cancel
  * Follows the same modal pattern as FolderPicker.
  */
 
@@ -10,8 +10,13 @@ import { useState } from "react";
 
 import { colors } from "@/lib/colors";
 
+const OPTIONS = ["Logout and exit", "Just exit", "Cancel"] as const;
+const OPTION_COUNT = OPTIONS.length;
+
 interface ExitConfirmationModalProps {
-  /** Called when user confirms exit (y or Enter on Yes) */
+  /** Called when user chooses to logout and exit (l or Enter on Logout) */
+  onLogout: () => void;
+  /** Called when user confirms exit without logout (y or Enter on Just exit) */
   onConfirm: () => void;
   /** Called when user cancels (n or Escape) */
   onCancel: () => void;
@@ -20,17 +25,23 @@ interface ExitConfirmationModalProps {
 }
 
 export function ExitConfirmationModal({
+  onLogout,
   onConfirm,
   onCancel,
   focused = true,
 }: ExitConfirmationModalProps) {
-  // 0 = Yes, 1 = No
-  const [selectedIndex, setSelectedIndex] = useState(1); // Default to "No"
+  // 0 = Logout and exit, 1 = Just exit, 2 = Cancel
+  const [selectedIndex, setSelectedIndex] = useState(2); // Default to "Cancel"
 
   useKeyboard((key) => {
     if (!focused) return;
 
     // Direct key shortcuts
+    if (key.name === "l") {
+      onLogout();
+      return;
+    }
+
     if (key.name === "y") {
       onConfirm();
       return;
@@ -43,18 +54,20 @@ export function ExitConfirmationModal({
 
     // Navigation between options
     if (key.name === "j" || key.name === "down" || key.name === "tab") {
-      setSelectedIndex((prev) => (prev + 1) % 2);
+      setSelectedIndex((prev) => (prev + 1) % OPTION_COUNT);
       return;
     }
 
     if (key.name === "k" || key.name === "up") {
-      setSelectedIndex((prev) => (prev - 1 + 2) % 2);
+      setSelectedIndex((prev) => (prev - 1 + OPTION_COUNT) % OPTION_COUNT);
       return;
     }
 
     // Enter confirms current selection
     if (key.name === "return") {
       if (selectedIndex === 0) {
+        onLogout();
+      } else if (selectedIndex === 1) {
         onConfirm();
       } else {
         onCancel();
@@ -92,22 +105,24 @@ export function ExitConfirmationModal({
             <text fg={colors.primary}>Exit xfeed?</text>
           </box>
 
-          <box style={{ flexDirection: "row" }}>
-            <text fg={selectedIndex === 0 ? colors.primary : colors.muted}>
-              {selectedIndex === 0 ? "> " : "  "}Yes
-            </text>
-          </box>
-          <box style={{ flexDirection: "row" }}>
-            <text fg={selectedIndex === 1 ? colors.primary : colors.muted}>
-              {selectedIndex === 1 ? "> " : "  "}No
-            </text>
-          </box>
+          {OPTIONS.map((option, index) => (
+            <box key={option} style={{ flexDirection: "row" }}>
+              <text
+                fg={selectedIndex === index ? colors.primary : colors.muted}
+              >
+                {selectedIndex === index ? "> " : "  "}
+                {option}
+              </text>
+            </box>
+          ))}
 
           <box style={{ paddingTop: 1, flexDirection: "row" }}>
+            <text fg={colors.dim}>l</text>
+            <text fg="#444444"> logout </text>
             <text fg={colors.dim}>y</text>
-            <text fg="#444444"> yes </text>
+            <text fg="#444444"> exit </text>
             <text fg={colors.dim}>n/Esc</text>
-            <text fg="#444444"> no</text>
+            <text fg="#444444"> cancel</text>
           </box>
         </box>
       </box>
