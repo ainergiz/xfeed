@@ -899,6 +899,8 @@ export function PostDetailScreen({
                   isSelected={repliesMode && idx === selectedReplyIndex}
                   isLiked={state?.liked}
                   isBookmarked={state?.bookmarked}
+                  parentAuthorUsername={tweet.author.username}
+                  mainPostAuthorUsername={tweet.author.username}
                 />
               );
             })}

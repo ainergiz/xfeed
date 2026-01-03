@@ -2279,13 +2279,79 @@ export class XClient {
 
     const instructions =
       response.data.threaded_conversation_with_injections_v2?.instructions;
-    const tweets = this.parseTweetsFromInstructions(
-      instructions,
-      this.quoteDepth
-    );
-    const replies = tweets.filter(
-      (tweet) => tweet.inReplyToStatusId === tweetId
-    );
+
+    // Custom parsing to preserve nested reply groupings from items[]
+    const replies: TweetData[] = [];
+    const seen = new Set<string>();
+
+    // Type for entry content with items array (conversation groupings)
+    type EntryContent = {
+      itemContent?: { tweet_results?: { result?: GraphqlTweetResult } };
+      item?: {
+        itemContent?: { tweet_results?: { result?: GraphqlTweetResult } };
+      };
+      items?: Array<{
+        item?: {
+          itemContent?: { tweet_results?: { result?: GraphqlTweetResult } };
+        };
+        itemContent?: { tweet_results?: { result?: GraphqlTweetResult } };
+        content?: {
+          itemContent?: { tweet_results?: { result?: GraphqlTweetResult } };
+        };
+      }>;
+    };
+
+    for (const instruction of instructions ?? []) {
+      for (const entry of instruction.entries ?? []) {
+        const content = entry.content as EntryContent | undefined;
+        const items = content?.items;
+
+        if (items && items.length > 0) {
+          // Entry has grouped conversation - extract tweets in order
+          const groupTweets: TweetData[] = [];
+          for (const item of items) {
+            const result =
+              item?.item?.itemContent?.tweet_results?.result ??
+              item?.itemContent?.tweet_results?.result ??
+              item?.content?.itemContent?.tweet_results?.result;
+            const mapped = this.mapTweetResult(result, this.quoteDepth);
+            if (mapped) groupTweets.push(mapped);
+          }
+
+          // Find direct reply to the target tweet
+          const directReply = groupTweets.find(
+            (t) => t.inReplyToStatusId === tweetId
+          );
+          if (directReply && !seen.has(directReply.id)) {
+            seen.add(directReply.id);
+
+            // Find first nested reply (reply to the direct reply)
+            const nestedReply = groupTweets.find(
+              (t) => t.inReplyToStatusId === directReply.id
+            );
+            if (nestedReply) {
+              directReply.nestedReplyPreview = nestedReply;
+            }
+
+            replies.push(directReply);
+          }
+        } else {
+          // Single tweet entry
+          const result =
+            content?.itemContent?.tweet_results?.result ??
+            content?.item?.itemContent?.tweet_results?.result;
+          const mapped = this.mapTweetResult(result, this.quoteDepth);
+          if (
+            mapped &&
+            mapped.inReplyToStatusId === tweetId &&
+            !seen.has(mapped.id)
+          ) {
+            seen.add(mapped.id);
+            replies.push(mapped);
+          }
+        }
+      }
+    }
 
     // Extract pagination cursor for loading more replies
     const nextCursor = this.extractBottomCursor(instructions);
