@@ -17,7 +17,7 @@
   "dependencies": {
     "@opentui/core": "^0.1.68",
     "@opentui/react": "^0.1.68",
-    "@steipete/sweet-cookie": "0.1.0",
+    "@steipete/sweet-cookie": "^0.1.0",
     "cac": "^6.7.14",
     "react": "^19.2.0",
     "x-client-transaction-id": "^0.1.9"

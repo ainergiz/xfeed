@@ -143,7 +143,7 @@ describe("cookies", () => {
       const result = await resolveCredentials({});
 
       expect(result.cookies.authToken).toBe("chrome-auth");
-      expect(result.cookies.source).toBe("Chrome default profile");
+      expect(result.cookies.source).toBe("Chrome");
     });
 
     it("uses specific cookie source when provided", async () => {
@@ -155,7 +155,7 @@ describe("cookies", () => {
       const result = await resolveCredentials({ cookieSource: "firefox" });
 
       expect(result.cookies.authToken).toBe("firefox-auth");
-      expect(result.cookies.source).toBe("Firefox default profile");
+      expect(result.cookies.source).toBe("Firefox");
     });
 
     it("uses array of cookie sources", async () => {
@@ -399,7 +399,7 @@ describe("cookies", () => {
       const result = await extractCookiesFromChrome();
 
       expect(result.cookies.authToken).toBe("chrome-auth");
-      expect(result.cookies.source).toBe("Chrome default profile");
+      expect(result.cookies.source).toBe("Chrome");
     });
 
     it("extracts cookies from Chrome specific profile", async () => {
@@ -430,7 +430,7 @@ describe("cookies", () => {
       const result = await extractCookiesFromFirefox();
 
       expect(result.cookies.authToken).toBe("firefox-auth");
-      expect(result.cookies.source).toBe("Firefox default profile");
+      expect(result.cookies.source).toBe("Firefox");
     });
 
     it("extracts cookies from Firefox specific profile", async () => {
