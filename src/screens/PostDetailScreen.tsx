@@ -116,6 +116,57 @@ function needsTruncation(text: string, maxLines: number): boolean {
   return lines.length > maxLines;
 }
 
+/**
+ * Render text with @mentions highlighted in blue using <span> inside <text>
+ * Uses OpenTUI's text helper components for inline styling
+ */
+function renderTextWithMentions(
+  text: string,
+  mentionColor: string,
+  textColor: string
+): React.ReactNode {
+  // Match @username (alphanumeric and underscores)
+  const mentionRegex = /@(\w+)/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match;
+  let keyIdx = 0;
+
+  while ((match = mentionRegex.exec(text)) !== null) {
+    // Add text before the mention
+    if (match.index > lastIndex) {
+      parts.push(
+        <span key={`text-${keyIdx++}`} fg={textColor}>
+          {text.slice(lastIndex, match.index)}
+        </span>
+      );
+    }
+    // Add the mention in blue
+    parts.push(
+      <span key={`mention-${keyIdx++}`} fg={mentionColor}>
+        {match[0]}
+      </span>
+    );
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Add remaining text after last mention
+  if (lastIndex < text.length) {
+    parts.push(
+      <span key={`text-${keyIdx++}`} fg={textColor}>
+        {text.slice(lastIndex)}
+      </span>
+    );
+  }
+
+  // If no mentions found, just return plain text
+  if (parts.length === 0) {
+    return <text fg={textColor}>{text}</text>;
+  }
+
+  return <text>{parts}</text>;
+}
+
 export function PostDetailScreen({
   client,
   tweet,
@@ -139,17 +190,21 @@ export function PostDetailScreen({
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [mediaIndex, setMediaIndex] = useState(0);
   const [linkIndex, setLinkIndex] = useState(0);
+  const [mentionIndex, setMentionIndex] = useState(0);
   const [linkMetadata, setLinkMetadata] = useState<LinkMetadata | null>(null);
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
   const [repliesMode, setRepliesMode] = useState(false);
+  const [mentionsMode, setMentionsMode] = useState(false);
   const scrollRef = useRef<ScrollBoxRenderable>(null);
 
   // Reset state when viewing a different tweet (e.g., navigating to a reply)
   useEffect(() => {
     setRepliesMode(false);
+    setMentionsMode(false);
     setIsExpanded(false);
     setMediaIndex(0);
     setLinkIndex(0);
+    setMentionIndex(0);
     setLinkMetadata(null);
     setStatusMessage(null);
     // Scroll to top when tweet changes
@@ -165,6 +220,12 @@ export function PostDetailScreen({
   const hasLinks = tweet.urls && tweet.urls.length > 0;
   const linkCount = tweet.urls?.length ?? 0;
   const currentLink = hasLinks ? tweet.urls?.[linkIndex] : undefined;
+
+  const hasMentions = tweet.mentions && tweet.mentions.length > 0;
+  const mentionCount = tweet.mentions?.length ?? 0;
+  const currentMention = hasMentions
+    ? tweet.mentions?.[mentionIndex]
+    : undefined;
 
   const fullTimestamp = formatFullTimestamp(tweet.createdAt);
   const showTruncated =
@@ -281,6 +342,13 @@ export function PostDetailScreen({
     setStatusMessage(result.success ? result.message : result.error);
   }, [currentMedia, tweet.id, mediaIndex]);
 
+  // Handle mention profile navigation (Enter key when mention is selected)
+  const handleMentionProfile = useCallback(() => {
+    if (!currentMention) return;
+    setStatusMessage(`Opening @${currentMention.username}...`);
+    onProfileOpen?.(currentMention.username);
+  }, [currentMention, onProfileOpen]);
+
   // Handle open in browser (o key)
   // Opens selected link if available, otherwise opens the tweet itself
   const handleOpenInBrowser = useCallback(async () => {
@@ -301,6 +369,34 @@ export function PostDetailScreen({
 
   useKeyboard((key) => {
     if (!focused) return;
+
+    // Handle mentions mode navigation
+    if (mentionsMode && hasMentions) {
+      // Exit mentions mode with escape or h
+      if (key.name === "escape" || key.name === "h") {
+        setMentionsMode(false);
+        return;
+      }
+      // Navigate mentions with j/k
+      if (key.name === "j" || key.name === "down") {
+        if (mentionIndex < mentionCount - 1) {
+          setMentionIndex((prev) => prev + 1);
+        }
+        return;
+      }
+      if (key.name === "k" || key.name === "up") {
+        if (mentionIndex > 0) {
+          setMentionIndex((prev) => prev - 1);
+        }
+        return;
+      }
+      // Open mention profile with Enter
+      if (key.name === "return") {
+        handleMentionProfile();
+        return;
+      }
+      // Other keys exit mentions mode and proceed
+    }
 
     // Handle replies mode navigation separately
     if (repliesMode && hasReplies) {
@@ -344,8 +440,21 @@ export function PostDetailScreen({
         onLike?.();
         break;
       case "m":
-        // Move bookmark to folder (only if bookmarked)
-        if (isBookmarked) {
+        // Handle mentions: single = direct profile, multiple = enter mode
+        if (hasMentions && !mentionsMode) {
+          if (mentionCount === 1) {
+            // Single mention - open profile directly
+            const mention = tweet.mentions?.[0];
+            if (mention) {
+              setStatusMessage(`Opening @${mention.username}...`);
+              onProfileOpen?.(mention.username);
+            }
+          } else {
+            // Multiple mentions - enter navigation mode
+            setMentionsMode(true);
+            setMentionIndex(0);
+          }
+        } else if (isBookmarked) {
           onMoveToFolder?.();
         }
         break;
@@ -416,9 +525,10 @@ export function PostDetailScreen({
       }}
     >
       <text fg="#888888">
-        {repliesMode ? "<- Back (Esc) | " : "<- Back (Esc)"}
+        {repliesMode || mentionsMode ? "<- Back (Esc) | " : "<- Back (Esc)"}
       </text>
       {repliesMode && <text fg={X_BLUE}>Navigating replies</text>}
+      {mentionsMode && <text fg={X_BLUE}>Navigating mentions</text>}
     </box>
   );
 
@@ -466,10 +576,14 @@ export function PostDetailScreen({
     </box>
   );
 
-  // Post content
+  // Post content with @mentions highlighted in blue
   const postContent = (
     <box style={{ marginTop: 1, paddingLeft: 1, paddingRight: 1 }}>
-      <text fg="#ffffff">{displayText}</text>
+      {hasMentions ? (
+        renderTextWithMentions(displayText, X_BLUE, "#ffffff")
+      ) : (
+        <text fg="#ffffff">{displayText}</text>
+      )}
     </box>
   );
 
@@ -584,6 +698,62 @@ export function PostDetailScreen({
     </box>
   ) : null;
 
+  // Mentions section - simplified UI based on count
+  const firstMention = tweet.mentions?.[0];
+  const mentionsContent = hasMentions ? (
+    <box style={{ marginTop: 1, paddingLeft: 1, paddingRight: 1 }}>
+      <box style={{ flexDirection: "column" }}>
+        {mentionCount === 1 ? (
+          // Single mention - show directly with profile shortcut
+          <box style={{ flexDirection: "row" }}>
+            <text fg="#666666">Mentions: </text>
+            <text fg={X_BLUE}>@{firstMention?.username}</text>
+            {firstMention?.name && (
+              <text fg="#666666"> · {firstMention.name}</text>
+            )}
+            <text fg="#666666"> (</text>
+            <text fg={X_BLUE}>m</text>
+            <text fg="#666666"> profile)</text>
+          </box>
+        ) : mentionsMode ? (
+          // Multiple mentions - navigation mode active
+          <>
+            <box style={{ flexDirection: "row" }}>
+              <text fg="#666666">Mentions ({mentionCount}): </text>
+              <text fg={X_BLUE}>j/k</text>
+              <text fg="#666666"> navigate </text>
+              <text fg={X_BLUE}>Enter</text>
+              <text fg="#666666"> profile</text>
+            </box>
+            {tweet.mentions?.map((mention, idx) => {
+              const isSelected = idx === mentionIndex;
+              return (
+                <box
+                  key={mention.username}
+                  style={{ flexDirection: "row", marginTop: idx === 0 ? 1 : 0 }}
+                >
+                  <text fg={isSelected ? X_BLUE : "#888888"}>
+                    {isSelected ? ">" : " "} @{mention.username}
+                  </text>
+                  {mention.name && <text fg="#666666"> · {mention.name}</text>}
+                </box>
+              );
+            })}
+          </>
+        ) : (
+          // Multiple mentions - collapsed view
+          <box style={{ flexDirection: "row" }}>
+            <text fg="#666666">Mentions: </text>
+            <text fg={X_BLUE}>@{firstMention?.username}</text>
+            <text fg="#666666"> +{mentionCount - 1} more (</text>
+            <text fg={X_BLUE}>m</text>
+            <text fg="#666666"> to navigate)</text>
+          </box>
+        )}
+      </box>
+    </box>
+  ) : null;
+
   // Replies section
   const repliesContent = (
     <box style={{ marginTop: 1, paddingLeft: 1, paddingRight: 1 }}>
@@ -672,7 +842,7 @@ export function PostDetailScreen({
       <text fg={isBookmarked ? X_BLUE : "#666666"}>
         {isBookmarked ? " ⚑" : " bookmark"}{" "}
       </text>
-      {isBookmarked && (
+      {isBookmarked && !hasMentions && (
         <>
           <text fg="#ffffff">m</text>
           <text fg="#666666"> folder </text>
@@ -696,6 +866,14 @@ export function PostDetailScreen({
               <text fg="#666666"> media</text>
             </>
           )}
+        </>
+      )}
+      {hasMentions && !mentionsMode && (
+        <>
+          <text fg="#ffffff"> m</text>
+          <text fg="#666666">
+            {mentionCount === 1 ? " @profile" : " mentions"}
+          </text>
         </>
       )}
       {hasReplies && !repliesMode && (
@@ -724,6 +902,7 @@ export function PostDetailScreen({
         {statsContent}
         {mediaContent}
         {linksContent}
+        {mentionsContent}
         {repliesContent}
       </scrollbox>
       {statusContent}

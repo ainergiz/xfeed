@@ -74,6 +74,20 @@ export interface UrlEntity {
 }
 
 /**
+ * @mention entity from tweet text
+ */
+export interface MentionEntity {
+  /** @username as it appears in text */
+  username: string;
+  /** User ID from the API */
+  userId?: string;
+  /** Display name of the mentioned user */
+  name?: string;
+  /** Character indices in tweet text [start, end] */
+  indices: [number, number];
+}
+
+/**
  * Core tweet data structure
  */
 export interface TweetData {
@@ -93,6 +107,8 @@ export interface TweetData {
   media?: MediaItem[];
   /** URL entities parsed from tweet text */
   urls?: UrlEntity[];
+  /** @mention entities parsed from tweet text */
+  mentions?: MentionEntity[];
   /** Whether the tweet is liked by the current user */
   favorited?: boolean;
   /** Whether the tweet is bookmarked by the current user */
@@ -209,6 +225,12 @@ export interface GraphqlTweetResult {
       }>;
       media?: Array<{
         url: string;
+        indices: [number, number];
+      }>;
+      user_mentions?: Array<{
+        screen_name: string;
+        name: string;
+        id_str?: string;
         indices: [number, number];
       }>;
     };

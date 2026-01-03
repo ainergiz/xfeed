@@ -15,6 +15,7 @@ import type {
   GetTweetResult,
   GraphqlTweetResult,
   MediaItem,
+  MentionEntity,
   NotificationData,
   NotificationIcon,
   NotificationInstruction,
@@ -900,6 +901,27 @@ export class TwitterClient {
   }
 
   /**
+   * Extract @mention entities from legacy.entities.user_mentions
+   */
+  private extractMentions(
+    result: GraphqlTweetResult
+  ): MentionEntity[] | undefined {
+    const rawMentions = result.legacy?.entities?.user_mentions;
+    if (!rawMentions || rawMentions.length === 0) {
+      return undefined;
+    }
+
+    const mentions = rawMentions.map((m) => ({
+      username: m.screen_name,
+      userId: m.id_str,
+      name: m.name,
+      indices: m.indices,
+    }));
+
+    return mentions.length > 0 ? mentions : undefined;
+  }
+
+  /**
    * Strip all URLs from tweet text (media and external links)
    * Twitter includes t.co links in full_text, but hides them in UI
    * Media URLs can be in entities.urls (pointing to pic.twitter.com) OR entities.media
@@ -996,6 +1018,7 @@ export class TwitterClient {
       quotedTweet,
       media: this.extractMedia(result),
       urls: this.extractUrls(result),
+      mentions: this.extractMentions(result),
       favorited: result.legacy?.favorited ?? false,
       bookmarked: result.legacy?.bookmarked ?? false,
     };
