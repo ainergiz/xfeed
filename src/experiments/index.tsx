@@ -41,4 +41,5 @@ export { usePostDetailQuery } from "./use-post-detail-query";
 export { useBookmarksQuery } from "./use-bookmarks-query";
 export { useBookmarkMutation } from "./use-bookmark-mutation";
 export { useThreadQuery } from "./use-thread-query";
+export { useUserActions } from "./use-user-actions";
 export { createQueryClient, queryKeys } from "./query-client";

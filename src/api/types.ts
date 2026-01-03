@@ -174,6 +174,10 @@ export interface UserProfileData {
   websiteUrl?: string;
   /** Account creation date (ISO string) */
   createdAt?: string;
+  /** Whether the authenticated user follows this user */
+  following?: boolean;
+  /** Whether the authenticated user has muted this user */
+  muting?: boolean;
 }
 
 /**

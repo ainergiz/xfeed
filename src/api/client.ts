@@ -44,6 +44,14 @@ const X_UPLOAD_URL = "https://upload.twitter.com/i/media/upload.json";
 const X_MEDIA_METADATA_URL =
   "https://x.com/i/api/1.1/media/metadata/create.json";
 const X_STATUS_UPDATE_URL = "https://x.com/i/api/1.1/statuses/update.json";
+
+// User action REST v1.1 endpoints
+const X_FRIENDSHIPS_CREATE_URL =
+  "https://x.com/i/api/1.1/friendships/create.json";
+const X_FRIENDSHIPS_DESTROY_URL =
+  "https://x.com/i/api/1.1/friendships/destroy.json";
+const X_MUTES_CREATE_URL = "https://x.com/i/api/1.1/mutes/users/create.json";
+const X_MUTES_DESTROY_URL = "https://x.com/i/api/1.1/mutes/users/destroy.json";
 const SETTINGS_SCREEN_NAME_REGEX = /"screen_name":"([^"]+)"/;
 const SETTINGS_USER_ID_REGEX = /"user_id"\s*:\s*"(\d+)"/;
 const SETTINGS_NAME_REGEX = /"name":"([^"\\]*(?:\\.[^"\\]*)*)"/;
@@ -3532,6 +3540,8 @@ export class XClient {
                     location?: string;
                     created_at?: string;
                     url?: string;
+                    following?: boolean;
+                    muting?: boolean;
                     entities?: {
                       url?: {
                         urls?: Array<{
@@ -3600,6 +3610,8 @@ export class XClient {
             location: result.legacy?.location || undefined,
             websiteUrl,
             createdAt: result.legacy?.created_at,
+            following: result.legacy?.following ?? false,
+            muting: result.legacy?.muting ?? false,
           };
 
           return { success: true as const, user, had404 };
@@ -4018,6 +4030,90 @@ export class XClient {
    */
   async deleteBookmark(tweetId: string): Promise<ActionResult> {
     return this.executeActionMutation("DeleteBookmark", tweetId);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // User Actions (Follow, Mute)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Execute a user action via REST v1.1 endpoint
+   * These endpoints use form-urlencoded body and don't require x-client-transaction-id
+   */
+  private async executeUserAction(
+    endpoint: string,
+    userId: string
+  ): Promise<ActionResult> {
+    try {
+      const response = await this.fetchWithTimeout(endpoint, {
+        method: "POST",
+        headers: {
+          ...this.getBaseHeaders(),
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        body: `user_id=${userId}`,
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        try {
+          const json = JSON.parse(text) as {
+            errors?: Array<{ message: string; code?: number }>;
+          };
+          if (json.errors && json.errors.length > 0) {
+            return {
+              success: false,
+              error: json.errors.map((e) => e.message).join(", "),
+            };
+          }
+        } catch {
+          // Not JSON, use raw text
+        }
+        return {
+          success: false,
+          error: `HTTP ${response.status}: ${text.slice(0, 200)}`,
+        };
+      }
+
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Follow a user
+   * @param userId The ID of the user to follow
+   */
+  async followUser(userId: string): Promise<ActionResult> {
+    return this.executeUserAction(X_FRIENDSHIPS_CREATE_URL, userId);
+  }
+
+  /**
+   * Unfollow a user
+   * @param userId The ID of the user to unfollow
+   */
+  async unfollowUser(userId: string): Promise<ActionResult> {
+    return this.executeUserAction(X_FRIENDSHIPS_DESTROY_URL, userId);
+  }
+
+  /**
+   * Mute a user
+   * @param userId The ID of the user to mute
+   */
+  async muteUser(userId: string): Promise<ActionResult> {
+    return this.executeUserAction(X_MUTES_CREATE_URL, userId);
+  }
+
+  /**
+   * Unmute a user
+   * @param userId The ID of the user to unmute
+   */
+  async unmuteUser(userId: string): Promise<ActionResult> {
+    return this.executeUserAction(X_MUTES_DESTROY_URL, userId);
   }
 
   /**
