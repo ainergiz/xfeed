@@ -12,6 +12,7 @@ This document lists all available keyboard shortcuts in xfeed.
 | `G` | Go to bottom of list |
 | `Enter` / `u` | Select/open item |
 | `h` / `Esc` / `Backspace` | Go back |
+| `.` | Toggle footer visibility |
 | `q` | Quit application |
 
 ## Timeline / Post List
