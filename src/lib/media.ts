@@ -224,6 +224,143 @@ export async function previewMedia(
 }
 
 /**
+ * Preview all media in slideshow mode using Quick Look (macOS)
+ *
+ * - Photos on macOS: Download all to temp, open with qlmanage -p (slideshow)
+ * - Photos on Linux/Windows: Open first image in browser (slideshow not supported)
+ * - Videos/GIFs: Opened separately in browser
+ *
+ * @param startIndex - Index to start the slideshow at (Quick Look will show this first)
+ */
+export async function previewAllMedia(
+  mediaItems: MediaItem[],
+  tweetId: string,
+  startIndex = 0
+): Promise<MediaResult> {
+  const os = platform();
+
+  // Separate photos from videos/GIFs
+  const photos = mediaItems.filter((m) => m.type === "photo");
+  const videos = mediaItems.filter(
+    (m) => m.type === "video" || m.type === "animated_gif"
+  );
+
+  // Open videos/GIFs in browser (Quick Look doesn't handle them well)
+  // Limit to 3 videos to avoid opening too many browser tabs
+  // TODO: Investigate if X actually allows multiple videos per tweet - this may never happen
+  const videosToOpen = videos.slice(0, 3);
+  for (const video of videosToOpen) {
+    const videoUrl = getBestVideoUrl(video);
+    try {
+      await openInBrowser(videoUrl);
+    } catch {
+      // Continue even if one fails
+    }
+  }
+
+  // If no photos, we're done
+  if (photos.length === 0) {
+    if (videosToOpen.length > 0) {
+      return {
+        success: true,
+        message:
+          videosToOpen.length === 1
+            ? "Opened video in browser"
+            : `Opened ${videosToOpen.length} videos in browser`,
+      };
+    }
+    return { success: false, error: "No media to preview" };
+  }
+
+  // Photos on macOS: Quick Look slideshow
+  if (os === "darwin") {
+    const tempPaths: string[] = [];
+
+    try {
+      // Download all photos to temp files
+      for (let i = 0; i < photos.length; i++) {
+        const photo = photos[i];
+        if (!photo) continue;
+
+        const ext = getExtension(photo);
+        const tempPath = join(tmpdir(), `xfeed_${tweetId}_${i}${ext}`);
+
+        const response = await fetch(photo.url, {
+          headers: MEDIA_FETCH_HEADERS,
+        });
+        if (!response.ok) {
+          continue; // Skip failed downloads
+        }
+
+        const buffer = await response.arrayBuffer();
+        await writeFile(tempPath, Buffer.from(buffer));
+        tempPaths.push(tempPath);
+      }
+
+      if (tempPaths.length === 0) {
+        return { success: false, error: "Failed to download images" };
+      }
+
+      // Reorder paths so startIndex is first (Quick Look shows first file initially)
+      const photoStartIndex = Math.min(startIndex, tempPaths.length - 1);
+      const reorderedPaths = [
+        ...tempPaths.slice(photoStartIndex),
+        ...tempPaths.slice(0, photoStartIndex),
+      ];
+
+      // Open with Quick Look slideshow
+      return new Promise((resolve) => {
+        const child = spawn("qlmanage", ["-p", ...reorderedPaths], {
+          stdio: "ignore",
+        });
+
+        child.on("close", () => {
+          // Clean up all temp files after Quick Look closes
+          for (const tempPath of tempPaths) {
+            unlink(tempPath).catch(() => {});
+          }
+          resolve({ success: true, message: "Closed Quick Look" });
+        });
+
+        child.on("error", () => {
+          // Clean up on error too
+          for (const tempPath of tempPaths) {
+            unlink(tempPath).catch(() => {});
+          }
+          resolve({ success: false, error: "Failed to open Quick Look" });
+        });
+      });
+    } catch {
+      // Clean up any downloaded files on error
+      for (const tempPath of tempPaths) {
+        unlink(tempPath).catch(() => {});
+      }
+      return { success: false, error: "Failed to preview images" };
+    }
+  }
+
+  // Linux/Windows: Open first image in browser (no slideshow support yet)
+  // TODO: Add feh/sxiv support for Linux (#181)
+  const firstPhoto = photos[0];
+  if (firstPhoto) {
+    try {
+      await openInBrowser(firstPhoto.url);
+      return {
+        success: true,
+        message:
+          photos.length > 1
+            ? "Opened first image in browser (slideshow not supported)"
+            : "Opened image in browser",
+      };
+    } catch {
+      return { success: false, error: "Failed to open browser" };
+    }
+  }
+
+  return { success: false, error: "No images to preview" };
+}
+
+/**
  * Preview an image URL using Quick Look (macOS) or browser fallback
  * Used for profile photos and banners
  */
@@ -313,6 +450,74 @@ export async function downloadMedia(
     await writeFile(filepath, Buffer.from(buffer));
 
     return { success: true, message: `Saved to ~/Downloads/xfeed/${filename}` };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, error: `Download failed: ${message}` };
+  }
+}
+
+/**
+ * Download all media items to ~/Downloads/xfeed/
+ *
+ * Filename format: {tweet_id}_{index}.{ext}
+ */
+export async function downloadAllMedia(
+  mediaItems: MediaItem[],
+  tweetId: string
+): Promise<MediaResult> {
+  if (mediaItems.length === 0) {
+    return { success: false, error: "No media to download" };
+  }
+
+  // For single item, use the simpler function
+  if (mediaItems.length === 1) {
+    return downloadMedia(mediaItems[0]!, tweetId, 0);
+  }
+
+  const downloadDir = join(homedir(), "Downloads", "xfeed");
+
+  try {
+    // Ensure download directory exists
+    await mkdir(downloadDir, { recursive: true });
+
+    let successCount = 0;
+    const filenames: string[] = [];
+
+    for (let i = 0; i < mediaItems.length; i++) {
+      const media = mediaItems[i];
+      if (!media) continue;
+
+      const ext = getExtension(media);
+      const filename = `${tweetId}_${i}${ext}`;
+      const filepath = join(downloadDir, filename);
+
+      // Get the best URL (for videos, get highest quality)
+      const url =
+        media.type === "video" || media.type === "animated_gif"
+          ? getBestVideoUrl(media)
+          : media.url;
+
+      try {
+        const response = await fetch(url, { headers: MEDIA_FETCH_HEADERS });
+        if (response.ok) {
+          const buffer = await response.arrayBuffer();
+          await writeFile(filepath, Buffer.from(buffer));
+          successCount++;
+          filenames.push(filename);
+        }
+      } catch {
+        // Continue with other downloads if one fails
+      }
+    }
+
+    if (successCount === 0) {
+      return { success: false, error: "Failed to download any media" };
+    }
+
+    return {
+      success: true,
+      message: `Saved ${successCount} file${successCount > 1 ? "s" : ""} to ~/Downloads/xfeed/`,
+    };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return { success: false, error: `Download failed: ${message}` };

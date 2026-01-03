@@ -19,8 +19,8 @@ import { useListNavigation } from "@/hooks/useListNavigation";
 import { colors } from "@/lib/colors";
 import { formatCount, truncateText } from "@/lib/format";
 import {
-  previewMedia,
-  downloadMedia,
+  previewAllMedia,
+  downloadAllMedia,
   openInBrowser,
   fetchLinkMetadata,
   type LinkMetadata,
@@ -169,21 +169,21 @@ export function PostDetailScreen({
   } = usePostDetailQuery({ client, tweet });
   const [isExpanded, setIsExpanded] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [mediaIndex, setMediaIndex] = useState(0);
   const [linkIndex, setLinkIndex] = useState(0);
   const [mentionIndex, setMentionIndex] = useState(0);
   const [linkMetadata, setLinkMetadata] = useState<LinkMetadata | null>(null);
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
   const [repliesMode, setRepliesMode] = useState(false);
   const [mentionsMode, setMentionsMode] = useState(false);
+  const [linkMode, setLinkMode] = useState(false);
   const scrollRef = useRef<ScrollBoxRenderable>(null);
 
   // Reset state when viewing a different tweet (e.g., navigating to a reply)
   useEffect(() => {
     setRepliesMode(false);
     setMentionsMode(false);
+    setLinkMode(false);
     setIsExpanded(false);
-    setMediaIndex(0);
     setLinkIndex(0);
     setMentionIndex(0);
     setLinkMetadata(null);
@@ -196,7 +196,6 @@ export function PostDetailScreen({
 
   const hasMedia = tweet.media && tweet.media.length > 0;
   const mediaCount = tweet.media?.length ?? 0;
-  const currentMedia = hasMedia ? tweet.media?.[mediaIndex] : undefined;
 
   const hasLinks = tweet.urls && tweet.urls.length > 0;
   const linkCount = tweet.urls?.length ?? 0;
@@ -332,21 +331,23 @@ export function PostDetailScreen({
     };
   }, [currentLink]);
 
-  // Handle media preview (i key)
+  // Handle media preview (i key) - opens slideshow for photos, browser for videos
   const handlePreview = useCallback(async () => {
-    if (!currentMedia) return;
+    if (!hasMedia || !tweet.media) return;
     setStatusMessage("Opening...");
-    const result = await previewMedia(currentMedia, tweet.id, mediaIndex);
-    setStatusMessage(result.success ? result.message : result.error);
-  }, [currentMedia, tweet.id, mediaIndex]);
 
-  // Handle media download (d key)
-  const handleDownload = useCallback(async () => {
-    if (!currentMedia) return;
-    setStatusMessage("Downloading...");
-    const result = await downloadMedia(currentMedia, tweet.id, mediaIndex);
+    // previewAllMedia handles both single and multiple items, plus videos
+    const result = await previewAllMedia(tweet.media, tweet.id);
     setStatusMessage(result.success ? result.message : result.error);
-  }, [currentMedia, tweet.id, mediaIndex]);
+  }, [hasMedia, tweet.media, tweet.id]);
+
+  // Handle media download (d key) - downloads all media
+  const handleDownload = useCallback(async () => {
+    if (!tweet.media || tweet.media.length === 0) return;
+    setStatusMessage("Downloading...");
+    const result = await downloadAllMedia(tweet.media, tweet.id);
+    setStatusMessage(result.success ? result.message : result.error);
+  }, [tweet.media, tweet.id]);
 
   // Handle mention profile navigation (Enter key when mention is selected)
   const handleMentionProfile = useCallback(() => {
@@ -440,6 +441,34 @@ export function PostDetailScreen({
       // Other keys exit mentions mode and proceed
     }
 
+    // Handle link mode navigation
+    if (linkMode && hasLinks) {
+      // Exit link mode with escape or h
+      if (key.name === "escape" || key.name === "h") {
+        setLinkMode(false);
+        return;
+      }
+      // Navigate links with j/k
+      if (key.name === "j" || key.name === "down") {
+        if (linkIndex < linkCount - 1) {
+          setLinkIndex((prev) => prev + 1);
+        }
+        return;
+      }
+      if (key.name === "k" || key.name === "up") {
+        if (linkIndex > 0) {
+          setLinkIndex((prev) => prev - 1);
+        }
+        return;
+      }
+      // Open link with o or Enter
+      if (key.name === "o" || key.name === "return") {
+        handleOpenLink();
+        return;
+      }
+      // Other keys exit link mode and proceed
+    }
+
     // Handle replies mode navigation separately
     if (repliesMode && hasReplies) {
       // Exit replies mode with escape or h
@@ -477,9 +506,16 @@ export function PostDetailScreen({
         handleOpenTweet();
         break;
       case "o":
-        // Open external link
-        if (hasLinks) {
-          handleOpenLink();
+        // Handle links: single = open directly, multiple = enter mode
+        if (hasLinks && !linkMode) {
+          if (linkCount === 1) {
+            // Single link - open directly
+            handleOpenLink();
+          } else {
+            // Multiple links - enter navigation mode
+            setLinkMode(true);
+            setLinkIndex(0);
+          }
         }
         break;
       case "b":
@@ -512,7 +548,7 @@ export function PostDetailScreen({
         onProfileOpen?.(tweet.author.username);
         break;
       case "i":
-        // Preview media (Quick Look on macOS, browser for video)
+        // Preview media (slideshow for multiple photos, browser for videos)
         if (hasMedia) {
           handlePreview();
         }
@@ -521,30 +557,6 @@ export function PostDetailScreen({
         // Download media
         if (hasMedia) {
           handleDownload();
-        }
-        break;
-      case "[":
-        // Previous media item
-        if (hasMedia && mediaIndex > 0) {
-          setMediaIndex((prev) => prev - 1);
-        }
-        break;
-      case "]":
-        // Next media item
-        if (hasMedia && mediaIndex < mediaCount - 1) {
-          setMediaIndex((prev) => prev + 1);
-        }
-        break;
-      case ",":
-        // Previous link (< key without shift)
-        if (hasLinks && linkIndex > 0) {
-          setLinkIndex((prev) => prev - 1);
-        }
-        break;
-      case ".":
-        // Next link (> key without shift)
-        if (hasLinks && linkIndex < linkCount - 1) {
-          setLinkIndex((prev) => prev + 1);
         }
         break;
       case "r":
@@ -580,6 +592,7 @@ export function PostDetailScreen({
   });
 
   // Header with back hint
+  const isInNavigationMode = repliesMode || mentionsMode || linkMode;
   const headerContent = (
     <box
       style={{
@@ -591,10 +604,15 @@ export function PostDetailScreen({
       }}
     >
       <text fg={colors.muted}>
-        {repliesMode || mentionsMode ? "<- Back (Esc) | " : "<- Back (Esc)"}
+        {isInNavigationMode ? "<- Back (Esc) | " : "<- Back (Esc)"}
       </text>
       {repliesMode && <text fg={colors.primary}>Navigating replies</text>}
       {mentionsMode && <text fg={colors.primary}>Navigating mentions</text>}
+      {linkMode && (
+        <text fg={colors.primary}>
+          Navigating links ({linkIndex + 1}/{linkCount})
+        </text>
+      )}
     </box>
   );
 
@@ -706,10 +724,9 @@ export function PostDetailScreen({
               : item.type === "video"
                 ? colors.warning
                 : colors.success;
-          const isSelected = idx === mediaIndex;
           return (
             <text key={item.id} fg={typeColor}>
-              {isSelected ? ">" : "•"} {typeLabel}
+              • {typeLabel}
               {mediaCount > 1 ? ` ${idx + 1}` : ""}
               {dims}
               {"  "}
@@ -731,17 +748,14 @@ export function PostDetailScreen({
       <box style={{ flexDirection: "column" }}>
         <box style={{ flexDirection: "row" }}>
           <text fg={colors.dim}>Links: </text>
-          {linkCount > 1 && (
-            <>
-              <text fg={colors.primary}>,/.</text>
-              <text fg={colors.dim}> navigate </text>
-            </>
-          )}
           <text fg={colors.primary}>o</text>
-          <text fg={colors.dim}> open</text>
+          <text fg={colors.dim}>
+            {linkMode ? " open" : linkCount === 1 ? " open" : " select"}
+          </text>
         </box>
         {tweet.urls?.map((link, idx) => {
-          const isSelected = idx === linkIndex;
+          // Only show selection indicator when in link mode
+          const isSelected = linkMode && idx === linkIndex;
           const showMetadata = isSelected && linkMetadata;
           return (
             <box
@@ -750,7 +764,7 @@ export function PostDetailScreen({
             >
               <box style={{ flexDirection: "row" }}>
                 <text fg={isSelected ? colors.mention : colors.muted}>
-                  {isSelected ? ">" : " "} {link.displayUrl}
+                  {isSelected ? ">" : "•"} {link.displayUrl}
                 </text>
               </box>
               {showMetadata && linkMetadata.title && (
@@ -926,17 +940,19 @@ export function PostDetailScreen({
       isActive: isBookmarked || isJustBookmarked,
     },
     { key: "p", label: "profile" },
-    { key: "i", label: "preview", show: hasMedia },
+    { key: "i", label: "view", show: hasMedia },
     { key: "d", label: "download", show: hasMedia },
-    { key: "[/]", label: "media", show: hasMedia && mediaCount > 1 },
     {
       key: "m",
       label: mentionCount === 1 ? "@profile" : "mentions",
       show: hasMentions && !mentionsMode,
     },
     { key: "r", label: "replies", show: hasReplies && !repliesMode },
-    { key: "o", label: "link", show: hasLinks },
-    { key: ",/.", label: "nav", show: hasLinks && linkCount > 1 },
+    {
+      key: "o",
+      label: linkCount === 1 ? "link" : "links",
+      show: hasLinks && !linkMode,
+    },
     { key: "t", label: "thread" },
     {
       key: "g",
