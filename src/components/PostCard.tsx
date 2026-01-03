@@ -84,12 +84,11 @@ export function PostCard({
       {/* Author line with selection indicator */}
       <box style={{ flexDirection: "row" }}>
         <text fg={colors.primary}>{isSelected ? "> " : "  "}</text>
-        <text fg={colors.primary}>@{post.author.username}</text>
-        <text fg={colors.dim}>
-          {" "}
-          · {post.author.name}
-          {timeAgo ? ` · ${timeAgo}` : ""}
+        <text>
+          <b fg={colors.primary}>{post.author.name}</b>
         </text>
+        <text fg={colors.handle}> @{post.author.username}</text>
+        <text fg={colors.dim}>{timeAgo ? ` · ${timeAgo}` : ""}</text>
       </box>
 
       {/* Post text */}
@@ -155,7 +154,7 @@ export function PostCard({
                   : "GIF";
             const typeColor =
               item.type === "photo"
-                ? colors.primary
+                ? colors.warning
                 : item.type === "video"
                   ? colors.warning
                   : colors.success;

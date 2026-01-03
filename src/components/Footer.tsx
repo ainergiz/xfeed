@@ -57,10 +57,10 @@ export function Footer({ bindings, visible = true }: FooterProps) {
     (b) => b.show === undefined || b.show
   );
 
-  // Always add the ? keybinding at the end
+  // Always add the . keybinding at the end
   const allBindings: Keybinding[] = [
     ...visibleBindings,
-    { key: "?", label: "hide" },
+    { key: ".", label: "hide" },
   ];
 
   return (

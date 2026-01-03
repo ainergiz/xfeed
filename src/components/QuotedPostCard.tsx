@@ -38,8 +38,10 @@ export function QuotedPostCard({
       >
         {/* Quoted author line */}
         <box style={{ flexDirection: "row" }}>
-          <text fg={colors.primary}>@{post.author.username}</text>
-          <text fg={colors.dim}> · {post.author.name}</text>
+          <text>
+            <b fg={colors.quoted}>{post.author.name}</b>
+          </text>
+          <text fg={colors.handle}> @{post.author.username}</text>
           {showNavigationHint && <text fg={colors.dim}> [u]</text>}
         </box>
 
