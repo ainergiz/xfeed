@@ -165,6 +165,9 @@ export function App({ client, user: _user }: AppProps) {
   // Loading state for quote navigation
   const [isLoadingQuote, setIsLoadingQuote] = useState(false);
 
+  // Loading state for parent tweet navigation
+  const [isLoadingParent, setIsLoadingParent] = useState(false);
+
   // State for thread view - the tweet whose thread we're viewing
   // Kept separate from selectedPost so thread state persists when viewing replies
   const [threadRootTweet, setThreadRootTweet] = useState<TweetData | null>(
@@ -223,6 +226,45 @@ export function App({ client, user: _user }: AppProps) {
       }
     },
     [client, initState, isLoadingQuote, navigate, postStack]
+  );
+
+  // Navigate to parent tweet (fetch full data and push to stack, or go back if already in stack)
+  const handleParentSelect = useCallback(
+    async (parentTweet: TweetData) => {
+      if (isLoadingParent) return;
+
+      // Check if parent is already in the stack (user navigated from parent to reply)
+      const parentIndex = postStack.findIndex((p) => p.id === parentTweet.id);
+      if (parentIndex !== -1) {
+        // Parent is in stack - go back to it by popping items off the stack
+        const itemsToPop = postStack.length - 1 - parentIndex;
+        for (let i = 0; i < itemsToPop; i++) {
+          goBack();
+        }
+        setPostStack((prev) => prev.slice(0, parentIndex + 1));
+        return;
+      }
+
+      setIsLoadingParent(true);
+      try {
+        // Fetch full tweet data (the displayed parent only has partial data)
+        const result = await client.getTweet(parentTweet.id);
+        if (result.success && result.tweet) {
+          setPostStack((prev) => [...prev, result.tweet!]);
+          initState(
+            result.tweet.id,
+            result.tweet.favorited ?? false,
+            result.tweet.bookmarked ?? false
+          );
+          navigate("post-detail");
+        } else {
+          setActionMessage(result.error || "Could not load parent tweet");
+        }
+      } finally {
+        setIsLoadingParent(false);
+      }
+    },
+    [client, goBack, initState, isLoadingParent, navigate, postStack]
   );
 
   // Return from post detail to previous view
@@ -504,6 +546,8 @@ export function App({ client, user: _user }: AppProps) {
             onThreadView={handleThreadView}
             onQuoteSelect={handleQuoteSelect}
             isLoadingQuote={isLoadingQuote}
+            onParentSelect={handleParentSelect}
+            isLoadingParent={isLoadingParent}
             showFooter={showFooter}
           />
         )}
