@@ -9,7 +9,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 
-import type { TwitterClient } from "@/api/client";
+import type { XClient } from "@/api/client";
 import type { TweetData } from "@/api/types";
 
 import {
@@ -18,7 +18,7 @@ import {
 } from "@/components/ThreadView.prototype";
 
 export interface UseThreadOptions {
-  client: TwitterClient;
+  client: XClient;
   tweet: TweetData;
   /** Maximum depth of ancestor chain to fetch (default: 10) */
   maxAncestorDepth?: number;
@@ -47,7 +47,7 @@ export interface UseThreadResult {
  * Fetch the chain of ancestor tweets
  */
 async function fetchAncestorChain(
-  client: TwitterClient,
+  client: XClient,
   startTweet: TweetData,
   maxDepth: number
 ): Promise<{ ancestors: TweetData[]; error: string | null }> {

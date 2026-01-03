@@ -5,9 +5,9 @@
 
 import type { UserData } from "@/api/types";
 
-import { TwitterClient } from "@/api/client";
+import { XClient } from "@/api/client";
 
-import type { CookieSource, TwitterCookies } from "./cookies";
+import type { CookieSource, XCookies } from "./cookies";
 
 import { resolveCredentials } from "./cookies";
 
@@ -26,9 +26,9 @@ export type AuthErrorType =
 export type AuthCheckResult =
   | {
       ok: true;
-      client: TwitterClient;
+      client: XClient;
       user: UserData;
-      cookies: TwitterCookies;
+      cookies: XCookies;
       warnings: string[];
     }
   | {
@@ -136,7 +136,7 @@ export async function checkAuth(
   }
 
   // Step 3: Create the client
-  const client = new TwitterClient({
+  const client = new XClient({
     cookies,
     timeoutMs: options.timeoutMs,
   });

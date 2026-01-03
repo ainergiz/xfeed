@@ -5,12 +5,12 @@
 
 import { useState, useEffect, useCallback } from "react";
 
-import type { TwitterClient } from "@/api/client";
+import type { XClient } from "@/api/client";
 import type { TweetData } from "@/api/types";
 
 export interface UsePostDetailOptions {
-  /** Twitter API client */
-  client: TwitterClient;
+  /** X API client */
+  client: XClient;
   /** Initial tweet data (passed from timeline for immediate display) */
   tweet: TweetData;
 }

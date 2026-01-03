@@ -5,7 +5,7 @@
 
 import { describe, expect, it, mock } from "bun:test";
 
-import type { TwitterClient } from "@/api/client";
+import type { XClient } from "@/api/client";
 import type {
   ApiError,
   NotificationData,
@@ -16,10 +16,10 @@ import type {
 // We test the core logic directly rather than React integration
 function createMockClient(
   getNotificationsResult: NotificationsResult
-): TwitterClient {
+): XClient {
   return {
     getNotifications: mock(() => Promise.resolve(getNotificationsResult)),
-  } as unknown as TwitterClient;
+  } as unknown as XClient;
 }
 
 function createNotification(

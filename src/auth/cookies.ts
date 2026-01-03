@@ -1,11 +1,11 @@
 /**
- * Browser cookie extraction for Twitter authentication.
+ * Browser cookie extraction for X authentication.
  * Delegates to @steipete/sweet-cookie for Safari/Chrome/Firefox reads.
  */
 
 import { getCookies } from "@steipete/sweet-cookie";
 
-export interface TwitterCookies {
+export interface XCookies {
   authToken: string | null;
   ct0: string | null;
   cookieHeader: string | null;
@@ -13,7 +13,7 @@ export interface TwitterCookies {
 }
 
 export interface CookieExtractionResult {
-  cookies: TwitterCookies;
+  cookies: XCookies;
   warnings: string[];
 }
 
@@ -29,9 +29,9 @@ export type CookieSource =
   | "opera"
   | "firefox";
 
-const TWITTER_COOKIE_NAMES = ["auth_token", "ct0"] as const;
-const TWITTER_URL = "https://x.com/";
-const TWITTER_ORIGINS: string[] = ["https://x.com/", "https://twitter.com/"];
+const X_COOKIE_NAMES = ["auth_token", "ct0"] as const;
+const X_URL = "https://x.com/";
+const X_ORIGINS: string[] = ["https://x.com/", "https://twitter.com/"];
 
 function normalizeValue(value: unknown): string | null {
   if (typeof value !== "string") {
@@ -45,12 +45,12 @@ function cookieHeader(authToken: string, ct0: string): string {
   return `auth_token=${authToken}; ct0=${ct0}`;
 }
 
-function buildEmpty(): TwitterCookies {
+function buildEmpty(): XCookies {
   return { authToken: null, ct0: null, cookieHeader: null, source: null };
 }
 
 function readEnvCookie(
-  cookies: TwitterCookies,
+  cookies: XCookies,
   keys: readonly string[],
   field: "authToken" | "ct0"
 ): void {
@@ -101,7 +101,7 @@ function labelForSource(source: CookieSource, profile?: string): string {
 
 function pickCookieValue(
   cookies: Array<{ name?: string; value?: string; domain?: string }>,
-  name: (typeof TWITTER_COOKIE_NAMES)[number]
+  name: (typeof X_COOKIE_NAMES)[number]
 ): string | null {
   const matches = cookies.filter(
     (c) => c?.name === name && typeof c.value === "string"
@@ -164,7 +164,7 @@ function getChromiumBrowser(
   }
 }
 
-async function readTwitterCookiesFromBrowser(options: {
+async function readXCookiesFromBrowser(options: {
   source: CookieSource;
   chromeProfile?: string;
   firefoxProfile?: string;
@@ -176,9 +176,9 @@ async function readTwitterCookiesFromBrowser(options: {
   const chromiumBrowser = getChromiumBrowser(options.source);
 
   const { cookies, warnings: providerWarnings } = await getCookies({
-    url: TWITTER_URL,
-    origins: TWITTER_ORIGINS,
-    names: [...TWITTER_COOKIE_NAMES],
+    url: X_URL,
+    origins: X_ORIGINS,
+    names: [...X_COOKIE_NAMES],
     browsers: [browser],
     mode: "merge",
     chromeProfile: options.chromeProfile,
@@ -207,20 +207,20 @@ async function readTwitterCookiesFromBrowser(options: {
 
   const browserName = labelForSource(options.source);
   warnings.push(
-    `No Twitter cookies found in ${browserName}. Make sure you are logged into x.com in ${browserName}.`
+    `No X cookies found in ${browserName}. Make sure you are logged into x.com in ${browserName}.`
   );
 
   return { cookies: out, warnings };
 }
 
 export async function extractCookiesFromSafari(): Promise<CookieExtractionResult> {
-  return readTwitterCookiesFromBrowser({ source: "safari" });
+  return readXCookiesFromBrowser({ source: "safari" });
 }
 
 export async function extractCookiesFromChrome(
   profile?: string
 ): Promise<CookieExtractionResult> {
-  return readTwitterCookiesFromBrowser({
+  return readXCookiesFromBrowser({
     source: "chrome",
     chromeProfile: profile,
   });
@@ -229,14 +229,14 @@ export async function extractCookiesFromChrome(
 export async function extractCookiesFromFirefox(
   profile?: string
 ): Promise<CookieExtractionResult> {
-  return readTwitterCookiesFromBrowser({
+  return readXCookiesFromBrowser({
     source: "firefox",
     firefoxProfile: profile,
   });
 }
 
 /**
- * Resolve Twitter credentials from multiple sources.
+ * Resolve X credentials from multiple sources.
  * Priority: CLI args > environment variables > browsers (ordered).
  */
 export async function resolveCredentials(options: {
@@ -270,7 +270,7 @@ export async function resolveCredentials(options: {
 
   const sourcesToTry = resolveSources(options.cookieSource);
   for (const source of sourcesToTry) {
-    const res = await readTwitterCookiesFromBrowser({
+    const res = await readXCookiesFromBrowser({
       source,
       chromeProfile: options.chromeProfile,
       firefoxProfile: options.firefoxProfile,

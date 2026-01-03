@@ -1,7 +1,7 @@
 /**
  * Bookmark and Like action mutations
  *
- * The mutations are implemented in the TwitterClient class.
+ * The mutations are implemented in the XClient class.
  * This file re-exports the hook for convenient access.
  *
  * @see src/api/client.ts - likeTweet, unlikeTweet, createBookmark, deleteBookmark

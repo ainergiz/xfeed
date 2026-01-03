@@ -7,11 +7,11 @@
 
 import { mock } from "bun:test";
 
-import type { TwitterCookies } from "./cookies";
+import type { XCookies } from "./cookies";
 
 // Export mutable mock implementations that tests can update
 export let mockResolveCredentialsImpl: (options: unknown) => Promise<{
-  cookies: TwitterCookies;
+  cookies: XCookies;
   warnings: string[];
 }> = () =>
   Promise.resolve({
@@ -35,7 +35,7 @@ export let mockGetCurrentUserImpl: () => Promise<{
   });
 
 export let lastClientOptions: {
-  cookies: TwitterCookies;
+  cookies: XCookies;
   timeoutMs?: number;
 } | null = null;
 
@@ -72,7 +72,7 @@ export function resetMocks() {
 }
 
 export function setLastClientOptions(
-  options: { cookies: TwitterCookies; timeoutMs?: number } | null
+  options: { cookies: XCookies; timeoutMs?: number } | null
 ) {
   lastClientOptions = options;
 }
@@ -83,8 +83,8 @@ mock.module("./cookies", () => ({
 }));
 
 mock.module("@/api/client", () => ({
-  TwitterClient: class MockTwitterClient {
-    constructor(options: { cookies: TwitterCookies; timeoutMs?: number }) {
+  XClient: class MockXClient {
+    constructor(options: { cookies: XCookies; timeoutMs?: number }) {
       lastClientOptions = options;
     }
     getCurrentUser() {

@@ -6,7 +6,7 @@
 import { useKeyboard } from "@opentui/react";
 import { useState, useCallback } from "react";
 
-import type { TwitterClient } from "@/api/client";
+import type { XClient } from "@/api/client";
 import type { TweetData } from "@/api/types";
 import type { TweetActionState } from "@/hooks/useActions";
 
@@ -18,7 +18,7 @@ import { openInBrowser, previewImageUrl } from "@/lib/media";
 const X_BLUE = "#1DA1F2";
 
 /**
- * Format Twitter's created_at date to "Joined Month Year"
+ * Format X's created_at date to "Joined Month Year"
  */
 function formatJoinDate(createdAt: string | undefined): string | undefined {
   if (!createdAt) return undefined;
@@ -47,7 +47,7 @@ function extractDomain(url: string | undefined): string | undefined {
 }
 
 interface ProfileScreenProps {
-  client: TwitterClient;
+  client: XClient;
   username: string;
   focused?: boolean;
   onBack?: () => void;

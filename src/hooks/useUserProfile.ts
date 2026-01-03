@@ -4,11 +4,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 
-import type { TwitterClient } from "@/api/client";
+import type { XClient } from "@/api/client";
 import type { TweetData, UserProfileData } from "@/api/types";
 
 export interface UseUserProfileOptions {
-  client: TwitterClient;
+  client: XClient;
   username: string;
 }
 

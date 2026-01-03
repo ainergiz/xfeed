@@ -265,4 +265,4 @@ it("debugging", () => {
 
 ## Additional Resources
 
-For xfeed-specific patterns (TwitterClient, RuntimeQueryIdStore, cookie mocking, GraphQL responses), see [PATTERNS.md](PATTERNS.md).
+For xfeed-specific patterns (XClient, RuntimeQueryIdStore, cookie mocking, GraphQL responses), see [PATTERNS.md](PATTERNS.md).

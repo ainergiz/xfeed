@@ -6,7 +6,7 @@
 import { useKeyboard } from "@opentui/react";
 import { useEffect } from "react";
 
-import type { TwitterClient } from "@/api/client";
+import type { XClient } from "@/api/client";
 import type { TweetData } from "@/api/types";
 import type { TweetActionState } from "@/hooks/useActions";
 
@@ -15,7 +15,7 @@ import { PostList } from "@/components/PostList";
 import { useTimeline, type TimelineTab } from "@/hooks/useTimeline";
 
 interface TimelineScreenProps {
-  client: TwitterClient;
+  client: XClient;
   focused?: boolean;
   onPostCountChange?: (count: number) => void;
   onPostSelect?: (post: TweetData) => void;

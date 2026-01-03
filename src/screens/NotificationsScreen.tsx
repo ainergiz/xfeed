@@ -6,7 +6,7 @@
 import { useKeyboard } from "@opentui/react";
 import { useEffect } from "react";
 
-import type { TwitterClient } from "@/api/client";
+import type { XClient } from "@/api/client";
 import type { NotificationData } from "@/api/types";
 
 import { ErrorBanner } from "@/components/ErrorBanner";
@@ -14,7 +14,7 @@ import { NotificationList } from "@/components/NotificationList";
 import { useNotifications } from "@/hooks/useNotifications";
 
 interface NotificationsScreenProps {
-  client: TwitterClient;
+  client: XClient;
   focused?: boolean;
   onNotificationCountChange?: (count: number) => void;
   onUnreadCountChange?: (count: number) => void;

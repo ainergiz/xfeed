@@ -2,7 +2,7 @@
 
 This file contains patterns specific to the xfeed codebase.
 
-## TwitterClient Test Pattern
+## XClient Test Pattern
 
 ```typescript
 // @ts-nocheck - Test file with fetch mocking
@@ -18,7 +18,7 @@ import {
   spyOn,
   type Mock,
 } from "bun:test";
-import { TwitterClient } from "./client";
+import { XClient } from "./client";
 import { runtimeQueryIds } from "./query-ids";
 
 // Mock implementations
@@ -53,7 +53,7 @@ const validCookies = {
   source: "test",
 };
 
-describe("TwitterClient", () => {
+describe("XClient", () => {
   beforeAll(() => {
     getQueryIdSpy = spyOn(runtimeQueryIds, "getQueryId").mockImplementation(mockGetQueryId);
     refreshSpy = spyOn(runtimeQueryIds, "refresh").mockImplementation(mockRefresh);
@@ -80,7 +80,7 @@ describe("TwitterClient", () => {
   });
 
   it("example test", async () => {
-    const client = new TwitterClient({ cookies: validCookies });
+    const client = new XClient({ cookies: validCookies });
     globalThis.fetch = mock(() => Promise.resolve(mockResponse({ data: {} })));
 
     const result = await client.someMethod();
@@ -191,7 +191,7 @@ describe("cookies", () => {
     mockImpl = () => Promise.resolve({ cookies: [], warnings: [] });
   });
 
-  it("extracts Twitter cookies", async () => {
+  it("extracts X cookies", async () => {
     setMockCookies([
       { name: "auth_token", value: "token123", domain: ".x.com" },
       { name: "ct0", value: "csrf456", domain: ".x.com" },
@@ -236,7 +236,7 @@ mock.module("./cookies", () => ({
 }));
 
 mock.module("@/api/client", () => ({
-  TwitterClient: class MockTwitterClient {
+  XClient: class MockXClient {
     getCurrentUser() { return mockGetCurrentUserImpl(); }
   },
 }));
@@ -288,7 +288,7 @@ For tests that require multiple fetch calls in sequence:
 
 ```typescript
 it("uploads video with polling", async () => {
-  const client = new TwitterClient({ cookies: validCookies });
+  const client = new XClient({ cookies: validCookies });
   let callCount = 0;
 
   globalThis.fetch = mock(() => {
@@ -325,7 +325,7 @@ it("uploads video with polling", async () => {
 
 ## GraphQL Response Patterns
 
-Twitter API responses have nested structures. Use these patterns:
+X API responses have nested structures. Use these patterns:
 
 ```typescript
 // Tweet response

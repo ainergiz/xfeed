@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-xfeed is a terminal-based X/Twitter viewer built with OpenTUI/React. It provides distraction-free browsing directly in the terminal with vim-style navigation.
+xfeed is a terminal-based X viewer built with OpenTUI/React. It provides distraction-free browsing directly in the terminal with vim-style navigation.
 
 ## Commands
 
@@ -48,8 +48,8 @@ PRs must reference a GitHub issue (e.g., `#123` or `Fixes #123`) in the title or
 src/
 ├── index.tsx          # CLI entry point (cac) → auth check → launch TUI
 ├── app.tsx            # Main OpenTUI app component
-├── api/               # Twitter GraphQL API (adapted from bird)
-│   ├── client.ts      # TwitterClient class
+├── api/               # X GraphQL API (adapted from bird)
+│   ├── client.ts      # XClient class
 │   ├── types.ts       # TweetData, UserData types
 │   ├── query-ids.ts   # GraphQL query ID management
 │   └── actions.ts     # Bookmark, Like mutations
@@ -72,12 +72,12 @@ type Result<T, E = string> = { ok: true; value: T } | { ok: false; error: E }
 
 **OpenTUI JSX**: Uses lowercase intrinsic elements (`<box>`, `<text>`, `<scrollbox>`) - NOT React DOM or Ink components. JSX is configured with `jsxImportSource: "@opentui/react"`.
 
-**Twitter API**: The API layer handles Twitter's undocumented GraphQL API with rotating query IDs. Query IDs are refreshed at runtime when they change.
+**X API**: The API layer handles X's undocumented GraphQL API with rotating query IDs. Query IDs are refreshed at runtime when they change.
 
 ### Reference Code
 
 The `.context/repos/` directory contains reference implementations:
-- `bird/` - CLI tool with TwitterClient implementation
+- `bird/` - CLI tool with XClient implementation
 - `opentui/` - OpenTUI framework (core + react)
 - `x-client-transaction-id/` - Transaction ID generator for API mutations (see `docs/x-client-transaction-id.md`)
 

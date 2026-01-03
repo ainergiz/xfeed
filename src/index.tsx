@@ -29,8 +29,8 @@ const VALID_BROWSERS: BrowserId[] = [
 
 cli
   .command("", "Launch xfeed TUI")
-  .option("--auth-token <token>", "Twitter auth_token cookie")
-  .option("--ct0 <token>", "Twitter ct0 cookie (CSRF token)")
+  .option("--auth-token <token>", "X auth_token cookie")
+  .option("--ct0 <token>", "X ct0 cookie (CSRF token)")
   .option(
     "--browser <browser>",
     "Browser to read cookies from (safari, chrome, brave, arc, firefox)"

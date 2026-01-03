@@ -6,13 +6,13 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 
-import type { TwitterClient } from "@/api/client";
+import type { XClient } from "@/api/client";
 import type { ApiError, TweetData } from "@/api/types";
 
 export type TimelineTab = "for_you" | "following";
 
 export interface UseTimelineOptions {
-  client: TwitterClient;
+  client: XClient;
   initialTab?: TimelineTab;
 }
 

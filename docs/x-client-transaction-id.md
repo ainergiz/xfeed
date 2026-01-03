@@ -1,12 +1,12 @@
 # x-client-transaction-id
 
-> Library for generating the `x-client-transaction-id` header required for Twitter/X API mutations.
+> Library for generating the `x-client-transaction-id` header required for X API mutations.
 
 ## Overview
 
-Twitter's API requires a cryptographically computed `x-client-transaction-id` header for mutation requests (like, bookmark, tweet, retweet). This header cannot be a random value - it must be derived from:
+X's API requires a cryptographically computed `x-client-transaction-id` header for mutation requests (like, bookmark, tweet, retweet). This header cannot be a random value - it must be derived from:
 
-1. The Twitter homepage HTML (contains verification key and animation SVG data)
+1. The X homepage HTML (contains verification key and animation SVG data)
 2. The HTTP method and API path
 3. Current timestamp
 4. A SHA-256 hash of the above combined with animation interpolation data
@@ -23,16 +23,16 @@ The library is vendored from [Lqm1/x-client-transaction-id](https://github.com/L
 bun add x-client-transaction-id
 ```
 
-### Usage in TwitterClient
+### Usage in XClient
 
 ```typescript
 import { ClientTransaction, handleXMigration } from "x-client-transaction-id";
 
-class TwitterClient {
+class XClient {
   private clientTransaction?: ClientTransaction;
   private transactionInitPromise?: Promise<void>;
 
-  // Lazy initialization - fetches Twitter homepage once
+  // Lazy initialization - fetches X homepage once
   private async ensureClientTransaction(): Promise<void> {
     if (this.clientTransaction) return;
     if (!this.transactionInitPromise) {
@@ -80,7 +80,7 @@ const document = await handleXMigration();
 ```
 
 This fetches `https://twitter.com/` (redirects to `x.com`) and parses the HTML. The document contains:
-- A `<meta name="twitter-site-verification">` tag with a base64-encoded key
+- A `<meta name="x-site-verification">` tag with a base64-encoded key
 - SVG animation frames in `<svg id="loading-x-anim-*">` elements
 - A reference to an "ondemand" JavaScript file with index values
 
@@ -89,7 +89,7 @@ This fetches `https://twitter.com/` (redirects to `x.com`) and parses the HTML. 
 The `ClientTransaction` class extracts:
 - **Key bytes**: From the site verification meta tag
 - **Animation data**: SVG path coordinates from loading animation frames
-- **Index values**: From Twitter's ondemand.js file (controls which animation frame/row to use)
+- **Index values**: From X's ondemand.js file (controls which animation frame/row to use)
 
 ### 3. Generate Animation Key
 
@@ -130,5 +130,5 @@ If initialization fails (network error, HTML structure changed), mutations will 
 ## References
 
 - [Lqm1/x-client-transaction-id](https://github.com/Lqm1/x-client-transaction-id) - Original library
-- [Twitter's ondemand.js](https://abs.twimg.com/responsive-web/client-web/) - Contains index values (rotates)
+- [X's ondemand.js](https://abs.twimg.com/responsive-web/client-web/) - Contains index values (rotates)
 - Browser DevTools - Inspect `x-client-transaction-id` header in mutation requests
