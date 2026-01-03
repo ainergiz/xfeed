@@ -83,8 +83,12 @@ interface PostDetailScreenProps {
   onReplySelect?: (reply: TweetData) => void;
   /** Get action state for a tweet */
   getActionState?: (tweetId: string) => { liked: boolean; bookmarked: boolean };
-  /** Called when user presses 't' to view thread */
+  /** Called when user presses 't' to view thread (when no quoted tweet) */
   onThreadView?: () => void;
+  /** Called when user presses 'u' to navigate into a quoted tweet */
+  onQuoteSelect?: (quotedTweet: TweetData) => void;
+  /** Whether a quote is currently being fetched */
+  isLoadingQuote?: boolean;
   /** Whether to show the footer */
   showFooter?: boolean;
 }
@@ -184,6 +188,8 @@ export function PostDetailScreen({
   onReplySelect,
   getActionState,
   onThreadView,
+  onQuoteSelect,
+  isLoadingQuote = false,
   showFooter = true,
 }: PostDetailScreenProps) {
   // Fetch thread context (parent tweet and replies) with pagination
@@ -246,6 +252,7 @@ export function PostDetailScreen({
 
   const hasReplies = replies.length > 0;
   const isReply = !!tweet.inReplyToStatusId;
+  const hasQuote = !!tweet.quotedTweet;
 
   // List navigation for replies
   const {
@@ -588,8 +595,15 @@ export function PostDetailScreen({
         }
         break;
       case "t":
-        // Open thread view (experimental)
+        // Open thread view
         onThreadView?.();
+        break;
+      case "u":
+      case "return":
+        // Navigate into quoted tweet (same as timeline enter behavior)
+        if (hasQuote && tweet.quotedTweet && !isLoadingQuote) {
+          onQuoteSelect?.(tweet.quotedTweet);
+        }
         break;
     }
   });
@@ -679,7 +693,7 @@ export function PostDetailScreen({
   // Quoted tweet (if present)
   const quotedContent = tweet.quotedTweet ? (
     <box style={{ paddingLeft: 1, paddingRight: 1, marginTop: 1 }}>
-      <QuotedPostCard post={tweet.quotedTweet} />
+      <QuotedPostCard post={tweet.quotedTweet} showNavigationHint />
     </box>
   ) : null;
 
@@ -940,6 +954,12 @@ export function PostDetailScreen({
     { key: "o", label: "link", show: hasLinks },
     { key: ",/.", label: "nav", show: hasLinks && linkCount > 1 },
     { key: "t", label: "thread" },
+    {
+      key: "u",
+      label: isLoadingQuote ? "loading..." : "quote",
+      activeColor: isLoadingQuote ? colors.primary : undefined,
+      show: hasQuote,
+    },
   ];
 
   // Main layout - always use scrollbox for thread content
