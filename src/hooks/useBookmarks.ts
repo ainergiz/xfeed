@@ -8,8 +8,9 @@ import { useCallback } from "react";
 import type { XClient } from "@/api/client";
 import type { ApiError, TweetData } from "@/api/types";
 
-import { usePaginatedData } from "./usePaginatedData";
 import type { PaginatedFetchResult } from "./usePaginatedData";
+
+import { usePaginatedData } from "./usePaginatedData";
 
 export interface UseBookmarksOptions {
   client: XClient;

@@ -9,8 +9,9 @@ import { useCallback, useMemo, useState } from "react";
 import type { XClient } from "@/api/client";
 import type { ApiError, TweetData } from "@/api/types";
 
-import { usePaginatedData } from "./usePaginatedData";
 import type { PaginatedFetchResult } from "./usePaginatedData";
+
+import { usePaginatedData } from "./usePaginatedData";
 
 export type TimelineTab = "for_you" | "following";
 
@@ -71,7 +72,13 @@ export function useTimeline({
           nextCursor: result.nextCursor,
         };
       }
-      return { success: false, error: result.error };
+      // V1 methods return string errors, V2 return ApiError
+      // Normalize to ApiError for usePaginatedData
+      const error =
+        typeof result.error === "string"
+          ? { type: "unknown" as const, message: result.error }
+          : result.error;
+      return { success: false, error };
     },
     [client, tab]
   );

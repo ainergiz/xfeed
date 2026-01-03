@@ -3,11 +3,13 @@
  * Supports different error types with appropriate styling and actions
  */
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 
 import type { ApiError, ApiErrorType } from "@/api/types";
 
+import { useCountdown } from "@/hooks/useCountdown";
 import { colors } from "@/lib/colors";
+import { formatCountdown } from "@/lib/format";
 
 interface ErrorBannerProps {
   /** The error to display */
@@ -57,16 +59,19 @@ function getErrorBg(type: ApiErrorType): string {
 }
 
 /**
- * Format seconds into a readable countdown string
+ * Compute initial countdown seconds from error
  */
-function formatCountdown(seconds: number): string {
-  if (seconds <= 0) return "";
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  if (mins > 0) {
-    return `${mins}m ${secs}s`;
+function getInitialCountdown(error: ApiError): number {
+  if (error.type !== "rate_limit") return 0;
+  // Use retryAfter if available, otherwise calculate from rateLimitReset
+  if (error.retryAfter) {
+    return error.retryAfter;
   }
-  return `${secs}s`;
+  if (error.rateLimitReset) {
+    const now = Math.floor(Date.now() / 1000);
+    return Math.max(0, error.rateLimitReset - now);
+  }
+  return 900; // Default 15 minutes
 }
 
 export function ErrorBanner({
@@ -75,38 +80,15 @@ export function ErrorBanner({
   onDismiss: _onDismiss,
   retryDisabled: _retryDisabled = false,
 }: ErrorBannerProps) {
-  // Countdown timer for rate limits
-  const [countdown, setCountdown] = useState(() => {
-    if (error.type === "rate_limit") {
-      // Use retryAfter if available, otherwise calculate from rateLimitReset
-      if (error.retryAfter) {
-        return error.retryAfter;
-      }
-      if (error.rateLimitReset) {
-        const now = Math.floor(Date.now() / 1000);
-        return Math.max(0, error.rateLimitReset - now);
-      }
-      return 900; // Default 15 minutes
-    }
-    return 0;
-  });
+  const { countdown, start } = useCountdown();
 
-  // Countdown effect for rate limits
+  // Start countdown when error changes (for rate limits)
   useEffect(() => {
-    if (error.type !== "rate_limit" || countdown <= 0) return;
-
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [error.type, countdown > 0]);
+    const seconds = getInitialCountdown(error);
+    if (seconds > 0) {
+      start(seconds);
+    }
+  }, [error, start]);
 
   const icon = getErrorIcon(error.type);
   const bgColor = getErrorBg(error.type);

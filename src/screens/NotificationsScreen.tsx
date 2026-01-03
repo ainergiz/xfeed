@@ -13,6 +13,7 @@ import { ErrorBanner } from "@/components/ErrorBanner";
 import { NotificationList } from "@/components/NotificationList";
 import { useNotifications } from "@/hooks/useNotifications";
 import { colors } from "@/lib/colors";
+import { formatCountdown } from "@/lib/format";
 
 interface NotificationsScreenProps {
   client: XClient;
@@ -41,19 +42,6 @@ function ScreenHeader({ unreadCount }: { unreadCount: number }) {
       {unreadCount > 0 && <text fg={colors.error}> ({unreadCount} new)</text>}
     </box>
   );
-}
-
-/**
- * Format seconds into a readable countdown string
- */
-function formatCountdown(seconds: number): string {
-  if (seconds <= 0) return "";
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  if (mins > 0) {
-    return `${mins}m ${secs}s`;
-  }
-  return `${secs}s`;
 }
 
 export function NotificationsScreen({
@@ -144,7 +132,9 @@ export function NotificationsScreen({
       <box style={{ flexDirection: "column", height: "100%" }}>
         <ScreenHeader unreadCount={0} />
         <box style={{ padding: 2, flexGrow: 1 }}>
-          <text fg={colors.muted}>No notifications yet. Press r to refresh.</text>
+          <text fg={colors.muted}>
+            No notifications yet. Press r to refresh.
+          </text>
         </box>
       </box>
     );
@@ -155,7 +145,11 @@ export function NotificationsScreen({
       <ScreenHeader unreadCount={unreadCount} />
       {actionMessage ? (
         <box style={{ paddingLeft: 1 }}>
-          <text fg={actionMessage.startsWith("Error:") ? colors.error : colors.success}>
+          <text
+            fg={
+              actionMessage.startsWith("Error:") ? colors.error : colors.success
+            }
+          >
             {actionMessage}
           </text>
         </box>

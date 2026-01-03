@@ -15,8 +15,8 @@ import { PostCard } from "@/components/PostCard";
 import { QuotedPostCard } from "@/components/QuotedPostCard";
 import { useListNavigation } from "@/hooks/useListNavigation";
 import { usePostDetail } from "@/hooks/usePostDetail";
-import { formatCount, truncateText } from "@/lib/format";
 import { colors } from "@/lib/colors";
+import { formatCount, truncateText } from "@/lib/format";
 import {
   previewMedia,
   downloadMedia,
@@ -782,7 +782,9 @@ export function PostDetailScreen({
                   <text fg={isSelected ? colors.primary : colors.muted}>
                     {isSelected ? ">" : " "} @{mention.username}
                   </text>
-                  {mention.name && <text fg={colors.dim}> · {mention.name}</text>}
+                  {mention.name && (
+                    <text fg={colors.dim}> · {mention.name}</text>
+                  )}
                 </box>
               );
             })}

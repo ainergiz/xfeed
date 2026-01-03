@@ -14,6 +14,7 @@ import { ErrorBanner } from "@/components/ErrorBanner";
 import { PostList } from "@/components/PostList";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { colors } from "@/lib/colors";
+import { formatCountdown } from "@/lib/format";
 
 interface BookmarksScreenProps {
   client: XClient;
@@ -52,19 +53,6 @@ function ScreenHeader() {
       </text>
     </box>
   );
-}
-
-/**
- * Format seconds into a readable countdown string
- */
-function formatCountdown(seconds: number): string {
-  if (seconds <= 0) return "";
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  if (mins > 0) {
-    return `${mins}m ${secs}s`;
-  }
-  return `${secs}s`;
 }
 
 export function BookmarksScreen({
@@ -164,7 +152,11 @@ export function BookmarksScreen({
       <ScreenHeader />
       {actionMessage ? (
         <box style={{ paddingLeft: 1 }}>
-          <text fg={actionMessage.startsWith("Error:") ? colors.error : colors.success}>
+          <text
+            fg={
+              actionMessage.startsWith("Error:") ? colors.error : colors.success
+            }
+          >
             {actionMessage}
           </text>
         </box>

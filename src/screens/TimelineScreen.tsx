@@ -14,6 +14,7 @@ import { ErrorBanner } from "@/components/ErrorBanner";
 import { PostList } from "@/components/PostList";
 import { useTimeline, type TimelineTab } from "@/hooks/useTimeline";
 import { colors } from "@/lib/colors";
+import { formatCountdown } from "@/lib/format";
 
 interface TimelineScreenProps {
   client: XClient;
@@ -60,19 +61,6 @@ function TabBar({ activeTab }: TabBarProps) {
       </text>
     </box>
   );
-}
-
-/**
- * Format seconds into a readable countdown string
- */
-function formatCountdown(seconds: number): string {
-  if (seconds <= 0) return "";
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  if (mins > 0) {
-    return `${mins}m ${secs}s`;
-  }
-  return `${secs}s`;
 }
 
 export function TimelineScreen({
@@ -175,7 +163,9 @@ export function TimelineScreen({
       <box style={{ flexDirection: "column", height: "100%" }}>
         {focused && <TabBar activeTab={tab} />}
         <box style={{ padding: 2, flexGrow: 1 }}>
-          <text fg={colors.muted}>No posts to display. Press r to refresh.</text>
+          <text fg={colors.muted}>
+            No posts to display. Press r to refresh.
+          </text>
         </box>
       </box>
     );
@@ -186,7 +176,11 @@ export function TimelineScreen({
       {focused && <TabBar activeTab={tab} />}
       {actionMessage ? (
         <box style={{ paddingLeft: 1 }}>
-          <text fg={actionMessage.startsWith("Error:") ? colors.error : colors.success}>
+          <text
+            fg={
+              actionMessage.startsWith("Error:") ? colors.error : colors.success
+            }
+          >
             {actionMessage}
           </text>
         </box>

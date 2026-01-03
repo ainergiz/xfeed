@@ -57,3 +57,13 @@ export function formatCount(count?: number): string {
   if (count < 1000000) return `${(count / 1000).toFixed(1)}K`;
   return `${(count / 1000000).toFixed(1)}M`;
 }
+
+/**
+ * Format seconds into a readable countdown string (e.g., "5m 30s" or "45s")
+ */
+export function formatCountdown(seconds: number): string {
+  if (seconds <= 0) return "";
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+}

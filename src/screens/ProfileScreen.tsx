@@ -306,7 +306,11 @@ export function ProfileScreen({
       {separator}
       {actionMessage ? (
         <box style={{ paddingLeft: 1 }}>
-          <text fg={actionMessage.startsWith("Error:") ? colors.error : colors.success}>
+          <text
+            fg={
+              actionMessage.startsWith("Error:") ? colors.error : colors.success
+            }
+          >
             {actionMessage}
           </text>
         </box>

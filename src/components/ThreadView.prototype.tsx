@@ -214,7 +214,10 @@ function AncestorChain({ ancestors }: { ancestors: TweetData[] }) {
             <box style={{ flexDirection: "row" }}>
               <text fg="#555555">{prefix}</text>
               <text fg={colors.primary}>@{tweet.author.username}</text>
-              <text fg={colors.dim}> · {formatRelativeTime(tweet.createdAt)}</text>
+              <text fg={colors.dim}>
+                {" "}
+                · {formatRelativeTime(tweet.createdAt)}
+              </text>
             </box>
             <box style={{ flexDirection: "row" }}>
               <text fg="#555555">{verticalLine} </text>

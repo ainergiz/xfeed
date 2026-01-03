@@ -8,8 +8,9 @@ import { useCallback, useRef, useState } from "react";
 import type { XClient } from "@/api/client";
 import type { ApiError, NotificationData } from "@/api/types";
 
-import { usePaginatedData } from "./usePaginatedData";
 import type { PaginatedFetchResult } from "./usePaginatedData";
+
+import { usePaginatedData } from "./usePaginatedData";
 
 export interface UseNotificationsOptions {
   client: XClient;
@@ -45,11 +46,13 @@ export function useNotifications({
 }: UseNotificationsOptions): UseNotificationsResult {
   const [unreadCount, setUnreadCount] = useState(0);
   // Store unreadSortIndex for calculating unread count
-  const unreadSortIndexRef = useRef<string | undefined>();
+  const unreadSortIndexRef = useRef<string | undefined>(undefined);
 
   // Create fetch function that adapts client API to PaginatedFetchResult
   const fetchFn = useCallback(
-    async (cursor?: string): Promise<PaginatedFetchResult<NotificationData>> => {
+    async (
+      cursor?: string
+    ): Promise<PaginatedFetchResult<NotificationData>> => {
       const result = await client.getNotifications(30, cursor);
 
       if (result.success) {
@@ -77,7 +80,10 @@ export function useNotifications({
     [client]
   );
 
-  const getId = useCallback((notification: NotificationData) => notification.id, []);
+  const getId = useCallback(
+    (notification: NotificationData) => notification.id,
+    []
+  );
 
   const {
     data: notifications,
