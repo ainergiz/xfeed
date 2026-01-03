@@ -1,5 +1,5 @@
 /**
- * Twitter GraphQL API client for xfeed
+ * X GraphQL API client for xfeed
  * Adapted from bird reference implementation
  */
 
@@ -26,7 +26,7 @@ import type {
   TimelineResultV2,
   TweetData,
   TweetResult,
-  TwitterClientOptions,
+  XClientOptions,
   UploadMediaResult,
   UrlEntity,
   UserData,
@@ -38,18 +38,17 @@ import {
   TARGET_QUERY_ID_OPERATIONS,
 } from "./query-ids";
 
-const TWITTER_API_BASE = "https://x.com/i/api/graphql";
-const TWITTER_GRAPHQL_POST_URL = "https://x.com/i/api/graphql";
-const TWITTER_UPLOAD_URL = "https://upload.twitter.com/i/media/upload.json";
-const TWITTER_MEDIA_METADATA_URL =
+const X_API_BASE = "https://x.com/i/api/graphql";
+const X_GRAPHQL_POST_URL = "https://x.com/i/api/graphql";
+const X_UPLOAD_URL = "https://upload.twitter.com/i/media/upload.json";
+const X_MEDIA_METADATA_URL =
   "https://x.com/i/api/1.1/media/metadata/create.json";
-const TWITTER_STATUS_UPDATE_URL =
-  "https://x.com/i/api/1.1/statuses/update.json";
+const X_STATUS_UPDATE_URL = "https://x.com/i/api/1.1/statuses/update.json";
 const SETTINGS_SCREEN_NAME_REGEX = /"screen_name":"([^"]+)"/;
 const SETTINGS_USER_ID_REGEX = /"user_id"\s*:\s*"(\d+)"/;
 const SETTINGS_NAME_REGEX = /"name":"([^"\\]*(?:\\.[^"\\]*)*)"/;
 
-export class TwitterClient {
+export class XClient {
   private authToken: string;
   private ct0: string;
   private cookieHeader: string;
@@ -64,7 +63,7 @@ export class TwitterClient {
   private onSessionExpired?: () => void;
   private sessionExpiredFired = false;
 
-  constructor(options: TwitterClientOptions) {
+  constructor(options: XClientOptions) {
     if (!options.cookies.authToken || !options.cookies.ct0) {
       throw new Error("Both authToken and ct0 cookies are required");
     }
@@ -354,7 +353,7 @@ export class TwitterClient {
         error.retryAfter = Number.parseInt(retryAfterHeader, 10);
       }
 
-      // If no headers, estimate 15 minutes (Twitter's typical window)
+      // If no headers, estimate 15 minutes (X's typical window)
       if (!error.retryAfter && !error.rateLimitReset) {
         error.retryAfter = 900; // 15 minutes
       }
@@ -416,7 +415,7 @@ export class TwitterClient {
   ): string {
     switch (errorType) {
       case "rate_limit":
-        return "Rate limited by Twitter. Please wait before trying again.";
+        return "Rate limited by X. Please wait before trying again.";
       case "auth_expired":
         return "Session expired. Please log into x.com and restart xfeed.";
       case "network_error":
@@ -424,7 +423,7 @@ export class TwitterClient {
       case "not_found":
         return "Content not found or has been deleted.";
       case "unavailable":
-        return "Twitter is temporarily unavailable. Please try again later.";
+        return "X is temporarily unavailable. Please try again later.";
       default:
         // Include some detail for unknown errors
         return `Request failed (${status}): ${body.slice(0, 100)}`;
@@ -489,7 +488,7 @@ export class TwitterClient {
         media_category: category,
       });
 
-      const initResp = await this.fetchWithTimeout(TWITTER_UPLOAD_URL, {
+      const initResp = await this.fetchWithTimeout(X_UPLOAD_URL, {
         method: "POST",
         headers: this.getUploadHeaders(),
         body: initParams,
@@ -537,7 +536,7 @@ export class TwitterClient {
         form.set("segment_index", String(segmentIndex));
         form.set("media", new Blob([chunk], { type: input.mimeType }), "media");
 
-        const appendResp = await this.fetchWithTimeout(TWITTER_UPLOAD_URL, {
+        const appendResp = await this.fetchWithTimeout(X_UPLOAD_URL, {
           method: "POST",
           headers: this.getUploadHeaders(),
           body: form,
@@ -557,7 +556,7 @@ export class TwitterClient {
         command: "FINALIZE",
         media_id: mediaId,
       });
-      const finalizeResp = await this.fetchWithTimeout(TWITTER_UPLOAD_URL, {
+      const finalizeResp = await this.fetchWithTimeout(X_UPLOAD_URL, {
         method: "POST",
         headers: this.getUploadHeaders(),
         body: finalizeParams,
@@ -595,7 +594,7 @@ export class TwitterClient {
             : 2;
           await this.sleep(delaySecs * 1000);
 
-          const statusUrl = `${TWITTER_UPLOAD_URL}?${new URLSearchParams({
+          const statusUrl = `${X_UPLOAD_URL}?${new URLSearchParams({
             command: "STATUS",
             media_id: mediaId,
           }).toString()}`;
@@ -633,17 +632,14 @@ export class TwitterClient {
       }
 
       if (input.alt && input.mimeType.startsWith("image/")) {
-        const metaResp = await this.fetchWithTimeout(
-          TWITTER_MEDIA_METADATA_URL,
-          {
-            method: "POST",
-            headers: this.getJsonHeaders(),
-            body: JSON.stringify({
-              media_id: mediaId,
-              alt_text: { text: input.alt },
-            }),
-          }
-        );
+        const metaResp = await this.fetchWithTimeout(X_MEDIA_METADATA_URL, {
+          method: "POST",
+          headers: this.getJsonHeaders(),
+          body: JSON.stringify({
+            media_id: mediaId,
+            alt_text: { text: input.alt },
+          }),
+        });
         if (!metaResp.ok) {
           const text = await metaResp.text();
           return {
@@ -831,7 +827,7 @@ export class TwitterClient {
 
   /**
    * Unwrap visibility wrapper if present.
-   * Twitter sometimes wraps tweet results in a visibility container.
+   * X sometimes wraps tweet results in a visibility container.
    */
   private unwrapTweetResult(
     result: GraphqlTweetResult | undefined
@@ -882,7 +878,7 @@ export class TwitterClient {
 
   /**
    * Decode HTML entities in tweet text
-   * Twitter API returns text with HTML entities encoded
+   * X API returns text with HTML entities encoded
    */
   private decodeHtmlEntities(text: string): string {
     return text
@@ -958,7 +954,7 @@ export class TwitterClient {
 
   /**
    * Strip all URLs from tweet text (media and external links)
-   * Twitter includes t.co links in full_text, but hides them in UI
+   * X includes t.co links in full_text, but hides them in UI
    * Media URLs can be in entities.urls (pointing to pic.twitter.com) OR entities.media
    * External URLs are stripped but still available in TweetData.urls for rendering
    */
@@ -1332,7 +1328,7 @@ export class TwitterClient {
     });
 
     const queryId = await this.getQueryId("UserArticlesTweets");
-    const url = `${TWITTER_API_BASE}/${queryId}/UserArticlesTweets?${params.toString()}`;
+    const url = `${X_API_BASE}/${queryId}/UserArticlesTweets?${params.toString()}`;
 
     try {
       const response = await this.fetchWithTimeout(url, {
@@ -1493,7 +1489,7 @@ export class TwitterClient {
         const queryIds = await this.getTweetDetailQueryIds();
 
         for (const queryId of queryIds) {
-          const url = `${TWITTER_API_BASE}/${queryId}/TweetDetail?${params.toString()}`;
+          const url = `${X_API_BASE}/${queryId}/TweetDetail?${params.toString()}`;
           const response = await this.fetchWithTimeout(url, {
             method: "GET",
             headers: this.getHeaders(),
@@ -1506,7 +1502,7 @@ export class TwitterClient {
           had404 = true;
 
           const postResponse = await this.fetchWithTimeout(
-            `${TWITTER_API_BASE}/${queryId}/TweetDetail`,
+            `${X_API_BASE}/${queryId}/TweetDetail`,
             {
               method: "POST",
               headers: this.getHeaders(),
@@ -1731,7 +1727,7 @@ export class TwitterClient {
   ): Promise<TweetResult> {
     await this.ensureClientUserId();
     let queryId = await this.getQueryId("CreateTweet");
-    let urlWithOperation = `${TWITTER_API_BASE}/${queryId}/CreateTweet`;
+    let urlWithOperation = `${X_API_BASE}/${queryId}/CreateTweet`;
 
     const buildBody = () => JSON.stringify({ variables, features, queryId });
     let body = buildBody();
@@ -1750,7 +1746,7 @@ export class TwitterClient {
       if (response.status === 404) {
         await this.refreshQueryIds();
         queryId = await this.getQueryId("CreateTweet");
-        urlWithOperation = `${TWITTER_API_BASE}/${queryId}/CreateTweet`;
+        urlWithOperation = `${X_API_BASE}/${queryId}/CreateTweet`;
         body = buildBody();
 
         response = await this.fetchWithTimeout(urlWithOperation, {
@@ -1763,7 +1759,7 @@ export class TwitterClient {
         });
 
         if (response.status === 404) {
-          const retry = await this.fetchWithTimeout(TWITTER_GRAPHQL_POST_URL, {
+          const retry = await this.fetchWithTimeout(X_GRAPHQL_POST_URL, {
             method: "POST",
             headers: {
               ...this.getHeaders(),
@@ -1926,7 +1922,7 @@ export class TwitterClient {
     }
 
     try {
-      const response = await this.fetchWithTimeout(TWITTER_STATUS_UPDATE_URL, {
+      const response = await this.fetchWithTimeout(X_STATUS_UPDATE_URL, {
         method: "POST",
         headers: {
           ...this.getBaseHeaders(),
@@ -2032,7 +2028,7 @@ export class TwitterClient {
       const queryIds = await this.getSearchTimelineQueryIds();
 
       for (const queryId of queryIds) {
-        const url = `${TWITTER_API_BASE}/${queryId}/SearchTimeline?${params.toString()}`;
+        const url = `${X_API_BASE}/${queryId}/SearchTimeline?${params.toString()}`;
 
         try {
           const response = await this.fetchWithTimeout(url, {
@@ -2417,7 +2413,7 @@ export class TwitterClient {
           variables: JSON.stringify(variables),
           features: JSON.stringify(features),
         });
-        const url = `${TWITTER_API_BASE}/${queryId}/Bookmarks?${params.toString()}`;
+        const url = `${X_API_BASE}/${queryId}/Bookmarks?${params.toString()}`;
 
         try {
           const response = await this.fetchWithTimeout(url, {
@@ -2548,7 +2544,7 @@ export class TwitterClient {
           variables: JSON.stringify(variables),
           features: JSON.stringify(features),
         });
-        const url = `${TWITTER_API_BASE}/${queryId}/HomeTimeline?${params.toString()}`;
+        const url = `${X_API_BASE}/${queryId}/HomeTimeline?${params.toString()}`;
 
         try {
           const response = await this.fetchWithTimeout(url, {
@@ -2681,7 +2677,7 @@ export class TwitterClient {
           variables: JSON.stringify(variables),
           features: JSON.stringify(features),
         });
-        const url = `${TWITTER_API_BASE}/${queryId}/HomeLatestTimeline?${params.toString()}`;
+        const url = `${X_API_BASE}/${queryId}/HomeLatestTimeline?${params.toString()}`;
 
         try {
           const response = await this.fetchWithTimeout(url, {
@@ -2865,7 +2861,7 @@ export class TwitterClient {
       const queryIds = await this.getNotificationsQueryIds();
 
       for (const queryId of queryIds) {
-        const url = `${TWITTER_API_BASE}/${queryId}/NotificationsTimeline?${params.toString()}`;
+        const url = `${X_API_BASE}/${queryId}/NotificationsTimeline?${params.toString()}`;
 
         try {
           const response = await this.fetchWithTimeout(url, {
@@ -3105,7 +3101,7 @@ export class TwitterClient {
     ) {
       return {
         type: "rate_limit",
-        message: "Rate limited by Twitter. Please wait before trying again.",
+        message: "Rate limited by X. Please wait before trying again.",
         statusCode: 429,
         retryAfter: 900, // Default 15 minutes
       };
@@ -3163,7 +3159,7 @@ export class TwitterClient {
     ) {
       return {
         type: "unavailable",
-        message: "Twitter is temporarily unavailable. Please try again later.",
+        message: "X is temporarily unavailable. Please try again later.",
       };
     }
 
@@ -3239,7 +3235,7 @@ export class TwitterClient {
           features: JSON.stringify(features),
           fieldToggles: JSON.stringify(fieldToggles),
         });
-        const url = `${TWITTER_API_BASE}/${queryId}/UserByScreenName?${params.toString()}`;
+        const url = `${X_API_BASE}/${queryId}/UserByScreenName?${params.toString()}`;
 
         try {
           const response = await this.fetchWithTimeout(url, {
@@ -3532,7 +3528,7 @@ export class TwitterClient {
           features: JSON.stringify(features),
           fieldToggles: JSON.stringify(fieldToggles),
         });
-        const url = `${TWITTER_API_BASE}/${queryId}/UserTweets?${params.toString()}`;
+        const url = `${X_API_BASE}/${queryId}/UserTweets?${params.toString()}`;
 
         try {
           const response = await this.fetchWithTimeout(url, {
@@ -3555,7 +3551,7 @@ export class TwitterClient {
             };
           }
 
-          // biome-ignore lint/suspicious/noExplicitAny: Twitter API response varies
+          // biome-ignore lint/suspicious/noExplicitAny: X API response varies
           const data = (await response.json()) as any;
 
           if (data.errors && data.errors.length > 0) {
@@ -3671,7 +3667,7 @@ export class TwitterClient {
       let had404 = false;
       const queryId = await this.getQueryId("BookmarkFoldersSlice");
 
-      const url = `${TWITTER_API_BASE}/${queryId}/BookmarkFoldersSlice?${params.toString()}`;
+      const url = `${X_API_BASE}/${queryId}/BookmarkFoldersSlice?${params.toString()}`;
 
       try {
         const response = await this.fetchWithTimeout(url, {
@@ -3850,7 +3846,7 @@ export class TwitterClient {
   /**
    * Execute a simple action mutation (like, bookmark, etc.)
    * These mutations take only a tweet_id and return a simple success/error response.
-   * Note: No features object - Twitter's action mutations only need variables and queryId.
+   * Note: No features object - X's action mutations only need variables and queryId.
    */
   private async executeActionMutation(
     operationName: OperationName,
@@ -3945,7 +3941,7 @@ export type {
   TimelineResult,
   TweetData,
   TweetResult,
-  TwitterClientOptions,
+  XClientOptions,
   UploadMediaResult,
   UserProfileData,
   UserProfileResult,

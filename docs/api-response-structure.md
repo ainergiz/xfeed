@@ -1,10 +1,10 @@
-# Twitter GraphQL API Response Structure
+# X GraphQL API Response Structure
 
-> **Note**: Twitter's GraphQL API is undocumented and unofficial. This documentation is based on reverse-engineering from the [steipete/bird](https://github.com/steipete/bird) project and observing real API responses.
+> **Note**: X's GraphQL API is undocumented and unofficial. This documentation is based on reverse-engineering from the [steipete/bird](https://github.com/steipete/bird) project and observing real API responses.
 
 ## Overview
 
-Twitter's web client uses an internal GraphQL API at `https://x.com/i/api/graphql/{queryId}/{operationName}`. Query IDs rotate periodically, requiring runtime refresh logic.
+X's web client uses an internal GraphQL API at `https://x.com/i/api/graphql/{queryId}/{operationName}`. Query IDs rotate periodically, requiring runtime refresh logic.
 
 ## Tweet Response Structure
 
@@ -150,7 +150,7 @@ The `quoteDepth` option controls parsing depth:
 
 ### Visibility Wrapper
 
-Sometimes Twitter wraps tweets in a visibility container:
+Sometimes X wraps tweets in a visibility container:
 
 ```json
 {

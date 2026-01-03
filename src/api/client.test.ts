@@ -1,6 +1,6 @@
 // @ts-nocheck - Test file with complex mocking that conflicts with Bun's strict fetch types
 /**
- * Unit tests for TwitterClient
+ * Unit tests for XClient
  * Tests all public methods and edge cases for 100% coverage
  */
 
@@ -17,7 +17,7 @@ import {
   type Mock,
 } from "bun:test";
 
-import { TwitterClient } from "./client";
+import { XClient } from "./client";
 import { runtimeQueryIds } from "./query-ids";
 
 // Mock runtimeQueryIds
@@ -59,7 +59,7 @@ const validCookies = {
   source: "test",
 };
 
-describe("TwitterClient", () => {
+describe("XClient", () => {
   beforeAll(() => {
     // Create spies once for the entire test suite
     getQueryIdSpy = spyOn(runtimeQueryIds, "getQueryId").mockImplementation(
@@ -105,7 +105,7 @@ describe("TwitterClient", () => {
   describe("constructor", () => {
     it("throws if authToken is missing", () => {
       expect(() => {
-        new TwitterClient({
+        new XClient({
           cookies: {
             authToken: null,
             ct0: "test",
@@ -118,7 +118,7 @@ describe("TwitterClient", () => {
 
     it("throws if ct0 is missing", () => {
       expect(() => {
-        new TwitterClient({
+        new XClient({
           cookies: {
             authToken: "test",
             ct0: null,
@@ -130,12 +130,12 @@ describe("TwitterClient", () => {
     });
 
     it("creates client with valid cookies", () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       expect(client).toBeDefined();
     });
 
     it("uses provided userAgent", () => {
-      const client = new TwitterClient({
+      const client = new XClient({
         cookies: validCookies,
         userAgent: "CustomAgent/1.0",
       });
@@ -143,7 +143,7 @@ describe("TwitterClient", () => {
     });
 
     it("uses provided timeoutMs", () => {
-      const client = new TwitterClient({
+      const client = new XClient({
         cookies: validCookies,
         timeoutMs: 5000,
       });
@@ -151,7 +151,7 @@ describe("TwitterClient", () => {
     });
 
     it("builds cookieHeader from authToken and ct0 if not provided", () => {
-      const client = new TwitterClient({
+      const client = new XClient({
         cookies: {
           authToken: "abc",
           ct0: "xyz",
@@ -165,7 +165,7 @@ describe("TwitterClient", () => {
 
   describe("getTweet", () => {
     it("returns tweet on success", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       const tweetResponse = {
         data: {
           tweetResult: {
@@ -209,7 +209,7 @@ describe("TwitterClient", () => {
     });
 
     it("finds tweet in instructions if not in tweetResult", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       const tweetResponse = {
         data: {
           threaded_conversation_with_injections_v2: {
@@ -257,7 +257,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error on HTTP failure", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(mockResponse("Not found", { status: 500, ok: false }))
       );
@@ -270,7 +270,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error on GraphQL errors", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -284,7 +284,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error if tweet not found in response", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(mockResponse({ data: {} }))
       );
@@ -297,7 +297,7 @@ describe("TwitterClient", () => {
     });
 
     it("handles fetch exception", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() => Promise.reject(new Error("Network error")));
 
       const result = await client.getTweet("123456");
@@ -308,7 +308,7 @@ describe("TwitterClient", () => {
     });
 
     it("retries with refreshed query IDs on 404", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
 
       // All calls return 404 to test the failure case
       globalThis.fetch = mock(() =>
@@ -323,7 +323,7 @@ describe("TwitterClient", () => {
     });
 
     it("extracts article text when present", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       const tweetResponse = {
         data: {
           tweetResult: {
@@ -363,7 +363,7 @@ describe("TwitterClient", () => {
     });
 
     it("extracts note tweet text when present", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       const tweetResponse = {
         data: {
           tweetResult: {
@@ -401,7 +401,7 @@ describe("TwitterClient", () => {
     });
 
     it("handles article with title only, fetches from UserArticlesTweets", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let callCount = 0;
 
       globalThis.fetch = mock(() => {
@@ -489,7 +489,7 @@ describe("TwitterClient", () => {
 
     it("handles debug article logging", async () => {
       process.env.XFEED_DEBUG_ARTICLE = "1";
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       const tweetResponse = {
         data: {
           tweetResult: {
@@ -522,7 +522,7 @@ describe("TwitterClient", () => {
 
   describe("tweet", () => {
     it("posts tweet successfully", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -545,7 +545,7 @@ describe("TwitterClient", () => {
     });
 
     it("posts tweet with media IDs", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -568,7 +568,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error on HTTP failure", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(mockResponse("Error", { status: 403, ok: false }))
       );
@@ -578,7 +578,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error on GraphQL errors", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -596,7 +596,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error if no tweet ID returned", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -613,7 +613,7 @@ describe("TwitterClient", () => {
     });
 
     it("retries on 404 and succeeds", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let callCount = 0;
 
       globalThis.fetch = mock(() => {
@@ -641,7 +641,7 @@ describe("TwitterClient", () => {
     });
 
     it("falls back to status update on error 226", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let callCount = 0;
 
       globalThis.fetch = mock(() => {
@@ -669,7 +669,7 @@ describe("TwitterClient", () => {
     });
 
     it("handles fetch exception", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.reject(new Error("Connection refused"))
       );
@@ -684,7 +684,7 @@ describe("TwitterClient", () => {
 
   describe("reply", () => {
     it("posts reply successfully", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -710,7 +710,7 @@ describe("TwitterClient", () => {
     });
 
     it("posts reply with media", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -734,7 +734,7 @@ describe("TwitterClient", () => {
 
   describe("search", () => {
     it("returns search results on success", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -787,7 +787,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error on HTTP failure", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(mockResponse("Error", { status: 500, ok: false }))
       );
@@ -797,7 +797,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error on GraphQL errors", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -811,7 +811,7 @@ describe("TwitterClient", () => {
     });
 
     it("retries on 404", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
 
       // All calls return 404 to test failure case
       globalThis.fetch = mock(() =>
@@ -826,7 +826,7 @@ describe("TwitterClient", () => {
     });
 
     it("handles fetch exception", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.reject(new Error("Network timeout"))
       );
@@ -836,7 +836,7 @@ describe("TwitterClient", () => {
     });
 
     it("uses custom count parameter", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -858,7 +858,7 @@ describe("TwitterClient", () => {
 
   describe("getCurrentUser", () => {
     it("returns user from settings endpoint", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -878,7 +878,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns user from verify_credentials endpoint", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let callCount = 0;
 
       globalThis.fetch = mock(() => {
@@ -902,7 +902,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns user with nested user object", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -923,7 +923,7 @@ describe("TwitterClient", () => {
     });
 
     it("falls back to settings page HTML parsing", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let callCount = 0;
 
       globalThis.fetch = mock(() => {
@@ -949,7 +949,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error when all endpoints fail", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(mockResponse("Error", { status: 401, ok: false }))
       );
@@ -959,7 +959,7 @@ describe("TwitterClient", () => {
     });
 
     it("handles JSON parse error gracefully", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let callCount = 0;
 
       globalThis.fetch = mock(() => {
@@ -985,7 +985,7 @@ describe("TwitterClient", () => {
     });
 
     it("handles fetch exception", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() => Promise.reject(new Error("Network error")));
 
       const result = await client.getCurrentUser();
@@ -995,7 +995,7 @@ describe("TwitterClient", () => {
 
   describe("getReplies", () => {
     it("returns replies to a tweet", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -1047,7 +1047,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error on failure", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(mockResponse("Error", { status: 500, ok: false }))
       );
@@ -1059,7 +1059,7 @@ describe("TwitterClient", () => {
 
   describe("getThread", () => {
     it("returns full thread sorted by time", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -1141,7 +1141,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error on failure", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(mockResponse("Error", { status: 500, ok: false }))
       );
@@ -1153,7 +1153,7 @@ describe("TwitterClient", () => {
 
   describe("getBookmarks", () => {
     it("returns bookmarks on success", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -1204,7 +1204,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error on HTTP failure", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(mockResponse("Error", { status: 500, ok: false }))
       );
@@ -1214,7 +1214,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error on GraphQL errors", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -1228,7 +1228,7 @@ describe("TwitterClient", () => {
     });
 
     it("retries on 404", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
 
       // All calls return 404 to test failure case
       globalThis.fetch = mock(() =>
@@ -1243,7 +1243,7 @@ describe("TwitterClient", () => {
     });
 
     it("uses custom count parameter", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -1261,7 +1261,7 @@ describe("TwitterClient", () => {
     });
 
     it("handles fetch exception", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() => Promise.reject(new Error("Timeout")));
 
       const result = await client.getBookmarks();
@@ -1269,7 +1269,7 @@ describe("TwitterClient", () => {
     });
 
     it("accepts cursor parameter for pagination", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let capturedUrl = "";
       globalThis.fetch = mock((url: string) => {
         capturedUrl = url;
@@ -1290,7 +1290,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns nextCursor from response", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -1325,7 +1325,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns undefined nextCursor when no cursor in response", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -1348,7 +1348,7 @@ describe("TwitterClient", () => {
 
   describe("getHomeTimeline", () => {
     it("returns home timeline on success", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -1399,7 +1399,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error on HTTP failure", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(mockResponse("Error", { status: 500, ok: false }))
       );
@@ -1409,7 +1409,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error on GraphQL errors", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -1423,7 +1423,7 @@ describe("TwitterClient", () => {
     });
 
     it("handles fetch exception", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() => Promise.reject(new Error("Network error")));
 
       const result = await client.getHomeTimeline();
@@ -1431,7 +1431,7 @@ describe("TwitterClient", () => {
     });
 
     it("uses custom count parameter", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -1449,7 +1449,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns nextCursor from response", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -1508,7 +1508,7 @@ describe("TwitterClient", () => {
     });
 
     it("extracts cursor from TimelineReplaceEntry instruction", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -1571,7 +1571,7 @@ describe("TwitterClient", () => {
     });
 
     it("accepts cursor parameter for pagination", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let capturedUrl = "";
       globalThis.fetch = mock((url: string) => {
         capturedUrl = url;
@@ -1592,7 +1592,7 @@ describe("TwitterClient", () => {
     });
 
     it("retries on 404 and succeeds", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let callCount = 0;
 
       globalThis.fetch = mock(() => {
@@ -1648,7 +1648,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error after all query IDs return 404", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
 
       globalThis.fetch = mock(() =>
         Promise.resolve(mockResponse("Not found", { status: 404, ok: false }))
@@ -1664,7 +1664,7 @@ describe("TwitterClient", () => {
 
   describe("getHomeLatestTimeline", () => {
     it("returns latest timeline on success", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -1717,7 +1717,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error on HTTP failure", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(mockResponse("Error", { status: 500, ok: false }))
       );
@@ -1727,7 +1727,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error on GraphQL errors", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -1741,7 +1741,7 @@ describe("TwitterClient", () => {
     });
 
     it("handles fetch exception", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.reject(new Error("Connection error"))
       );
@@ -1751,7 +1751,7 @@ describe("TwitterClient", () => {
     });
 
     it("uses custom count parameter", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -1769,7 +1769,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns nextCursor from response", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -1828,7 +1828,7 @@ describe("TwitterClient", () => {
     });
 
     it("accepts cursor parameter for pagination", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let capturedUrl = "";
       globalThis.fetch = mock((url: string) => {
         capturedUrl = url;
@@ -1849,7 +1849,7 @@ describe("TwitterClient", () => {
     });
 
     it("retries on 404 and succeeds", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let callCount = 0;
 
       // HomeLatestTimeline has only 1 unique query ID in tests (fallback == primary)
@@ -1907,7 +1907,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error after all query IDs return 404", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
 
       globalThis.fetch = mock(() =>
         Promise.resolve(mockResponse("Not found", { status: 404, ok: false }))
@@ -1923,7 +1923,7 @@ describe("TwitterClient", () => {
 
   describe("uploadMedia", () => {
     it("uploads image successfully", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let callCount = 0;
 
       globalThis.fetch = mock(() => {
@@ -1953,7 +1953,7 @@ describe("TwitterClient", () => {
     });
 
     it("uploads GIF successfully", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(mockResponse({ media_id_string: "gif-123" }))
       );
@@ -1966,7 +1966,7 @@ describe("TwitterClient", () => {
     });
 
     it("uploads video successfully", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let callCount = 0;
 
       globalThis.fetch = mock(() => {
@@ -1998,7 +1998,7 @@ describe("TwitterClient", () => {
     });
 
     it("polls for video processing when state is pending", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let callCount = 0;
 
       globalThis.fetch = mock(() => {
@@ -2040,7 +2040,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error for unsupported media type", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
 
       const result = await client.uploadMedia({
         data: new Uint8Array([1, 2, 3]),
@@ -2051,7 +2051,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error on INIT failure", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(mockResponse("Error", { status: 400, ok: false }))
       );
@@ -2065,7 +2065,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error if INIT returns no media_id", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() => Promise.resolve(mockResponse({})));
 
       const result = await client.uploadMedia({
@@ -2077,7 +2077,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error on APPEND failure", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let callCount = 0;
 
       globalThis.fetch = mock(() => {
@@ -2100,7 +2100,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error on FINALIZE failure", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let callCount = 0;
 
       globalThis.fetch = mock(() => {
@@ -2126,7 +2126,7 @@ describe("TwitterClient", () => {
     });
 
     it("handles processing failure state", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let callCount = 0;
 
       globalThis.fetch = mock(() => {
@@ -2158,7 +2158,7 @@ describe("TwitterClient", () => {
     });
 
     it("adds alt text for images", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let callCount = 0;
 
       globalThis.fetch = mock(() => {
@@ -2181,7 +2181,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error on alt text failure", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let callCount = 0;
 
       globalThis.fetch = mock(() => {
@@ -2205,7 +2205,7 @@ describe("TwitterClient", () => {
     });
 
     it("handles fetch exception", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() => Promise.reject(new Error("Upload failed")));
 
       const result = await client.uploadMedia({
@@ -2217,7 +2217,7 @@ describe("TwitterClient", () => {
     });
 
     it("handles chunked upload for large files", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       const largeData = new Uint8Array(10 * 1024 * 1024); // 10MB
       let appendCount = 0;
 
@@ -2250,7 +2250,7 @@ describe("TwitterClient", () => {
     });
 
     it("uses media_id when media_id_string is missing", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let callCount = 0;
 
       globalThis.fetch = mock(() => {
@@ -2272,7 +2272,7 @@ describe("TwitterClient", () => {
 
   describe("timeout handling", () => {
     it("respects timeout setting", async () => {
-      const client = new TwitterClient({
+      const client = new XClient({
         cookies: validCookies,
         timeoutMs: 100,
       });
@@ -2290,7 +2290,7 @@ describe("TwitterClient", () => {
     });
 
     it("does not use timeout when set to 0", async () => {
-      const client = new TwitterClient({
+      const client = new XClient({
         cookies: validCookies,
         timeoutMs: 0,
       });
@@ -2306,7 +2306,7 @@ describe("TwitterClient", () => {
 
   describe("tweet result parsing edge cases", () => {
     it("handles tweet with core.screen_name instead of legacy.screen_name", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -2341,7 +2341,7 @@ describe("TwitterClient", () => {
     });
 
     it("handles tweet with missing text fields gracefully", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -2370,7 +2370,7 @@ describe("TwitterClient", () => {
     });
 
     it("handles items array in instructions via getThread", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -2430,7 +2430,7 @@ describe("TwitterClient", () => {
     });
 
     it("deduplicates tweets by ID", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -2506,7 +2506,7 @@ describe("TwitterClient", () => {
     });
 
     it("extracts favorited and bookmarked state from legacy", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -2543,7 +2543,7 @@ describe("TwitterClient", () => {
     });
 
     it("defaults favorited and bookmarked to false when missing", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -2578,7 +2578,7 @@ describe("TwitterClient", () => {
     });
 
     it("extracts partial interaction state (only favorited)", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -2616,7 +2616,7 @@ describe("TwitterClient", () => {
 
   describe("article text extraction edge cases", () => {
     it("extracts text from richtext field", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -2654,7 +2654,7 @@ describe("TwitterClient", () => {
     });
 
     it("extracts text from content.richtext field", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -2694,7 +2694,7 @@ describe("TwitterClient", () => {
     });
 
     it("collects text fields from nested article structure", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -2737,7 +2737,7 @@ describe("TwitterClient", () => {
 
   describe("status update fallback", () => {
     it("handles fallback with reply", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let callCount = 0;
 
       globalThis.fetch = mock(() => {
@@ -2757,7 +2757,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns combined error when fallback also fails", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let callCount = 0;
 
       globalThis.fetch = mock(() => {
@@ -2785,7 +2785,7 @@ describe("TwitterClient", () => {
     });
 
     it("handles fallback HTTP error", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let callCount = 0;
 
       globalThis.fetch = mock(() => {
@@ -2807,7 +2807,7 @@ describe("TwitterClient", () => {
     });
 
     it("handles fallback with media IDs", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let callCount = 0;
 
       globalThis.fetch = mock(() => {
@@ -2830,7 +2830,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns null from status update parsing if no text", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -2848,7 +2848,7 @@ describe("TwitterClient", () => {
 
   describe("URL extraction edge cases", () => {
     it("handles tweets with undefined expanded_url in entities", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -2890,7 +2890,7 @@ describe("TwitterClient", () => {
     });
 
     it("filters out urls with undefined expanded_url in timeline", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -2962,7 +2962,7 @@ describe("TwitterClient", () => {
     });
 
     it("handles media urls with undefined expanded_url", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -3026,7 +3026,7 @@ describe("TwitterClient", () => {
 
   describe("getNotifications", () => {
     it("returns notifications on success", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -3081,7 +3081,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error on HTTP failure", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(mockResponse("Error", { status: 500, ok: false }))
       );
@@ -3094,7 +3094,7 @@ describe("TwitterClient", () => {
     });
 
     it("returns error on GraphQL errors", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -3111,7 +3111,7 @@ describe("TwitterClient", () => {
     });
 
     it("retries on 404", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(mockResponse("Not found", { status: 404, ok: false }))
       );
@@ -3124,7 +3124,7 @@ describe("TwitterClient", () => {
     });
 
     it("uses custom count parameter", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       let capturedUrl = "";
       globalThis.fetch = mock((url: string) => {
         capturedUrl = url;
@@ -3151,7 +3151,7 @@ describe("TwitterClient", () => {
     });
 
     it("handles fetch exception", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.reject(new Error("Network timeout"))
       );
@@ -3164,7 +3164,7 @@ describe("TwitterClient", () => {
     });
 
     it("extracts unread sort index from instructions", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -3217,7 +3217,7 @@ describe("TwitterClient", () => {
     });
 
     it("extracts cursors from entries", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -3265,7 +3265,7 @@ describe("TwitterClient", () => {
     });
 
     it("handles empty instructions", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -3294,7 +3294,7 @@ describe("TwitterClient", () => {
     });
 
     it("handles undefined instructions", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({
@@ -3321,7 +3321,7 @@ describe("TwitterClient", () => {
     });
 
     it("uses fallback icon for unknown notification type", async () => {
-      const client = new TwitterClient({ cookies: validCookies });
+      const client = new XClient({ cookies: validCookies });
       globalThis.fetch = mock(() =>
         Promise.resolve(
           mockResponse({

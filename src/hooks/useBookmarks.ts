@@ -5,11 +5,11 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 
-import type { TwitterClient } from "@/api/client";
+import type { XClient } from "@/api/client";
 import type { ApiError, TweetData } from "@/api/types";
 
 export interface UseBookmarksOptions {
-  client: TwitterClient;
+  client: XClient;
 }
 
 export interface UseBookmarksResult {

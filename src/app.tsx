@@ -1,7 +1,7 @@
 import { useKeyboard, useRenderer } from "@opentui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { TwitterClient } from "@/api/client";
+import type { XClient } from "@/api/client";
 import type { NotificationData, TweetData, UserData } from "@/api/types";
 
 import { ExitConfirmationModal } from "@/components/ExitConfirmationModal";
@@ -33,7 +33,7 @@ export type View =
 const MAIN_VIEWS = ["timeline", "bookmarks", "notifications"] as const;
 
 interface AppProps {
-  client: TwitterClient;
+  client: XClient;
   user: UserData;
 }
 

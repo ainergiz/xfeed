@@ -5,11 +5,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { TwitterClient } from "@/api/client";
+import type { XClient } from "@/api/client";
 import type { ApiError, NotificationData } from "@/api/types";
 
 export interface UseNotificationsOptions {
-  client: TwitterClient;
+  client: XClient;
 }
 
 export interface UseNotificationsResult {

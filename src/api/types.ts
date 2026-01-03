@@ -1,9 +1,9 @@
 /**
- * Twitter API types for xfeed
+ * X API types for xfeed
  * Consolidated from bird reference implementation
  */
 
-import type { TwitterCookies } from "@/auth/cookies";
+import type { XCookies } from "@/auth/cookies";
 
 /**
  * Result of a tweet creation operation
@@ -200,10 +200,10 @@ export interface CurrentUserResult {
 }
 
 /**
- * Options for creating a TwitterClient instance
+ * Options for creating an XClient instance
  */
-export interface TwitterClientOptions {
-  cookies: TwitterCookies;
+export interface XClientOptions {
+  cookies: XCookies;
   userAgent?: string;
   timeoutMs?: number;
   /** Max depth for quoted tweets (0 disables, default: 1) */
@@ -213,7 +213,7 @@ export interface TwitterClientOptions {
 }
 
 /**
- * Internal GraphQL tweet result structure from Twitter API responses
+ * Internal GraphQL tweet result structure from X API responses
  */
 export interface GraphqlTweetResult {
   __typename?: string;
@@ -457,7 +457,7 @@ export type FetchResult<T> =
  * User-friendly error messages for each error type
  */
 export const API_ERROR_MESSAGES: Record<ApiErrorType, string> = {
-  rate_limit: "Rate limited by Twitter. Please wait before trying again.",
+  rate_limit: "Rate limited by X. Please wait before trying again.",
   auth_expired: "Session expired. Please log into x.com and restart xfeed.",
   network_error: "Network error. Check your connection and try again.",
   not_found: "Content not found or has been deleted.",
@@ -480,7 +480,7 @@ export function isAuthError(errorType: ApiErrorType): boolean {
 }
 
 /**
- * Notification icon types from Twitter API
+ * Notification icon types from X API
  */
 export type NotificationIcon =
   | "heart_icon"
@@ -525,7 +525,7 @@ export type NotificationsResult =
   | { success: false; error: ApiError };
 
 /**
- * Internal notification timeline instruction types from Twitter API
+ * Internal notification timeline instruction types from X API
  */
 export interface NotificationInstruction {
   type: string;

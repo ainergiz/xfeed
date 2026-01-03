@@ -12,7 +12,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
-import type { TwitterCookies } from "./cookies";
+import type { XCookies } from "./cookies";
 
 import {
   lastClientOptions,
@@ -27,9 +27,7 @@ const { checkAuth, formatWarnings, getAuthErrorMessage } =
   await import("./check");
 
 // Helper to create valid cookies
-function createValidCookies(
-  overrides: Partial<TwitterCookies> = {}
-): TwitterCookies {
+function createValidCookies(overrides: Partial<XCookies> = {}): XCookies {
   return {
     authToken: "test-auth-token",
     ct0: "test-ct0",
@@ -249,7 +247,7 @@ describe("check", () => {
         });
       });
 
-      it("passes timeoutMs to TwitterClient", async () => {
+      it("passes timeoutMs to XClient", async () => {
         await checkAuth({ timeoutMs: 5000 });
 
         expect(lastClientOptions?.timeoutMs).toBe(5000);

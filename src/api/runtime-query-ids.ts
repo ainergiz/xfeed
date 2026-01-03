@@ -1,8 +1,8 @@
 /**
- * Runtime query ID management for Twitter GraphQL API
+ * Runtime query ID management for X GraphQL API
  * Adapted from bird reference implementation for xfeed
  *
- * Twitter's GraphQL query IDs rotate frequently. This module:
+ * X's GraphQL query IDs rotate frequently. This module:
  * 1. Caches discovered IDs to disk (~/.config/xfeed/query-ids-cache.json)
  * 2. Auto-discovers new IDs by scraping x.com client bundles
  * 3. Falls back to baked-in IDs if discovery fails

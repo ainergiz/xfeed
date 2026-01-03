@@ -7,14 +7,14 @@
  * @experimental
  */
 
-import type { TwitterClient } from "@/api/client";
+import type { XClient } from "@/api/client";
 import type { TweetData } from "@/api/types";
 
 import { ThreadViewPrototype } from "@/components/ThreadView.prototype";
 import { useThread } from "@/hooks/useThread.prototype";
 
 interface ThreadScreenProps {
-  client: TwitterClient;
+  client: XClient;
   tweet: TweetData;
   focused?: boolean;
   onBack?: () => void;

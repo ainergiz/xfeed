@@ -1,19 +1,19 @@
 #!/usr/bin/env bun
 /**
- * Manual test script for the Twitter API client
+ * Manual test script for the X API client
  * Run with: bun scripts/test-api.ts
  *
  * This will:
  * 1. Extract cookies from your browser (Safari/Chrome/Firefox)
- * 2. Create a TwitterClient
+ * 2. Create an XClient
  * 3. Test basic API calls
  */
 
-import { TwitterClient } from "../src/api/client";
+import { XClient } from "../src/api/client";
 import { resolveCredentials } from "../src/auth/cookies";
 
 async function main() {
-  console.log("🔐 Resolving Twitter credentials from browser...\n");
+  console.log("🔐 Resolving X credentials from browser...\n");
 
   const { cookies, warnings } = await resolveCredentials({});
 
@@ -32,7 +32,7 @@ async function main() {
 
   console.log(`✅ Got credentials from: ${cookies.source}\n`);
 
-  const client = new TwitterClient({ cookies });
+  const client = new XClient({ cookies });
 
   // Test 1: Get current user
   console.log("📋 Test 1: getCurrentUser()");

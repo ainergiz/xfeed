@@ -8,7 +8,7 @@ import type { ScrollBoxRenderable } from "@opentui/core";
 import { useKeyboard } from "@opentui/react";
 import { useState, useRef, useEffect, useCallback } from "react";
 
-import type { TwitterClient } from "@/api/client";
+import type { XClient } from "@/api/client";
 import type { TweetData } from "@/api/types";
 
 import { PostCard } from "@/components/PostCard";
@@ -63,8 +63,8 @@ function findChildById(
 const MAX_TRUNCATED_LINES = 10;
 
 interface PostDetailScreenProps {
-  /** Twitter API client for fetching thread data */
-  client: TwitterClient;
+  /** X API client for fetching thread data */
+  client: XClient;
   tweet: TweetData;
   focused?: boolean;
   onBack?: () => void;

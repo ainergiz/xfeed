@@ -44,7 +44,7 @@ export async function promptBrowserSelection(
         "\nNote: macOS will ask for keychain access. Click 'Always Allow' to avoid future prompts.\n"
       );
     }
-    console.log(`Using ${browsers[0].name} for Twitter cookies.\n`);
+    console.log(`Using ${browsers[0].name} for X cookies.\n`);
     return { ok: true, browser: browsers[0].id };
   }
 
@@ -69,7 +69,7 @@ export async function promptBrowserSelection(
       );
     }
 
-    console.log("Select browser to read Twitter cookies from:\n");
+    console.log("Select browser to read X cookies from:\n");
 
     for (let i = 0; i < browsers.length; i++) {
       const browser = browsers[i];

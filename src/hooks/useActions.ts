@@ -6,11 +6,11 @@
 
 import { useState, useCallback } from "react";
 
-import type { TwitterClient } from "@/api/client";
+import type { XClient } from "@/api/client";
 import type { TweetData } from "@/api/types";
 
 export interface UseActionsOptions {
-  client: TwitterClient;
+  client: XClient;
   /** Callback when an action fails - use to show error message */
   onError?: (error: string) => void;
   /** Callback when an action succeeds - use to show success message */

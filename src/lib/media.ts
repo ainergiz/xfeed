@@ -10,7 +10,7 @@ import { join, extname } from "node:path";
 import type { MediaItem, UrlEntity } from "@/api/types";
 
 /**
- * Default headers for fetching media from Twitter CDN
+ * Default headers for fetching media from X CDN
  * Helps avoid 403 errors from hotlinking protection
  */
 const MEDIA_FETCH_HEADERS = {

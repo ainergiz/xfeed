@@ -8,7 +8,7 @@
 import { useKeyboard } from "@opentui/react";
 import { useEffect, useState } from "react";
 
-import type { TwitterClient } from "@/api/client";
+import type { XClient } from "@/api/client";
 import type { TweetData } from "@/api/types";
 
 import { useBookmarkFolders } from "@/hooks/useBookmarkFolders";
@@ -17,7 +17,7 @@ import { useListNavigation } from "@/hooks/useListNavigation";
 const X_BLUE = "#1DA1F2";
 
 interface FolderPickerProps {
-  client: TwitterClient;
+  client: XClient;
   /** The tweet being moved */
   tweet: TweetData;
   /** Called when a folder is selected */
