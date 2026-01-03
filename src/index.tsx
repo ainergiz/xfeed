@@ -5,6 +5,30 @@ import { cac } from "cac";
 
 import type { BrowserId } from "@/config/types";
 
+/**
+ * Check if running in Apple Terminal which has limited color support
+ * Blocks execution since the UI is unusable without true color
+ */
+function checkTerminalCompatibility(): void {
+  const termProgram = process.env.TERM_PROGRAM;
+  const colorterm = process.env.COLORTERM;
+
+  // Apple Terminal doesn't set COLORTERM and has limited true color support
+  if (termProgram === "Apple_Terminal" && colorterm !== "truecolor") {
+    console.error(
+      "\x1b[31m✗ Apple Terminal is not supported.\x1b[0m\n\n" +
+        "  xfeed requires a terminal with true color (24-bit) support.\n" +
+        "  Apple Terminal only supports 256 colors, causing display issues.\n\n" +
+        "  \x1b[1mRecommended terminals:\x1b[0m\n" +
+        "    • Ghostty  - https://ghostty.org\n" +
+        "    • iTerm2   - https://iterm2.com\n" +
+        "    • Kitty    - https://sw.kovidgoyal.net/kitty\n" +
+        "    • Warp     - https://warp.dev\n"
+    );
+    process.exit(1);
+  }
+}
+
 import { App } from "@/app";
 import { detectAvailableBrowsers, isInteractive } from "@/auth/browser-detect";
 import { promptBrowserSelection } from "@/auth/browser-picker";
@@ -50,6 +74,9 @@ cli
       skipValidation?: boolean;
       resetAuth?: boolean;
     }) => {
+      // Check terminal compatibility first
+      checkTerminalCompatibility();
+
       // Handle --reset-auth
       if (options.resetAuth) {
         clearBrowserPreference();
