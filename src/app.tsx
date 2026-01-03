@@ -45,6 +45,7 @@ export function App({ client, user: _user }: AppProps) {
   const [notificationCount, setNotificationCount] = useState(0);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [showFooter, setShowFooter] = useState(true);
 
   // Actions hook for like/bookmark mutations
   const { toggleLike, toggleBookmark, getState, initState } = useActions({
@@ -255,6 +256,11 @@ export function App({ client, user: _user }: AppProps) {
     if (key.name === "n") {
       navigate("notifications");
     }
+
+    // Toggle footer visibility with '?'
+    if (key.sequence === "?") {
+      setShowFooter((prev) => !prev);
+    }
   });
 
   return (
@@ -413,7 +419,7 @@ export function App({ client, user: _user }: AppProps) {
         </box>
       </box>
 
-      {!showSplash && isMainView && <Footer />}
+      {!showSplash && isMainView && showFooter && <Footer />}
     </box>
   );
 }
