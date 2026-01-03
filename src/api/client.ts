@@ -1279,6 +1279,7 @@ export class XClient {
       responsive_web_grok_image_annotation_enabled: true,
       responsive_web_grok_imagine_annotation_enabled: true,
       responsive_web_grok_community_note_auto_translation_is_enabled: false,
+      responsive_web_grok_annotations_enabled: true,
       articles_preview_enabled: true,
       responsive_web_enhance_cards_enabled: false,
     };
@@ -2836,6 +2837,171 @@ export class XClient {
    */
   async getBookmarksV2(count = 20, cursor?: string): Promise<TimelineResultV2> {
     const result = await this.getBookmarks(count, cursor);
+    if (result.success) {
+      return result;
+    }
+    return {
+      success: false,
+      error: this.stringErrorToApiError(result.error ?? "Unknown error"),
+    };
+  }
+
+  private async getBookmarkFolderQueryIds(): Promise<string[]> {
+    const primary = await this.getQueryId("BookmarkFolderTimeline");
+    // Include both known working query IDs as fallbacks
+    return Array.from(
+      new Set([primary, "k1EDbfGbnVjJ6SCvVbT6Og", "KJIQpsvxrTfRIlbaRIySHQ"])
+    );
+  }
+
+  /**
+   * Get bookmarks from a specific folder
+   * Note: Unlike other timeline endpoints, BookmarkFolderTimeline doesn't accept a count parameter
+   * @param folderId The bookmark folder/collection ID
+   * @param _count Unused - kept for API compatibility
+   * @param cursor Pagination cursor from previous response's nextCursor
+   */
+  async getBookmarkFolderTimeline(
+    folderId: string,
+    _count = 20,
+    cursor?: string
+  ): Promise<TimelineResult> {
+    // BookmarkFolderTimeline doesn't accept count parameter (unlike regular bookmarks)
+    const variables: Record<string, unknown> = {
+      bookmark_collection_id: folderId,
+      includePromotedContent: true,
+    };
+
+    if (cursor) {
+      variables.cursor = cursor;
+    }
+
+    const features = this.buildBookmarksFeatures();
+
+    const tryOnce = async () => {
+      let lastError: string | undefined;
+      let had404 = false;
+      const queryIds = await this.getBookmarkFolderQueryIds();
+
+      for (const queryId of queryIds) {
+        const params = new URLSearchParams({
+          variables: JSON.stringify(variables),
+          features: JSON.stringify(features),
+        });
+        const url = `${X_API_BASE}/${queryId}/BookmarkFolderTimeline?${params.toString()}`;
+
+        try {
+          const response = await this.fetchWithTimeout(url, {
+            method: "GET",
+            headers: this.getHeaders(),
+          });
+
+          if (response.status === 404) {
+            had404 = true;
+            lastError = `HTTP ${response.status}`;
+            continue;
+          }
+
+          if (!response.ok) {
+            const text = await response.text();
+            return {
+              success: false as const,
+              error: `HTTP ${response.status}: ${text.slice(0, 200)}`,
+              had404,
+            };
+          }
+
+          const data = (await response.json()) as {
+            data?: {
+              bookmark_collection_timeline?: {
+                timeline?: {
+                  instructions?: Array<{
+                    entries?: Array<{
+                      entryId?: string;
+                      content?: {
+                        value?: string;
+                        cursorType?: string;
+                        itemContent?: {
+                          tweet_results?: {
+                            result?: GraphqlTweetResult;
+                          };
+                        };
+                      };
+                    }>;
+                  }>;
+                };
+              };
+            };
+            errors?: Array<{ message: string }>;
+          };
+
+          if (data.errors && data.errors.length > 0) {
+            return {
+              success: false as const,
+              error: data.errors.map((e) => e.message).join(", "),
+              had404,
+            };
+          }
+
+          const instructions =
+            data.data?.bookmark_collection_timeline?.timeline?.instructions;
+          const tweets = this.parseTweetsFromInstructions(
+            instructions,
+            this.quoteDepth
+          );
+          const nextCursor = this.extractBottomCursor(instructions);
+
+          return { success: true as const, tweets, nextCursor, had404 };
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : String(error);
+        }
+      }
+
+      return {
+        success: false as const,
+        error: lastError ?? "Unknown error fetching bookmark folder",
+        had404,
+      };
+    };
+
+    const firstAttempt = await tryOnce();
+    if (firstAttempt.success) {
+      return {
+        success: true,
+        tweets: firstAttempt.tweets,
+        nextCursor: firstAttempt.nextCursor,
+      };
+    }
+
+    if (firstAttempt.had404) {
+      await this.refreshQueryIds();
+      const secondAttempt = await tryOnce();
+      if (secondAttempt.success) {
+        return {
+          success: true,
+          tweets: secondAttempt.tweets,
+          nextCursor: secondAttempt.nextCursor,
+        };
+      }
+      return { success: false, error: secondAttempt.error };
+    }
+
+    return { success: false, error: firstAttempt.error };
+  }
+
+  /**
+   * Get bookmark folder timeline with typed error handling
+   */
+  async getBookmarkFolderTimelineV2(
+    folderId: string,
+    count = 20,
+    cursor?: string
+  ): Promise<TimelineResultV2> {
+    const result = await this.getBookmarkFolderTimeline(
+      folderId,
+      count,
+      cursor
+    );
     if (result.success) {
       return result;
     }

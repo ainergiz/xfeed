@@ -1,54 +1,78 @@
 /**
- * FolderPicker - Modal component for selecting a bookmark folder
+ * BookmarkFolderSelector - Modal for selecting which bookmark folder to view
  *
- * Displays a list of bookmark folders with vim-style navigation.
- * Used for moving bookmarked tweets into folders.
+ * Displays "All Bookmarks" followed by user's folders with vim-style navigation.
+ * Used for switching between bookmark views.
+ * Structure matches FolderPicker exactly.
  */
 
 import { useKeyboard } from "@opentui/react";
 import { useEffect, useState } from "react";
 
 import type { XClient } from "@/api/client";
-import type { TweetData } from "@/api/types";
+import type { BookmarkFolder } from "@/api/types";
 
 import { useBookmarkFolders } from "@/hooks/useBookmarkFolders";
 import { useListNavigation } from "@/hooks/useListNavigation";
 import { colors } from "@/lib/colors";
 
-interface FolderPickerProps {
+interface BookmarkFolderSelectorProps {
   client: XClient;
-  /** The tweet being moved */
-  tweet: TweetData;
-  /** Called when a folder is selected */
-  onSelect: (folderId: string, folderName: string) => Promise<void>;
+  /** Currently selected folder (null = all bookmarks) */
+  currentFolder?: BookmarkFolder | null;
+  /** Called when a folder is selected (null = all bookmarks) */
+  onSelect: (folder: BookmarkFolder | null) => void;
   /** Called when picker is dismissed (Esc) */
   onClose: () => void;
   /** Whether the picker is focused (should handle keyboard) */
   focused?: boolean;
 }
 
-const MAX_VISIBLE_FOLDERS = 10;
+const MAX_VISIBLE_ITEMS = 10;
 
-export function FolderPicker({
+export function BookmarkFolderSelector({
   client,
-  tweet: _tweet,
+  currentFolder,
   onSelect,
   onClose,
   focused = true,
-}: FolderPickerProps) {
+}: BookmarkFolderSelectorProps) {
   const { folders, loading, error } = useBookmarkFolders({ client });
   const [windowStart, setWindowStart] = useState(0);
 
-  const { selectedIndex } = useListNavigation({
-    itemCount: folders.length,
-    enabled: focused && !loading && folders.length > 0,
-    onSelect: async (index) => {
-      const folder = folders[index];
-      if (folder) {
-        await onSelect(folder.id, folder.name);
+  // Items: "All Bookmarks" (null) + folders
+  // We use null to represent "All Bookmarks", and BookmarkFolder for actual folders
+  const itemCount = folders.length + 1; // +1 for "All Bookmarks"
+
+  // Find initial index for current folder
+  const getInitialIndex = () => {
+    if (!currentFolder) return 0; // "All Bookmarks"
+    const folderIndex = folders.findIndex((f) => f.id === currentFolder.id);
+    return folderIndex >= 0 ? folderIndex + 1 : 0; // +1 because index 0 is "All Bookmarks"
+  };
+
+  const { selectedIndex, setSelectedIndex } = useListNavigation({
+    itemCount,
+    enabled: focused && !loading && itemCount > 0,
+    onSelect: (index) => {
+      if (index === 0) {
+        onSelect(null); // "All Bookmarks"
+      } else {
+        const folder = folders[index - 1];
+        if (folder) {
+          onSelect(folder);
+        }
       }
     },
   });
+
+  // Set initial selection to current folder when folders load
+  useEffect(() => {
+    if (folders.length > 0) {
+      setSelectedIndex(getInitialIndex());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [folders.length > 0]);
 
   useKeyboard((key) => {
     if (!focused) return;
@@ -59,19 +83,16 @@ export function FolderPicker({
 
   // Keep selected item within the visible window
   useEffect(() => {
-    if (folders.length === 0) return;
+    if (itemCount === 0) return;
 
-    const windowEnd = windowStart + MAX_VISIBLE_FOLDERS - 1;
+    const windowEnd = windowStart + MAX_VISIBLE_ITEMS - 1;
 
-    // If selection is below the window, shift window down
     if (selectedIndex > windowEnd) {
-      setWindowStart(selectedIndex - MAX_VISIBLE_FOLDERS + 1);
-    }
-    // If selection is above the window, shift window up
-    else if (selectedIndex < windowStart) {
+      setWindowStart(selectedIndex - MAX_VISIBLE_ITEMS + 1);
+    } else if (selectedIndex < windowStart) {
       setWindowStart(selectedIndex);
     }
-  }, [selectedIndex, windowStart, folders.length]);
+  }, [selectedIndex, windowStart, itemCount]);
 
   // Loading state
   if (loading) {
@@ -102,7 +123,7 @@ export function FolderPicker({
             backgroundColor="#000000"
           >
             <box style={{ paddingBottom: 1 }}>
-              <text fg={colors.primary}>Move to folder</text>
+              <text fg={colors.primary}>Select folder</text>
             </box>
             <text fg={colors.muted}>Loading folders...</text>
             <box style={{ paddingTop: 1 }}>
@@ -144,7 +165,7 @@ export function FolderPicker({
             backgroundColor="#000000"
           >
             <box style={{ paddingBottom: 1 }}>
-              <text fg={colors.primary}>Move to folder</text>
+              <text fg={colors.primary}>Select folder</text>
             </box>
             <text fg={colors.error}>Error: {error}</text>
             <box style={{ paddingTop: 1 }}>
@@ -157,56 +178,19 @@ export function FolderPicker({
     );
   }
 
-  // No folders state
-  if (folders.length === 0) {
-    return (
-      <box
-        style={{
-          flexDirection: "column",
-          height: "100%",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-        backgroundColor="#000000"
-        opacity={0.8}
-      >
-        <box
-          style={{
-            flexDirection: "column",
-            padding: 2,
-            minWidth: 30,
-          }}
-        >
-          <box
-            style={{
-              borderStyle: "rounded",
-              borderColor: "#444444",
-              padding: 1,
-            }}
-            backgroundColor="#000000"
-          >
-            <box style={{ paddingBottom: 1 }}>
-              <text fg={colors.primary}>Move to folder</text>
-            </box>
-            <text fg={colors.muted}>No folders yet.</text>
-            <text fg={colors.dim}>Create folders on x.com</text>
-            <box style={{ paddingTop: 1 }}>
-              <text fg={colors.dim}>Esc</text>
-              <text fg="#444444"> close</text>
-            </box>
-          </box>
-        </box>
-      </box>
-    );
-  }
-
-  // Calculate visible folders window
+  // Calculate visible window
   const hasMoreAbove = windowStart > 0;
-  const hasMoreBelow = windowStart + MAX_VISIBLE_FOLDERS < folders.length;
-  const visibleFolders = folders.slice(
-    windowStart,
-    windowStart + MAX_VISIBLE_FOLDERS
-  );
+  const hasMoreBelow = windowStart + MAX_VISIBLE_ITEMS < itemCount;
+
+  // Build visible items: indices from windowStart to windowStart + MAX_VISIBLE_ITEMS
+  const visibleIndices: number[] = [];
+  for (
+    let i = windowStart;
+    i < Math.min(windowStart + MAX_VISIBLE_ITEMS, itemCount);
+    i++
+  ) {
+    visibleIndices.push(i);
+  }
 
   return (
     <box
@@ -229,7 +213,6 @@ export function FolderPicker({
       >
         <box
           style={{
-            flexDirection: "column",
             borderStyle: "rounded",
             borderColor: "#444444",
             padding: 1,
@@ -237,7 +220,7 @@ export function FolderPicker({
           backgroundColor="#000000"
         >
           <box style={{ paddingBottom: 1, flexDirection: "row" }}>
-            <text fg={colors.primary}>Move to folder</text>
+            <text fg={colors.primary}>Select folder</text>
             <text fg={colors.dim}> ({folders.length} folders)</text>
           </box>
 
@@ -247,14 +230,26 @@ export function FolderPicker({
             </box>
           ) : null}
 
-          {visibleFolders.map((folder, visibleIndex) => {
-            const actualIndex = windowStart + visibleIndex;
-            const isSelected = actualIndex === selectedIndex;
+          {visibleIndices.map((index) => {
+            const isSelected = index === selectedIndex;
+            const isAllBookmarks = index === 0;
+            const folder = isAllBookmarks ? null : folders[index - 1];
+            const label = isAllBookmarks
+              ? "All Bookmarks"
+              : (folder?.name ?? "");
+            const isCurrent = isAllBookmarks
+              ? !currentFolder
+              : folder?.id === currentFolder?.id;
+
             return (
-              <box key={folder.id} style={{ flexDirection: "row" }}>
+              <box
+                key={isAllBookmarks ? "all" : folder?.id}
+                style={{ flexDirection: "row" }}
+              >
                 <text fg={isSelected ? colors.primary : colors.muted}>
                   {isSelected ? "> " : "  "}
-                  {folder.name}
+                  {label}
+                  {isCurrent ? " •" : ""}
                 </text>
               </box>
             );

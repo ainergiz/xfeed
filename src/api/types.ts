@@ -382,6 +382,7 @@ export type OperationName =
   | "SearchTimeline"
   | "UserArticlesTweets"
   | "Bookmarks"
+  | "BookmarkFolderTimeline"
   | "HomeTimeline"
   | "HomeLatestTimeline"
   | "UserByScreenName"

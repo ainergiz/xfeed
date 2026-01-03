@@ -14,6 +14,8 @@ import { usePaginatedData } from "./usePaginatedData";
 
 export interface UseBookmarksOptions {
   client: XClient;
+  /** Optional folder ID to filter bookmarks by a specific folder */
+  folderId?: string | null;
 }
 
 export interface UseBookmarksResult {
@@ -43,11 +45,15 @@ export interface UseBookmarksResult {
 
 export function useBookmarks({
   client,
+  folderId,
 }: UseBookmarksOptions): UseBookmarksResult {
   // Create fetch function that adapts client API to PaginatedFetchResult
+  // Fetches from specific folder if folderId is provided, otherwise fetches all bookmarks
   const fetchFn = useCallback(
     async (cursor?: string): Promise<PaginatedFetchResult<TweetData>> => {
-      const result = await client.getBookmarksV2(30, cursor);
+      const result = folderId
+        ? await client.getBookmarkFolderTimelineV2(folderId, 30, cursor)
+        : await client.getBookmarksV2(30, cursor);
 
       if (result.success) {
         return {
@@ -58,7 +64,7 @@ export function useBookmarks({
       }
       return { success: false, error: result.error };
     },
-    [client]
+    [client, folderId]
   );
 
   const getId = useCallback((tweet: TweetData) => tweet.id, []);
@@ -78,6 +84,8 @@ export function useBookmarks({
   } = usePaginatedData({
     fetchFn,
     getId,
+    // Re-fetch when folderId changes
+    deps: [folderId],
   });
 
   const removePost = useCallback(
