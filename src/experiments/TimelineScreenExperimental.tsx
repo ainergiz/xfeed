@@ -15,6 +15,7 @@ import type { TweetActionState } from "@/hooks/useActions";
 
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { PostList } from "@/components/PostList";
+import { usePreferences } from "@/contexts/PreferencesContext";
 import { colors } from "@/lib/colors";
 
 import { type TimelineTab, useTimelineQuery } from "./use-timeline-query";
@@ -107,6 +108,8 @@ export function TimelineScreenExperimental({
   getActionState,
   initActionState,
 }: TimelineScreenExperimentalProps) {
+  const { preferences } = usePreferences();
+
   const {
     tab,
     setTab,
@@ -121,6 +124,7 @@ export function TimelineScreenExperimental({
     isRefetching,
   } = useTimelineQuery({
     client,
+    initialTab: preferences.timeline.default_tab,
   });
 
   // Report post count to parent
