@@ -39,8 +39,5 @@
   "files": [
     "src",
     "vendor"
-  ],
-  "bundledDependencies": [
-    "@steipete/sweet-cookie"
   ]
 }
