@@ -10,6 +10,8 @@ import type {
   ActionResult,
   ApiError,
   ApiErrorType,
+  BookmarkFolder,
+  BookmarkFolderMutationResult,
   CreateTweetResponse,
   CurrentUserResult,
   GetTweetResult,
@@ -4310,6 +4312,280 @@ export class XClient {
       const secondAttempt = await tryOnce();
       if (secondAttempt.success) {
         return { success: true };
+      }
+      return { success: false, error: secondAttempt.error ?? "Unknown error" };
+    }
+
+    return { success: false, error: firstAttempt.error ?? "Unknown error" };
+  }
+
+  /**
+   * Create a new bookmark folder
+   * @param name The name for the new folder (max 25 characters)
+   */
+  async createBookmarkFolder(
+    name: string
+  ): Promise<BookmarkFolderMutationResult> {
+    await this.ensureClientUserId();
+
+    const variables = { name };
+
+    const tryOnce = async (): Promise<
+      BookmarkFolderMutationResult & { had404?: boolean }
+    > => {
+      const queryId = await this.getQueryId("createBookmarkFolder");
+      const path = `/i/api/graphql/${queryId}/createBookmarkFolder`;
+      const url = `https://x.com${path}`;
+
+      const transactionId = await this.generateTransactionId("POST", path);
+
+      try {
+        const headers = {
+          ...this.getHeaders(),
+          "x-client-transaction-id": transactionId,
+        };
+
+        const response = await this.fetchWithTimeout(url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ variables, queryId }),
+        });
+
+        if (response.status === 404) {
+          return { success: false, error: "HTTP 404", had404: true };
+        }
+
+        if (!response.ok) {
+          const text = await response.text();
+          return {
+            success: false,
+            error: `HTTP ${response.status}: ${text.slice(0, 200)}`,
+          };
+        }
+
+        const data = (await response.json()) as {
+          data?: {
+            bookmark_collection_create?: {
+              id?: string;
+              name?: string;
+            };
+          };
+          errors?: Array<{ message: string; code?: number }>;
+        };
+
+        if (data.errors && data.errors.length > 0) {
+          return {
+            success: false,
+            error: data.errors.map((e) => e.message).join(", "),
+          };
+        }
+
+        const created = data.data?.bookmark_collection_create;
+        if (created?.id && created?.name) {
+          return {
+            success: true,
+            folder: { id: created.id, name: created.name },
+          };
+        }
+
+        return { success: false, error: "Invalid response structure" };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    };
+
+    const firstAttempt = await tryOnce();
+    if (firstAttempt.success) {
+      return { success: true, folder: firstAttempt.folder };
+    }
+
+    if (firstAttempt.had404) {
+      await this.refreshQueryIds();
+      const secondAttempt = await tryOnce();
+      if (secondAttempt.success) {
+        return { success: true, folder: secondAttempt.folder };
+      }
+      return { success: false, error: secondAttempt.error ?? "Unknown error" };
+    }
+
+    return { success: false, error: firstAttempt.error ?? "Unknown error" };
+  }
+
+  /**
+   * Delete a bookmark folder
+   * @param folderId The ID of the folder to delete (bookmark_collection_id)
+   */
+  async deleteBookmarkFolder(folderId: string): Promise<ActionResult> {
+    await this.ensureClientUserId();
+
+    const variables = { bookmark_collection_id: folderId };
+
+    const tryOnce = async (): Promise<ActionResult & { had404?: boolean }> => {
+      const queryId = await this.getQueryId("DeleteBookmarkFolder");
+      const path = `/i/api/graphql/${queryId}/DeleteBookmarkFolder`;
+      const url = `https://x.com${path}`;
+
+      const transactionId = await this.generateTransactionId("POST", path);
+
+      try {
+        const headers = {
+          ...this.getHeaders(),
+          "x-client-transaction-id": transactionId,
+        };
+
+        const response = await this.fetchWithTimeout(url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ variables, queryId }),
+        });
+
+        if (response.status === 404) {
+          return { success: false, error: "HTTP 404", had404: true };
+        }
+
+        if (!response.ok) {
+          const text = await response.text();
+          return {
+            success: false,
+            error: `HTTP ${response.status}: ${text.slice(0, 200)}`,
+          };
+        }
+
+        const data = (await response.json()) as {
+          data?: { bookmark_collection_delete?: string };
+          errors?: Array<{ message: string; code?: number }>;
+        };
+
+        if (data.errors && data.errors.length > 0) {
+          return {
+            success: false,
+            error: data.errors.map((e) => e.message).join(", "),
+          };
+        }
+
+        if (data.data?.bookmark_collection_delete === "Done") {
+          return { success: true };
+        }
+
+        return { success: false, error: "Delete operation failed" };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    };
+
+    const firstAttempt = await tryOnce();
+    if (firstAttempt.success) {
+      return { success: true };
+    }
+
+    if (firstAttempt.had404) {
+      await this.refreshQueryIds();
+      const secondAttempt = await tryOnce();
+      if (secondAttempt.success) {
+        return { success: true };
+      }
+      return { success: false, error: secondAttempt.error ?? "Unknown error" };
+    }
+
+    return { success: false, error: firstAttempt.error ?? "Unknown error" };
+  }
+
+  /**
+   * Edit a bookmark folder's name
+   * @param folderId The ID of the folder to edit (bookmark_collection_id)
+   * @param name The new name for the folder (max 25 characters)
+   */
+  async editBookmarkFolder(
+    folderId: string,
+    name: string
+  ): Promise<BookmarkFolderMutationResult> {
+    await this.ensureClientUserId();
+
+    const variables = { bookmark_collection_id: folderId, name };
+
+    const tryOnce = async (): Promise<
+      BookmarkFolderMutationResult & { had404?: boolean }
+    > => {
+      const queryId = await this.getQueryId("EditBookmarkFolder");
+      const path = `/i/api/graphql/${queryId}/EditBookmarkFolder`;
+      const url = `https://x.com${path}`;
+
+      const transactionId = await this.generateTransactionId("POST", path);
+
+      try {
+        const headers = {
+          ...this.getHeaders(),
+          "x-client-transaction-id": transactionId,
+        };
+
+        const response = await this.fetchWithTimeout(url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ variables, queryId }),
+        });
+
+        if (response.status === 404) {
+          return { success: false, error: "HTTP 404", had404: true };
+        }
+
+        if (!response.ok) {
+          const text = await response.text();
+          return {
+            success: false,
+            error: `HTTP ${response.status}: ${text.slice(0, 200)}`,
+          };
+        }
+
+        const data = (await response.json()) as {
+          data?: {
+            bookmark_collection_update?: {
+              id?: string;
+              name?: string;
+            };
+          };
+          errors?: Array<{ message: string; code?: number }>;
+        };
+
+        if (data.errors && data.errors.length > 0) {
+          return {
+            success: false,
+            error: data.errors.map((e) => e.message).join(", "),
+          };
+        }
+
+        const updated = data.data?.bookmark_collection_update;
+        if (updated?.id && updated?.name) {
+          return {
+            success: true,
+            folder: { id: updated.id, name: updated.name },
+          };
+        }
+
+        return { success: false, error: "Invalid response structure" };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    };
+
+    const firstAttempt = await tryOnce();
+    if (firstAttempt.success) {
+      return { success: true, folder: firstAttempt.folder };
+    }
+
+    if (firstAttempt.had404) {
+      await this.refreshQueryIds();
+      const secondAttempt = await tryOnce();
+      if (secondAttempt.success) {
+        return { success: true, folder: secondAttempt.folder };
       }
       return { success: false, error: secondAttempt.error ?? "Unknown error" };
     }

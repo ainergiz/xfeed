@@ -38,13 +38,21 @@ interface BookmarksScreenProps {
     liked: boolean,
     bookmarked: boolean
   ) => void;
+  /** Called when user presses 'c' to create a new folder */
+  onCreateFolder?: () => void;
+  /** Called when user presses 'e' to edit current folder (only when in a folder) */
+  onEditFolder?: () => void;
+  /** Called when user presses 'D' to delete current folder (only when in a folder) */
+  onDeleteFolder?: () => void;
 }
 
 interface ScreenHeaderProps {
   folderName?: string | null;
+  /** Whether currently viewing a specific folder (enables edit/delete hints) */
+  inFolder?: boolean;
 }
 
-function ScreenHeader({ folderName }: ScreenHeaderProps) {
+function ScreenHeader({ folderName, inFolder }: ScreenHeaderProps) {
   const title = folderName ?? "All Bookmarks";
   return (
     <box
@@ -59,7 +67,10 @@ function ScreenHeader({ folderName }: ScreenHeaderProps) {
       <text fg={colors.primary}>
         <b>{title}</b>
       </text>
-      <text fg={colors.dim}> (f to switch folders)</text>
+      <text fg={colors.dim}>
+        {" "}
+        (f folders, c new{inFolder ? ", e rename, D delete" : ""})
+      </text>
     </box>
   );
 }
@@ -76,6 +87,9 @@ export function BookmarksScreen({
   onBookmark,
   getActionState,
   initActionState,
+  onCreateFolder,
+  onEditFolder,
+  onDeleteFolder,
 }: BookmarksScreenProps) {
   const {
     posts,
@@ -109,14 +123,30 @@ export function BookmarksScreen({
     if (key.name === "f") {
       onFolderPickerOpen?.();
     }
+
+    // Create new folder with 'c'
+    if (key.name === "c") {
+      onCreateFolder?.();
+    }
+
+    // Edit current folder with 'e' (only when in a folder)
+    if (key.name === "e" && selectedFolder) {
+      onEditFolder?.();
+    }
+
+    // Delete current folder with 'D' (shift+d, only when in a folder)
+    if (key.sequence === "D" && selectedFolder) {
+      onDeleteFolder?.();
+    }
   });
 
   const folderName = selectedFolder?.name ?? null;
+  const inFolder = !!selectedFolder;
 
   if (isLoading) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        <ScreenHeader folderName={folderName} />
+        <ScreenHeader folderName={folderName} inFolder={inFolder} />
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg={colors.muted}>Loading bookmarks...</text>
         </box>
@@ -127,7 +157,7 @@ export function BookmarksScreen({
   if (error) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        <ScreenHeader folderName={folderName} />
+        <ScreenHeader folderName={folderName} inFolder={inFolder} />
         <ErrorBanner error={error} onRetry={refresh} retryDisabled={false} />
       </box>
     );
@@ -136,7 +166,7 @@ export function BookmarksScreen({
   if (posts.length === 0) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        <ScreenHeader folderName={folderName} />
+        <ScreenHeader folderName={folderName} inFolder={inFolder} />
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg={colors.muted}>
             {selectedFolder
@@ -150,7 +180,7 @@ export function BookmarksScreen({
 
   return (
     <box style={{ flexDirection: "column", height: "100%" }}>
-      <ScreenHeader folderName={folderName} />
+      <ScreenHeader folderName={folderName} inFolder={inFolder} />
       <PostList
         posts={posts}
         focused={focused}
