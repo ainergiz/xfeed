@@ -17,7 +17,12 @@ import { QuotedPostCard } from "@/components/QuotedPostCard";
 import { usePostDetailQuery } from "@/experiments/use-post-detail-query";
 import { useListNavigation } from "@/hooks/useListNavigation";
 import { colors } from "@/lib/colors";
-import { formatCount, truncateText } from "@/lib/format";
+import {
+  formatCount,
+  isLineTruncated,
+  truncateLines,
+  truncateText,
+} from "@/lib/format";
 import {
   previewAllMedia,
   downloadAllMedia,
@@ -127,14 +132,6 @@ function formatFullTimestamp(dateString?: string): string {
   return `${dateStr} · ${timeStr}`;
 }
 
-/**
- * Check if text needs truncation
- */
-function needsTruncation(text: string, maxLines: number): boolean {
-  const lines = text.split("\n");
-  return lines.length > maxLines;
-}
-
 export function PostDetailScreen({
   client,
   tweet,
@@ -209,9 +206,9 @@ export function PostDetailScreen({
 
   const fullTimestamp = formatFullTimestamp(tweet.createdAt);
   const showTruncated =
-    !isExpanded && needsTruncation(tweet.text, MAX_TRUNCATED_LINES);
+    !isExpanded && isLineTruncated(tweet.text, MAX_TRUNCATED_LINES);
   const displayText = showTruncated
-    ? truncateText(tweet.text, MAX_TRUNCATED_LINES)
+    ? truncateLines(tweet.text, MAX_TRUNCATED_LINES)
     : tweet.text;
 
   const hasReplies = replies.length > 0;
@@ -677,11 +674,11 @@ export function PostDetailScreen({
     </box>
   );
 
-  // Truncation indicator
+  // Truncation indicator - styled like X.com's [Show more]
   const truncationIndicator = showTruncated ? (
     <box style={{ paddingLeft: 1, marginTop: 1 }}>
-      <text fg={colors.dim}>... </text>
-      <text fg={colors.primary}>[e] Expand</text>
+      <text fg={colors.primary}>[Show more]</text>
+      <text fg={colors.dim}> (e)</text>
     </box>
   ) : null;
 

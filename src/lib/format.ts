@@ -24,7 +24,8 @@ export function formatRelativeTime(dateString?: string): string {
 }
 
 /**
- * Truncate text to a maximum number of lines
+ * Truncate text to a maximum number of lines.
+ * Does NOT add "..." - caller should show a separate [Show more] indicator.
  */
 export function truncateText(
   text: string,
@@ -33,19 +34,43 @@ export function truncateText(
 ): string {
   const lines = text.split("\n").slice(0, maxLines);
   const truncated = lines.map((line) =>
-    line.length > maxCharsPerLine
-      ? `${line.slice(0, maxCharsPerLine - 3)}...`
-      : line
+    line.length > maxCharsPerLine ? line.slice(0, maxCharsPerLine) : line
   );
-
-  if (text.split("\n").length > maxLines) {
-    const lastLine = truncated[truncated.length - 1];
-    if (lastLine && !lastLine.endsWith("...")) {
-      truncated[truncated.length - 1] = `${lastLine}...`;
-    }
-  }
-
   return truncated.join("\n");
+}
+
+/**
+ * Truncate text by line count only - no per-line character limit.
+ * Suitable for detailed views where full lines should be visible.
+ */
+export function truncateLines(text: string, maxLines: number): string {
+  const lines = text.split("\n");
+  if (lines.length <= maxLines) {
+    return text;
+  }
+  return lines.slice(0, maxLines).join("\n");
+}
+
+/**
+ * Check if text would be truncated at the given limits.
+ */
+export function isTruncated(
+  text: string,
+  maxLines: number,
+  maxCharsPerLine = 80
+): boolean {
+  const lines = text.split("\n");
+  if (lines.length > maxLines) {
+    return true;
+  }
+  return lines.some((line) => line.length > maxCharsPerLine);
+}
+
+/**
+ * Check if text would be truncated by line count only.
+ */
+export function isLineTruncated(text: string, maxLines: number): boolean {
+  return text.split("\n").length > maxLines;
 }
 
 /**
