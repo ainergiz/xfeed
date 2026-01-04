@@ -41,6 +41,9 @@ export const FALLBACK_QUERY_IDS = {
   BookmarkFoldersSlice: "i78YDd0Tza-dV4SYs58kRg",
   bookmarkTweetToFolder: "4KHZvvNbHNf07bsgnL9gWA",
   NotificationsTimeline: "Ev6UMJRROInk_RMH2oVbBg",
+  createBookmarkFolder: "6Xxqpq8TM_CREYiuof_h5w",
+  DeleteBookmarkFolder: "2UTTsO-6zs93XqlEUZPsSg",
+  EditBookmarkFolder: "a6kPp1cS1Dgbsjhapz1PNw",
 } as const;
 
 /**

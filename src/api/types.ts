@@ -396,7 +396,10 @@ export type OperationName =
   | "Likes"
   | "BookmarkFoldersSlice"
   | "bookmarkTweetToFolder"
-  | "NotificationsTimeline";
+  | "NotificationsTimeline"
+  | "createBookmarkFolder"
+  | "DeleteBookmarkFolder"
+  | "EditBookmarkFolder";
 
 /**
  * Result of an action mutation (like, bookmark, etc.)
@@ -420,6 +423,13 @@ export interface BookmarkFolder {
  */
 export type BookmarkFoldersResult =
   | { success: true; folders: BookmarkFolder[] }
+  | { success: false; error: string };
+
+/**
+ * Result of a bookmark folder mutation (create, edit)
+ */
+export type BookmarkFolderMutationResult =
+  | { success: true; folder: BookmarkFolder }
   | { success: false; error: string };
 
 /**

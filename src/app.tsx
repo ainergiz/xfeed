@@ -362,6 +362,69 @@ function AppContent({ client, user }: AppProps) {
     });
   }, [client, selectedBookmarkFolder, openModal, closeModal]);
 
+  // Create new bookmark folder
+  const handleCreateBookmarkFolder = useCallback(() => {
+    openModal("folder-name-input", {
+      mode: "create",
+      onSubmit: async (name: string) => {
+        const result = await client.createBookmarkFolder(name);
+        if (result.success) {
+          setActionMessage(`Created folder "${name}"`);
+          closeModal();
+        } else {
+          throw new Error(result.error);
+        }
+      },
+      onClose: closeModal,
+    });
+  }, [client, openModal, closeModal]);
+
+  // Edit current bookmark folder
+  const handleEditBookmarkFolder = useCallback(() => {
+    if (!selectedBookmarkFolder) return;
+
+    openModal("folder-name-input", {
+      mode: "edit",
+      initialName: selectedBookmarkFolder.name,
+      onSubmit: async (name: string) => {
+        const result = await client.editBookmarkFolder(
+          selectedBookmarkFolder.id,
+          name
+        );
+        if (result.success) {
+          setSelectedBookmarkFolder(result.folder);
+          setActionMessage(`Renamed folder to "${name}"`);
+          closeModal();
+        } else {
+          throw new Error(result.error);
+        }
+      },
+      onClose: closeModal,
+    });
+  }, [client, selectedBookmarkFolder, openModal, closeModal]);
+
+  // Delete current bookmark folder
+  const handleDeleteBookmarkFolder = useCallback(() => {
+    if (!selectedBookmarkFolder) return;
+
+    openModal("delete-folder-confirm", {
+      folderName: selectedBookmarkFolder.name,
+      onConfirm: async () => {
+        const result = await client.deleteBookmarkFolder(
+          selectedBookmarkFolder.id
+        );
+        if (result.success) {
+          setActionMessage(`Deleted folder "${selectedBookmarkFolder.name}"`);
+          setSelectedBookmarkFolder(null);
+          closeModal();
+        } else {
+          throw new Error(result.error);
+        }
+      },
+      onCancel: closeModal,
+    });
+  }, [client, selectedBookmarkFolder, openModal, closeModal]);
+
   // Handle notification select - navigate to tweet detail or profile based on type
   const handleNotificationSelect = useCallback(
     (notification: NotificationData) => {
@@ -654,6 +717,9 @@ function AppContent({ client, user }: AppProps) {
             onBookmark={toggleBookmark}
             getActionState={getState}
             initActionState={initState}
+            onCreateFolder={handleCreateBookmarkFolder}
+            onEditFolder={handleEditBookmarkFolder}
+            onDeleteFolder={handleDeleteBookmarkFolder}
           />
         </box>
 

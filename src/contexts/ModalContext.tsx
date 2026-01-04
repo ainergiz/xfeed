@@ -22,7 +22,9 @@ import type { XClient } from "@/api/client";
 import type { BookmarkFolder, TweetData } from "@/api/types";
 
 import { BookmarkFolderSelector } from "@/modals/BookmarkFolderSelector";
+import { DeleteFolderConfirmModal } from "@/modals/DeleteFolderConfirmModal";
 import { ExitConfirmationModal } from "@/modals/ExitConfirmationModal";
+import { FolderNameInputModal } from "@/modals/FolderNameInputModal";
 import { FolderPicker } from "@/modals/FolderPicker";
 import { SessionExpiredModal } from "@/modals/SessionExpiredModal";
 
@@ -35,7 +37,9 @@ export type ModalType =
   | "folder-picker"
   | "bookmark-folder-selector"
   | "exit-confirmation"
-  | "session-expired";
+  | "session-expired"
+  | "folder-name-input"
+  | "delete-folder-confirm";
 
 /** Props for FolderPicker modal */
 export interface FolderPickerModalProps {
@@ -63,12 +67,29 @@ export interface ExitConfirmationModalProps {
 /** Props for SessionExpiredModal (terminal - no props needed) */
 export interface SessionExpiredModalProps {}
 
+/** Props for FolderNameInputModal */
+export interface FolderNameInputModalProps {
+  mode: "create" | "edit";
+  initialName?: string;
+  onSubmit: (name: string) => Promise<void>;
+  onClose: () => void;
+}
+
+/** Props for DeleteFolderConfirmModal */
+export interface DeleteFolderConfirmModalProps {
+  folderName: string;
+  onConfirm: () => Promise<void>;
+  onCancel: () => void;
+}
+
 /** Map of modal type to its props type for type inference */
 export interface ModalPropsMap {
   "folder-picker": FolderPickerModalProps;
   "bookmark-folder-selector": BookmarkFolderSelectorModalProps;
   "exit-confirmation": ExitConfirmationModalProps;
   "session-expired": SessionExpiredModalProps;
+  "folder-name-input": FolderNameInputModalProps;
+  "delete-folder-confirm": DeleteFolderConfirmModalProps;
 }
 
 /** Discriminated union of all possible modal states */
@@ -80,6 +101,8 @@ export type ModalState =
     }
   | { type: "exit-confirmation"; props: ExitConfirmationModalProps }
   | { type: "session-expired"; props: SessionExpiredModalProps }
+  | { type: "folder-name-input"; props: FolderNameInputModalProps }
+  | { type: "delete-folder-confirm"; props: DeleteFolderConfirmModalProps }
   | null;
 
 // ============================================================================
@@ -159,6 +182,20 @@ function ModalRenderer({ activeModal }: ModalRendererProps) {
     case "session-expired":
       // SessionExpiredModal includes its own absolute positioning
       return <SessionExpiredModal />;
+
+    case "folder-name-input":
+      return (
+        <ModalWrapper>
+          <FolderNameInputModal {...activeModal.props} focused={true} />
+        </ModalWrapper>
+      );
+
+    case "delete-folder-confirm":
+      return (
+        <ModalWrapper>
+          <DeleteFolderConfirmModal {...activeModal.props} focused={true} />
+        </ModalWrapper>
+      );
   }
 }
 
