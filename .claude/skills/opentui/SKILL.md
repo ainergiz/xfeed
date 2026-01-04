@@ -73,6 +73,38 @@ Styles use a CSS-like object syntax:
 <text fg="#666666">Gray text</text>
 ```
 
+### Text Nesting Rules
+
+**CRITICAL**: `<text>` only accepts **string children**. You CANNOT nest elements inside `<text>`.
+
+```tsx
+// ❌ WRONG - Cannot nest <text> inside <text>
+<text>
+  Hello <text fg="red">world</text>
+</text>
+// Error: TextNodeRenderable only accepts strings, TextNodeRenderable instances, or StyledText instances
+
+// ❌ WRONG - Cannot nest <box> inside <text>
+<text>
+  Count: <box>{count}</box>
+</text>
+
+// ✅ CORRECT - Use row box for inline mixed styling
+<box style={{ flexDirection: "row" }}>
+  <text>Hello </text>
+  <text fg="red">world</text>
+</box>
+
+// ✅ CORRECT - Multiple segments with different colors
+<box style={{ flexDirection: "row" }}>
+  <text fg="#666666">Posted by </text>
+  <text fg="#1DA1F2">@username</text>
+  <text fg="#666666"> · 2h</text>
+</box>
+```
+
+**Why this matters**: OpenTUI's `<text>` element maps to `TextNodeRenderable` which only accepts primitive string content. To achieve inline styled text (like colored usernames), wrap multiple `<text>` elements in a `<box>` with `flexDirection: "row"`.
+
 ## Keyboard Handling
 
 ### Basic Pattern
@@ -688,6 +720,22 @@ return { setSelectedIndex: setSelectedIndexMemo };
 </box>
 ```
 
+### 6. Nesting elements inside `<text>`
+
+```tsx
+// WRONG - <text> only accepts string children
+<text>
+  Username: <text fg={colors.primary}>@{username}</text>
+</text>
+// Error: TextNodeRenderable only accepts strings...
+
+// CORRECT - use row box for inline styling
+<box style={{ flexDirection: "row" }}>
+  <text>Username: </text>
+  <text fg={colors.primary}>@{username}</text>
+</box>
+```
+
 ## Collapsible Headers (Scroll-Based UI)
 
 OpenTUI scrollbox **does NOT have an onScroll event**. Don't try to poll `scrollTop` with intervals. Instead, use an event-driven approach based on selection index.
@@ -773,6 +821,62 @@ function App() {
 
 **Common mistake:** Hardcoding `setCurrentView("timeline")` in back handlers. This breaks navigation when entering the same view from multiple sources.
 
+## Third-Party Library Compatibility
+
+OpenTUI uses a custom React reconciler, NOT React DOM. This means:
+
+1. **HTML elements are not supported** - Libraries that render `<div>`, `<span>`, `<strong>`, etc. will crash
+2. **window/document are undefined** - Libraries assuming browser environment need configuration
+3. **Default components may use HTML** - Libraries with fallback UIs (error boundaries, loading states) need OpenTUI-compatible replacements
+
+### TanStack Router Example
+
+TanStack Router works with OpenTUI but requires:
+
+```typescript
+import { createMemoryHistory, createRouter } from "@tanstack/react-router";
+
+// OpenTUI-compatible default components (replace HTML defaults)
+function DefaultPendingComponent() {
+  return <box style={{ padding: 1 }}><text>Loading...</text></box>;
+}
+
+function DefaultErrorComponent({ error }: { error: unknown }) {
+  return <box style={{ padding: 1 }}><text fg="#ff0000">Error: {String(error)}</text></box>;
+}
+
+function DefaultNotFoundComponent() {
+  return <box style={{ padding: 1 }}><text>Not found</text></box>;
+}
+
+// Memory history (no browser)
+const memoryHistory = createMemoryHistory({ initialEntries: ["/"] });
+
+// Router with TUI-specific config
+const router = createRouter({
+  routeTree,
+  history: memoryHistory,
+  isServer: false,                              // We're not on a server
+  origin: "http://localhost",                   // Prevents window.origin access
+  defaultPendingComponent: DefaultPendingComponent,
+  defaultErrorComponent: DefaultErrorComponent,
+  defaultNotFoundComponent: DefaultNotFoundComponent,
+});
+```
+
+### TanStack Query
+
+TanStack Query works out-of-the-box since it's headless (no UI components).
+
+### General Compatibility Checklist
+
+Before using a React library with OpenTUI:
+
+- [ ] Does it render any HTML elements? → Need OpenTUI replacements
+- [ ] Does it access `window` or `document`? → May need configuration
+- [ ] Does it have default UI components? → Provide OpenTUI-compatible alternatives
+- [ ] Does it use CSS? → Won't work (use `style` prop instead)
+
 ## Reference Implementation Files
 
 - `src/app.tsx` - Screen routing, focus management, navigation history
@@ -785,3 +889,4 @@ function App() {
 - `src/hooks/useListNavigation.ts` - Vim-style navigation hook
 - `src/hooks/useTimeline.ts` - Data fetching hook pattern
 - `src/hooks/useUserProfile.ts` - Profile data fetching hook
+- `src/experiments/router-spike.tsx` - TanStack Router integration example
