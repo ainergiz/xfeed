@@ -1,6 +1,6 @@
 {
   "name": "xfeed",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Terminal-based X/Twitter viewer with vim-style navigation. Install with: bun install -g xfeed",
   "type": "module",
   "bin": "./dist/index.js",
