@@ -199,7 +199,7 @@ export function TimelineScreenExperimental({
       {focused && <TabBar activeTab={tab} isRefetching={isRefetching} />}
 
       {/* Refresh banner */}
-      {showRefreshBanner && <RefreshBanner />}
+      {focused && showRefreshBanner && <RefreshBanner />}
 
       <PostList
         posts={posts}

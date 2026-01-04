@@ -123,7 +123,7 @@ export function NotificationsScreen({
   if (isLoading) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        <ScreenHeader unreadCount={0} isRefetching={false} />
+        {focused && <ScreenHeader unreadCount={0} isRefetching={false} />}
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg={colors.muted}>Loading notifications...</text>
         </box>
@@ -134,7 +134,9 @@ export function NotificationsScreen({
   if (error) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        <ScreenHeader unreadCount={0} isRefetching={isRefetching} />
+        {focused && (
+          <ScreenHeader unreadCount={0} isRefetching={isRefetching} />
+        )}
         <ErrorBanner error={error} onRetry={refresh} retryDisabled={false} />
       </box>
     );
@@ -143,7 +145,9 @@ export function NotificationsScreen({
   if (notifications.length === 0) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        <ScreenHeader unreadCount={0} isRefetching={isRefetching} />
+        {focused && (
+          <ScreenHeader unreadCount={0} isRefetching={isRefetching} />
+        )}
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg={colors.muted}>
             No notifications yet. Press r to refresh.
@@ -155,8 +159,10 @@ export function NotificationsScreen({
 
   return (
     <box style={{ flexDirection: "column", height: "100%" }}>
-      <ScreenHeader unreadCount={unreadCount} isRefetching={isRefetching} />
-      {newNotificationsCount > 0 && (
+      {focused && (
+        <ScreenHeader unreadCount={unreadCount} isRefetching={isRefetching} />
+      )}
+      {focused && newNotificationsCount > 0 && (
         <NewNotificationsBanner count={newNotificationsCount} />
       )}
       <NotificationList
