@@ -7,7 +7,7 @@
  */
 
 import { useKeyboard } from "@opentui/react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import type { XClient } from "@/api/client";
 import type { TweetData } from "@/api/types";
@@ -24,6 +24,8 @@ interface TimelineScreenExperimentalProps {
   client: XClient;
   focused?: boolean;
   onPostCountChange?: (count: number) => void;
+  /** Called when initial loading completes (success or error) */
+  onInitialLoadComplete?: () => void;
   onPostSelect?: (post: TweetData) => void;
   onLike?: (post: TweetData) => void;
   onBookmark?: (post: TweetData) => void;
@@ -102,6 +104,7 @@ export function TimelineScreenExperimental({
   client,
   focused = false,
   onPostCountChange,
+  onInitialLoadComplete,
   onPostSelect,
   onLike,
   onBookmark,
@@ -131,6 +134,15 @@ export function TimelineScreenExperimental({
   useEffect(() => {
     onPostCountChange?.(posts.length);
   }, [posts.length, onPostCountChange]);
+
+  // Track initial load completion (fires once when isLoading transitions to false)
+  const hasCalledInitialLoadComplete = useRef(false);
+  useEffect(() => {
+    if (!isLoading && !hasCalledInitialLoadComplete.current) {
+      hasCalledInitialLoadComplete.current = true;
+      onInitialLoadComplete?.();
+    }
+  }, [isLoading, onInitialLoadComplete]);
 
   // Handle keyboard shortcuts
   useKeyboard((key) => {

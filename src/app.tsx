@@ -114,7 +114,7 @@ function AppContent({ client, user }: AppProps) {
   // Splash screen state
   const [showSplash, setShowSplash] = useState(true);
   const [minTimeElapsed, setMinTimeElapsed] = useState(false);
-  const hasReceivedPosts = useRef(false);
+  const initialLoadComplete = useRef(false);
 
   // Start minimum display timer on mount
   useEffect(() => {
@@ -127,24 +127,25 @@ function AppContent({ client, user }: AppProps) {
 
   // Hide splash when both conditions are met
   useEffect(() => {
-    if (minTimeElapsed && hasReceivedPosts.current) {
+    if (minTimeElapsed && initialLoadComplete.current) {
       setShowSplash(false);
     }
   }, [minTimeElapsed]);
 
-  // Track when posts are first received
-  const handlePostCountChange = useCallback(
-    (count: number) => {
-      setPostCount(count);
-      if (count > 0 && !hasReceivedPosts.current) {
-        hasReceivedPosts.current = true;
-        if (minTimeElapsed) {
-          setShowSplash(false);
-        }
+  // Track when posts are first received (legacy - updates post count in header)
+  const handlePostCountChange = useCallback((count: number) => {
+    setPostCount(count);
+  }, []);
+
+  // Track when initial timeline load completes (success or error)
+  const handleInitialLoadComplete = useCallback(() => {
+    if (!initialLoadComplete.current) {
+      initialLoadComplete.current = true;
+      if (minTimeElapsed) {
+        setShowSplash(false);
       }
-    },
-    [minTimeElapsed]
-  );
+    }
+  }, [minTimeElapsed]);
 
   // Track bookmark count separately
   const handleBookmarkCountChange = useCallback((count: number) => {
@@ -553,6 +554,7 @@ function AppContent({ client, user }: AppProps) {
             client={client}
             focused={currentView === "timeline" && !showSplash && !isModalOpen}
             onPostCountChange={handlePostCountChange}
+            onInitialLoadComplete={handleInitialLoadComplete}
             onPostSelect={handlePostSelect}
             onLike={toggleLike}
             onBookmark={toggleBookmark}
