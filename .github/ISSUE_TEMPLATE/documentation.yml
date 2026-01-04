@@ -1,0 +1,52 @@
+name: Documentation Issue
+description: Report missing, incorrect, or unclear documentation
+labels: ["documentation"]
+body:
+  - type: checkboxes
+    id: cloud-suitable
+    attributes:
+      label: Suitable for cloud AI agent
+      description: This issue has enough context for an AI agent to complete the task end-to-end without user input
+      options:
+        - label: "Cloud AI agent suitable"
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Documentation Issue Type
+      description: What kind of documentation issue is this?
+      options:
+        - Missing documentation
+        - Incorrect documentation
+        - Unclear documentation
+        - Outdated documentation
+        - Typo or formatting issue
+    validations:
+      required: true
+
+  - type: textarea
+    id: location
+    attributes:
+      label: Location
+      description: Where is the documentation issue? (file path, URL, or section)
+      placeholder: e.g., README.md, CLAUDE.md, specific section...
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the issue with the documentation
+      placeholder: The documentation says X but it should say Y...
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested Improvement
+      description: How should the documentation be improved?
+      placeholder: It would be clearer if...
+    validations:
+      required: false
