@@ -5,7 +5,12 @@
 import type { TweetData } from "@/api/types";
 
 import { colors } from "@/lib/colors";
-import { formatCount, formatRelativeTime, truncateText } from "@/lib/format";
+import {
+  formatCount,
+  formatRelativeTime,
+  isTruncated,
+  truncateText,
+} from "@/lib/format";
 
 import { QuotedPostCard } from "./QuotedPostCard";
 import { ReplyPreviewCard } from "./ReplyPreviewCard";
@@ -66,6 +71,7 @@ export function PostCard({
     ? stripLeadingMention(post.text, parentAuthorUsername)
     : post.text;
   const displayText = truncateText(textToDisplay, MAX_TEXT_LINES);
+  const showShowMore = isTruncated(textToDisplay, MAX_TEXT_LINES);
   const timeAgo = formatRelativeTime(post.createdAt);
   const hasMedia = post.media && post.media.length > 0;
 
@@ -92,10 +98,11 @@ export function PostCard({
       </box>
 
       {/* Post text */}
-      <box style={{ marginTop: 1, paddingLeft: 2 }}>
+      <box style={{ marginTop: 1, paddingLeft: 2, flexDirection: "column" }}>
         <text fg="#ffffff" selectable selectionBg="#264F78">
           {displayText}
         </text>
+        {showShowMore && <text fg={colors.primary}>[Show more]</text>}
       </box>
 
       {/* Quoted tweet (if present) */}
