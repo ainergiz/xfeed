@@ -740,43 +740,60 @@ export function PostDetailScreen({
   ) : null;
 
   // Links section - show URLs with metadata
+  // Single link: inline display to save vertical space
+  // Multiple links: multi-line with navigation
   const linksContent = hasLinks ? (
     <box style={{ marginTop: 1, paddingLeft: 1, paddingRight: 1 }}>
       <box style={{ flexDirection: "column" }}>
-        <box style={{ flexDirection: "row" }}>
-          <text fg={colors.dim}>Links: </text>
-          <text fg={colors.primary}>o</text>
-          <text fg={colors.dim}>
-            {linkMode ? " open" : linkCount === 1 ? " open" : " select"}
-          </text>
-        </box>
-        {tweet.urls?.map((link, idx) => {
-          // Only show selection indicator when in link mode
-          const isSelected = linkMode && idx === linkIndex;
-          const showMetadata = isSelected && linkMetadata;
-          return (
-            <box
-              key={link.url}
-              style={{ flexDirection: "column", marginTop: idx === 0 ? 1 : 0 }}
-            >
-              <box style={{ flexDirection: "row" }}>
-                <text fg={isSelected ? colors.mention : colors.muted}>
-                  {isSelected ? ">" : "•"} {link.displayUrl}
-                </text>
-              </box>
-              {showMetadata && linkMetadata.title && (
-                <box style={{ paddingLeft: 2 }}>
-                  <text fg={colors.dim}> "{linkMetadata.title}"</text>
-                </box>
-              )}
-              {isSelected && isLoadingMetadata && (
-                <box style={{ paddingLeft: 2 }}>
-                  <text fg={colors.dim}> Loading...</text>
-                </box>
-              )}
+        {linkCount === 1 ? (
+          // Single link - inline display
+          <box style={{ flexDirection: "row" }}>
+            <text fg={colors.dim}>Links: </text>
+            <text fg={colors.primary}>&gt; {tweet.urls?.[0]?.displayUrl}</text>
+            <text fg={colors.dim}> (</text>
+            <text fg={colors.primary}>o</text>
+            <text fg={colors.dim}> open)</text>
+          </box>
+        ) : (
+          // Multiple links - multi-line with selection
+          <>
+            <box style={{ flexDirection: "row" }}>
+              <text fg={colors.dim}>Links: </text>
+              <text fg={colors.primary}>o</text>
+              <text fg={colors.dim}>{linkMode ? " open" : " select"}</text>
             </box>
-          );
-        })}
+            {tweet.urls?.map((link, idx) => {
+              // Only show selection indicator when in link mode
+              const isSelected = linkMode && idx === linkIndex;
+              const showMetadata = isSelected && linkMetadata;
+              return (
+                <box
+                  key={link.url}
+                  style={{
+                    flexDirection: "column",
+                    marginTop: idx === 0 ? 1 : 0,
+                  }}
+                >
+                  <box style={{ flexDirection: "row" }}>
+                    <text fg={isSelected ? colors.primary : colors.muted}>
+                      {isSelected ? ">" : "•"} {link.displayUrl}
+                    </text>
+                  </box>
+                  {showMetadata && linkMetadata.title && (
+                    <box style={{ paddingLeft: 2 }}>
+                      <text fg={colors.dim}> "{linkMetadata.title}"</text>
+                    </box>
+                  )}
+                  {isSelected && isLoadingMetadata && (
+                    <box style={{ paddingLeft: 2 }}>
+                      <text fg={colors.dim}> Loading...</text>
+                    </box>
+                  )}
+                </box>
+              );
+            })}
+          </>
+        )}
       </box>
     </box>
   ) : null;
