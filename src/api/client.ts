@@ -1252,10 +1252,11 @@ export class XClient {
   }
 
   private buildSearchFeatures(): Record<string, boolean> {
+    // Features updated to match X web UI as of 2026-01-04
     return {
-      rweb_video_screen_enabled: true,
+      rweb_video_screen_enabled: false,
       profile_label_improvements_pcf_label_in_post_enabled: true,
-      responsive_web_profile_redirect_enabled: true,
+      responsive_web_profile_redirect_enabled: false,
       rweb_tipjar_consumption_enabled: true,
       verified_phone_label_enabled: false,
       creator_subscriptions_tweet_preview_api_enabled: true,
@@ -1266,9 +1267,11 @@ export class XClient {
       communities_web_enable_tweet_community_results_fetch: true,
       c9s_tweet_anatomy_moderator_badge_enabled: true,
       responsive_web_grok_analyze_button_fetch_trends_enabled: false,
-      responsive_web_grok_analyze_post_followups_enabled: false,
+      responsive_web_grok_analyze_post_followups_enabled: true,
       responsive_web_jetfuel_frame: true,
       responsive_web_grok_share_attachment_enabled: true,
+      responsive_web_grok_annotations_enabled: false,
+      articles_preview_enabled: true,
       responsive_web_edit_tweet_api_enabled: true,
       graphql_is_translatable_rweb_tweet_is_translatable_enabled: true,
       view_counts_everywhere_api_enabled: true,
@@ -1281,14 +1284,11 @@ export class XClient {
       freedom_of_speech_not_reach_fetch_enabled: true,
       standardized_nudges_misinfo: true,
       tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled: true,
-      rweb_video_timestamps_enabled: true,
       longform_notetweets_rich_text_read_enabled: true,
       longform_notetweets_inline_media_enabled: true,
       responsive_web_grok_image_annotation_enabled: true,
       responsive_web_grok_imagine_annotation_enabled: true,
       responsive_web_grok_community_note_auto_translation_is_enabled: false,
-      responsive_web_grok_annotations_enabled: true,
-      articles_preview_enabled: true,
       responsive_web_enhance_cards_enabled: false,
     };
   }
@@ -2421,13 +2421,15 @@ export class XClient {
   private async getHomeTimelineQueryIds(): Promise<string[]> {
     const primary = await this.getQueryId("HomeTimeline");
     return Array.from(
-      new Set([primary, "V7xdnRnvW6a8vIsMr9xK7A", "HCosKfLNW1AcOo3la3mMgg"])
+      new Set([primary, "edseUwk9sP5Phz__9TIRnA", "V7xdnRnvW6a8vIsMr9xK7A"])
     );
   }
 
   private async getHomeLatestTimelineQueryIds(): Promise<string[]> {
     const primary = await this.getQueryId("HomeLatestTimeline");
-    return Array.from(new Set([primary, "zhX91JE87mWvfprhYE97xA"]));
+    return Array.from(
+      new Set([primary, "iOEZpOdfekFsxSlPQCQtPg", "zhX91JE87mWvfprhYE97xA"])
+    );
   }
 
   private extractBottomCursor(
@@ -2684,7 +2686,11 @@ export class XClient {
             errors?: Array<{ message: string }>;
           };
 
-          if (data.errors && data.errors.length > 0) {
+          const instructions = data.data?.home?.home_timeline_urt?.instructions;
+
+          // X API can return partial errors alongside valid data
+          // Only fail if there are errors AND no usable data
+          if (data.errors && data.errors.length > 0 && !instructions?.length) {
             return {
               success: false as const,
               error: data.errors.map((e) => e.message).join(", "),
@@ -2692,7 +2698,6 @@ export class XClient {
             };
           }
 
-          const instructions = data.data?.home?.home_timeline_urt?.instructions;
           const tweets = this.parseTweetsFromInstructions(
             instructions,
             this.quoteDepth
@@ -2817,7 +2822,11 @@ export class XClient {
             errors?: Array<{ message: string }>;
           };
 
-          if (data.errors && data.errors.length > 0) {
+          const instructions = data.data?.home?.home_timeline_urt?.instructions;
+
+          // X API can return partial errors alongside valid data
+          // Only fail if there are errors AND no usable data
+          if (data.errors && data.errors.length > 0 && !instructions?.length) {
             return {
               success: false as const,
               error: data.errors.map((e) => e.message).join(", "),
@@ -2825,7 +2834,6 @@ export class XClient {
             };
           }
 
-          const instructions = data.data?.home?.home_timeline_urt?.instructions;
           const tweets = this.parseTweetsFromInstructions(
             instructions,
             this.quoteDepth
