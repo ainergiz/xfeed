@@ -2557,16 +2557,17 @@ export class XClient {
             errors?: Array<{ message: string }>;
           };
 
-          if (data.errors && data.errors.length > 0) {
+          const instructions =
+            data.data?.bookmark_timeline_v2?.timeline?.instructions;
+
+          // Only fail on errors if there's no usable data (partial errors are OK)
+          if (data.errors && data.errors.length > 0 && !instructions?.length) {
             return {
               success: false as const,
               error: data.errors.map((e) => e.message).join(", "),
               had404,
             };
           }
-
-          const instructions =
-            data.data?.bookmark_timeline_v2?.timeline?.instructions;
           const tweets = this.parseTweetsFromInstructions(
             instructions,
             this.quoteDepth
@@ -3019,16 +3020,17 @@ export class XClient {
             errors?: Array<{ message: string }>;
           };
 
-          if (data.errors && data.errors.length > 0) {
+          const instructions =
+            data.data?.bookmark_collection_timeline?.timeline?.instructions;
+
+          // Only fail on errors if there's no usable data (partial errors are OK)
+          if (data.errors && data.errors.length > 0 && !instructions?.length) {
             return {
               success: false as const,
               error: data.errors.map((e) => e.message).join(", "),
               had404,
             };
           }
-
-          const instructions =
-            data.data?.bookmark_collection_timeline?.timeline?.instructions;
           const tweets = this.parseTweetsFromInstructions(
             instructions,
             this.quoteDepth
@@ -4188,18 +4190,19 @@ export class XClient {
           errors?: Array<{ message: string }>;
         };
 
-        if (data.errors && data.errors.length > 0) {
+        const items =
+          data.data?.viewer?.user_results?.result?.bookmark_collections_slice
+            ?.items;
+
+        // Only fail on errors if there's no usable data (partial errors are OK)
+        if (data.errors && data.errors.length > 0 && !items) {
           return {
             success: false as const,
             error: data.errors.map((e) => e.message).join(", "),
             had404,
           };
         }
-
-        const items =
-          data.data?.viewer?.user_results?.result?.bookmark_collections_slice
-            ?.items ?? [];
-        const folders: import("./types").BookmarkFolder[] = items
+        const folders: import("./types").BookmarkFolder[] = (items ?? [])
           .filter((item) => item.id && item.name)
           .map((item) => ({
             id: item.id as string,
