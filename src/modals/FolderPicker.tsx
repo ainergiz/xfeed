@@ -27,7 +27,7 @@ interface FolderPickerProps {
   focused?: boolean;
 }
 
-const MAX_VISIBLE_FOLDERS = 10;
+const MAX_VISIBLE_FOLDERS = 5;
 
 export function FolderPicker({
   client,

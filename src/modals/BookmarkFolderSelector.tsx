@@ -28,7 +28,7 @@ interface BookmarkFolderSelectorProps {
   focused?: boolean;
 }
 
-const MAX_VISIBLE_ITEMS = 10;
+const MAX_VISIBLE_ITEMS = 5;
 
 export function BookmarkFolderSelector({
   client,
