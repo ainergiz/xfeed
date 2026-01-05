@@ -536,7 +536,11 @@ export function PostDetailScreen({
             setMentionsMode(true);
             setMentionIndex(0);
           }
-        } else if (isBookmarked) {
+        }
+        break;
+      case "f":
+        // Move bookmarked post to folder
+        if (isBookmarked) {
           onMoveToFolder?.();
         }
         break;
@@ -980,7 +984,7 @@ export function PostDetailScreen({
       activeColor: isLoadingQuote ? colors.primary : undefined,
       show: hasQuote,
     },
-    { key: "m", label: "folder", show: isBookmarked && !hasMentions },
+    { key: "f", label: "folder", show: isBookmarked },
   ];
 
   // Main layout - always use scrollbox for thread content

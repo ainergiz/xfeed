@@ -16,8 +16,9 @@ const DEFAULT_BINDINGS: Keybinding[] = [
   { key: "l", label: "like" },
   { key: "b", label: "bookmark" },
   { key: "r", label: "refresh" },
-  { key: "n", label: "notifs" },
-  { key: "Tab", label: "view" },
+  { key: "1", label: "home" },
+  { key: "2", label: "bookmarks" },
+  { key: "3", label: "notifs" },
   { key: "q", label: "quit" },
 ];
 

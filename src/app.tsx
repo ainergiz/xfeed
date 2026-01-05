@@ -550,14 +550,42 @@ function AppContent({ client, user }: AppProps) {
       return;
     }
 
-    // Don't handle other keys during splash or overlay views
-    if (showSplash || !isMainView) {
+    // Don't handle other keys during splash
+    if (showSplash) {
       return;
     }
 
-    // Switch views on Tab
-    if (key.name === "tab") {
-      cycleNext();
+    // Global navigation with number keys - works from anywhere
+    if (key.name === "1") {
+      // Clear overlay state and go to timeline
+      setPostStack([]);
+      setProfileStack([]);
+      setThreadRootTweet(null);
+      navigate("timeline");
+      return;
+    }
+
+    if (key.name === "2") {
+      // Clear overlay state and go to bookmarks
+      setPostStack([]);
+      setProfileStack([]);
+      setThreadRootTweet(null);
+      navigate("bookmarks");
+      return;
+    }
+
+    if (key.name === "3") {
+      // Clear overlay state and go to notifications
+      setPostStack([]);
+      setProfileStack([]);
+      setThreadRootTweet(null);
+      navigate("notifications");
+      return;
+    }
+
+    // Don't handle other keys during overlay views
+    if (!isMainView) {
+      return;
     }
 
     // Go to notifications with 'n'

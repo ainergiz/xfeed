@@ -257,6 +257,13 @@ export function ProfileScreen({
           setIsCollapsed(false);
         }
         break;
+      case "tab":
+        // Cycle between tabs (only on own profile)
+        if (isSelf) {
+          setActiveTab((prev) => (prev === "tweets" ? "likes" : "tweets"));
+          setIsCollapsed(false);
+        }
+        break;
       case "f":
         // Toggle follow (only on other profiles)
         if (!isSelf && user) {
