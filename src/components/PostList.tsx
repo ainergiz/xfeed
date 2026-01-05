@@ -214,6 +214,9 @@ export function PostList({
             isBookmarked={actionState?.bookmarked}
             isJustLiked={actionState?.justLiked}
             isJustBookmarked={actionState?.justBookmarked}
+            onCardClick={() => onPostSelect?.(post)}
+            onLikeClick={() => onLike?.(post)}
+            onBookmarkClick={() => onBookmark?.(post)}
           />
         );
       })}

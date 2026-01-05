@@ -2,6 +2,10 @@
  * PostCard - Individual post display component
  */
 
+import type { MouseEvent } from "@opentui/core";
+
+import { useRef, useState } from "react";
+
 import type { TweetData } from "@/api/types";
 
 import { colors } from "@/lib/colors";
@@ -48,6 +52,12 @@ interface PostCardProps {
   parentAuthorUsername?: string;
   /** Main post author username (for nested reply mention stripping) */
   mainPostAuthorUsername?: string;
+  /** Called when the card is clicked (not on action icons) */
+  onCardClick?: () => void;
+  /** Called when the like icon is clicked */
+  onLikeClick?: () => void;
+  /** Called when the bookmark icon is clicked */
+  onBookmarkClick?: () => void;
 }
 
 // Unicode symbols for like/bookmark states
@@ -66,7 +76,101 @@ export function PostCard({
   isJustBookmarked,
   parentAuthorUsername,
   mainPostAuthorUsername,
+  onCardClick,
+  onLikeClick,
+  onBookmarkClick,
 }: PostCardProps) {
+  // Track drag state to differentiate clicks from text selection
+  // Using refs to avoid re-renders on mouse events
+  const cardDragState = useRef({ isDragging: false, startX: 0, startY: 0 });
+  const likeDragState = useRef({ isDragging: false, startX: 0, startY: 0 });
+  const bookmarkDragState = useRef({ isDragging: false, startX: 0, startY: 0 });
+
+  // Threshold in pixels - if mouse moves more than this, it's a drag not a click
+  const DRAG_THRESHOLD = 3;
+
+  // Mouse handler that differentiates between click and drag/selection
+  const handleCardMouse = onCardClick
+    ? (event: MouseEvent) => {
+        if (event.button !== 0) return; // Only handle left clicks
+
+        if (event.type === "down") {
+          cardDragState.current = {
+            isDragging: false,
+            startX: event.x,
+            startY: event.y,
+          };
+        } else if (event.type === "drag") {
+          const dx = Math.abs(event.x - cardDragState.current.startX);
+          const dy = Math.abs(event.y - cardDragState.current.startY);
+          if (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD) {
+            cardDragState.current.isDragging = true;
+          }
+        } else if (event.type === "up") {
+          if (!cardDragState.current.isDragging) {
+            onCardClick();
+          }
+          cardDragState.current.isDragging = false;
+        }
+      }
+    : undefined;
+
+  const handleLikeMouse = onLikeClick
+    ? (event: MouseEvent) => {
+        if (event.button !== 0) return;
+        event.stopPropagation();
+
+        if (event.type === "down") {
+          likeDragState.current = {
+            isDragging: false,
+            startX: event.x,
+            startY: event.y,
+          };
+        } else if (event.type === "drag") {
+          const dx = Math.abs(event.x - likeDragState.current.startX);
+          const dy = Math.abs(event.y - likeDragState.current.startY);
+          if (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD) {
+            likeDragState.current.isDragging = true;
+          }
+        } else if (event.type === "up") {
+          if (!likeDragState.current.isDragging) {
+            onLikeClick();
+          }
+          likeDragState.current.isDragging = false;
+        }
+      }
+    : undefined;
+
+  const handleBookmarkMouse = onBookmarkClick
+    ? (event: MouseEvent) => {
+        if (event.button !== 0) return;
+        event.stopPropagation();
+
+        if (event.type === "down") {
+          bookmarkDragState.current = {
+            isDragging: false,
+            startX: event.x,
+            startY: event.y,
+          };
+        } else if (event.type === "drag") {
+          const dx = Math.abs(event.x - bookmarkDragState.current.startX);
+          const dy = Math.abs(event.y - bookmarkDragState.current.startY);
+          if (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD) {
+            bookmarkDragState.current.isDragging = true;
+          }
+        } else if (event.type === "up") {
+          if (!bookmarkDragState.current.isDragging) {
+            onBookmarkClick();
+          }
+          bookmarkDragState.current.isDragging = false;
+        }
+      }
+    : undefined;
+
+  // Hover state for action icons
+  const [isLikeHovered, setIsLikeHovered] = useState(false);
+  const [isBookmarkHovered, setIsBookmarkHovered] = useState(false);
+
   const textToDisplay = parentAuthorUsername
     ? stripLeadingMention(post.text, parentAuthorUsername)
     : post.text;
@@ -78,6 +182,7 @@ export function PostCard({
   return (
     <box
       id={id}
+      onMouse={handleCardMouse}
       style={{
         flexDirection: "column",
         marginBottom: 1,
@@ -121,12 +226,17 @@ export function PostCard({
         </text>
         {/* Like indicator - always visible, filled/empty based on state */}
         <text
+          onMouse={handleLikeMouse}
+          onMouseOver={() => setIsLikeHovered(true)}
+          onMouseOut={() => setIsLikeHovered(false)}
           fg={
             isJustLiked
               ? colors.success // Bright green flash
-              : isLiked
-                ? colors.error // Red when liked
-                : colors.muted // Muted when not liked (more visible than dim)
+              : isLikeHovered
+                ? colors.error // Red on hover (preview the liked state)
+                : isLiked
+                  ? colors.error // Red when liked
+                  : colors.muted // Muted when not liked
           }
         >
           {"  "}
@@ -134,12 +244,17 @@ export function PostCard({
         </text>
         {/* Bookmark indicator - always visible, filled/empty based on state */}
         <text
+          onMouse={handleBookmarkMouse}
+          onMouseOver={() => setIsBookmarkHovered(true)}
+          onMouseOut={() => setIsBookmarkHovered(false)}
           fg={
             isJustBookmarked
               ? colors.success // Bright green flash
-              : isBookmarked
-                ? colors.primary // Blue when bookmarked
-                : colors.muted // Muted when not bookmarked (more visible than dim)
+              : isBookmarkHovered
+                ? colors.primary // Blue on hover (preview the bookmarked state)
+                : isBookmarked
+                  ? colors.primary // Blue when bookmarked
+                  : colors.muted // Muted when not bookmarked
           }
         >
           {"  "}
