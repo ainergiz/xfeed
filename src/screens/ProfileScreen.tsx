@@ -13,8 +13,8 @@ import type { TweetActionState } from "@/hooks/useActions";
 
 import { Footer, type Keybinding } from "@/components/Footer";
 import { PostList } from "@/components/PostList";
+import { useProfileQuery } from "@/experiments/use-profile-query";
 import { useUserActions } from "@/experiments/use-user-actions";
-import { useUserProfile } from "@/hooks/useUserProfile";
 import { colors } from "@/lib/colors";
 import { formatCount } from "@/lib/format";
 import { openInBrowser, previewImageUrl } from "@/lib/media";
@@ -99,15 +99,15 @@ export function ProfileScreen({
   const {
     user,
     tweets,
-    loading,
+    isLoading,
     error,
     refresh,
     likedTweets,
-    likesLoading,
+    isLikesLoading,
     likesError,
     fetchLikes,
     likesFetched,
-  } = useUserProfile({
+  } = useProfileQuery({
     client,
     username,
     isSelf,
@@ -143,10 +143,10 @@ export function ProfileScreen({
 
   // Fetch likes when switching to likes tab for the first time
   useEffect(() => {
-    if (isSelf && activeTab === "likes" && !likesFetched && !likesLoading) {
+    if (isSelf && activeTab === "likes" && !likesFetched && !isLikesLoading) {
       fetchLikes();
     }
-  }, [isSelf, activeTab, likesFetched, likesLoading, fetchLikes]);
+  }, [isSelf, activeTab, likesFetched, isLikesLoading, fetchLikes]);
 
   // Extract mentions from bio
   const bioMentions = user?.description
@@ -482,7 +482,7 @@ export function ProfileScreen({
       <text fg={activeTab === "likes" ? colors.primary : colors.dim}>
         {activeTab === "likes" ? <b>[2] Likes</b> : " 2  Likes"}
       </text>
-      {activeTab === "likes" && likesLoading && (
+      {activeTab === "likes" && isLikesLoading && (
         <text fg={colors.muted}> (loading...)</text>
       )}
     </box>
@@ -539,7 +539,7 @@ export function ProfileScreen({
   ];
 
   // Loading state
-  if (loading) {
+  if (isLoading) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
         <box style={{ padding: 1, flexDirection: "row" }}>
