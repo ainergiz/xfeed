@@ -939,7 +939,7 @@ export function PostDetailScreen({
       activeColor: isJustLiked
         ? colors.success
         : isLiked
-          ? colors.error
+          ? colors.liked
           : undefined,
       isActive: isLiked || isJustLiked,
     },
@@ -949,7 +949,7 @@ export function PostDetailScreen({
       activeColor: isJustBookmarked
         ? colors.success
         : isBookmarked
-          ? colors.primary
+          ? colors.bookmarked
           : undefined,
       isActive: isBookmarked || isJustBookmarked,
     },

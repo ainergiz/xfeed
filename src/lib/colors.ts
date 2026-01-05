@@ -36,6 +36,15 @@ export const colors = {
 
   /** Muted blue - used for @handles (secondary to name) */
   handle: "#6B8A9E",
+
+  /** Color for liked state (heart icon) */
+  liked: "#E0245E",
+
+  /** Color for bookmarked state (flag icon) */
+  bookmarked: "#1DA1F2",
+
+  /** Color for inactive action icons */
+  actionInactive: "#888888",
 } as const;
 
 export type ColorKey = keyof typeof colors;
