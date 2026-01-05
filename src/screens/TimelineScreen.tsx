@@ -12,9 +12,11 @@ import type { TweetActionState } from "@/hooks/useActions";
 
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { PostList } from "@/components/PostList";
-import { useTimeline, type TimelineTab } from "@/hooks/useTimeline";
+import {
+  useTimelineQuery,
+  type TimelineTab,
+} from "@/experiments/use-timeline-query";
 import { colors } from "@/lib/colors";
-import { formatCountdown } from "@/lib/format";
 
 interface TimelineScreenProps {
   client: XClient;
@@ -75,16 +77,13 @@ export function TimelineScreen({
     tab,
     setTab,
     posts,
-    loading,
-    loadingMore,
-    hasMore,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
     error,
-    apiError,
     refresh,
-    loadMore,
-    retryBlocked,
-    retryCountdown,
-  } = useTimeline({
+    fetchNextPage,
+  } = useTimelineQuery({
     client,
   });
 
@@ -105,14 +104,12 @@ export function TimelineScreen({
         setTab("following");
         break;
       case "r":
-        if (!retryBlocked) {
-          refresh();
-        }
+        refresh();
         break;
     }
   });
 
-  if (loading) {
+  if (isLoading) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
         {focused && <TabBar activeTab={tab} />}
@@ -123,34 +120,11 @@ export function TimelineScreen({
     );
   }
 
-  if (apiError) {
-    return (
-      <box style={{ flexDirection: "column", height: "100%" }}>
-        {focused && <TabBar activeTab={tab} />}
-        <ErrorBanner
-          error={apiError}
-          onRetry={refresh}
-          retryDisabled={retryBlocked}
-        />
-        {retryBlocked && retryCountdown > 0 && (
-          <box style={{ paddingLeft: 1, paddingTop: 1 }}>
-            <text fg="#ffaa00">
-              Retry available in {formatCountdown(retryCountdown)}
-            </text>
-          </box>
-        )}
-      </box>
-    );
-  }
-
   if (error) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
         {focused && <TabBar activeTab={tab} />}
-        <box style={{ padding: 2, flexGrow: 1 }}>
-          <text fg="#ff6666">Error: {error}</text>
-          <text fg={colors.muted}> Press r to retry.</text>
-        </box>
+        <ErrorBanner error={error} onRetry={refresh} retryDisabled={false} />
       </box>
     );
   }
@@ -179,9 +153,9 @@ export function TimelineScreen({
         onBookmark={onBookmark}
         getActionState={getActionState}
         initActionState={initActionState}
-        onLoadMore={loadMore}
-        loadingMore={loadingMore}
-        hasMore={hasMore}
+        onLoadMore={fetchNextPage}
+        loadingMore={isFetchingNextPage}
+        hasMore={hasNextPage}
       />
     </box>
   );
