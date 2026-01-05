@@ -157,7 +157,7 @@ export function TimelineScreenExperimental({
         break;
       case "tab":
         // Cycle between For You and Following tabs
-        setTab((prev) => (prev === "for_you" ? "following" : "for_you"));
+        setTab(tab === "for_you" ? "following" : "for_you");
         break;
       case "r":
         refresh();
