@@ -233,10 +233,10 @@ export function PostCard({
             isJustLiked
               ? colors.success // Bright green flash
               : isLikeHovered
-                ? colors.error // Red on hover (preview the liked state)
+                ? colors.liked // Red on hover (preview the liked state)
                 : isLiked
-                  ? colors.error // Red when liked
-                  : colors.muted // Muted when not liked
+                  ? colors.liked // Red when liked
+                  : colors.actionInactive // Muted when not liked
           }
         >
           {"  "}
@@ -251,10 +251,10 @@ export function PostCard({
             isJustBookmarked
               ? colors.success // Bright green flash
               : isBookmarkHovered
-                ? colors.primary // Blue on hover (preview the bookmarked state)
+                ? colors.bookmarked // Blue on hover (preview the bookmarked state)
                 : isBookmarked
-                  ? colors.primary // Blue when bookmarked
-                  : colors.muted // Muted when not bookmarked
+                  ? colors.bookmarked // Blue when bookmarked
+                  : colors.actionInactive // Muted when not bookmarked
           }
         >
           {"  "}
