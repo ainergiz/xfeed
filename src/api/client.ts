@@ -1456,6 +1456,7 @@ export class XClient {
       standardized_nudges_misinfo: true,
       tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled: true,
       rweb_video_timestamps_enabled: true,
+      responsive_web_grok_annotations_enabled: false,
     };
 
     const params = new URLSearchParams({
