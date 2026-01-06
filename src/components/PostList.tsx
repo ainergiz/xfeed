@@ -5,7 +5,7 @@
 import type { ScrollBoxRenderable } from "@opentui/core";
 
 import { useKeyboard } from "@opentui/react";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import type { TweetData } from "@/api/types";
 import type { TweetActionState } from "@/hooks/useActions";
@@ -63,6 +63,8 @@ export function PostList({
   // Save scroll position so we can restore when refocused
   const savedScrollTop = useRef(0);
   const wasFocused = useRef(focused);
+  // Track first post ID to detect refresh (posts array replaced with new content)
+  const prevFirstPostId = useRef<string | null>(null);
 
   // Restore scroll position when gaining focus
   useEffect(() => {
@@ -77,7 +79,7 @@ export function PostList({
     wasFocused.current = focused;
   }, [focused]);
 
-  const { selectedIndex } = useListNavigation({
+  const { selectedIndex, setSelectedIndex } = useListNavigation({
     itemCount: posts.length,
     enabled: focused,
     onSelect: (index) => {
@@ -92,6 +94,32 @@ export function PostList({
       }
     },
   });
+
+  // Reset to top when posts are refreshed (first post ID changes)
+  // This provides visual feedback that refresh completed and shows newest content
+  const resetToTop = useCallback(() => {
+    setSelectedIndex(0);
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo(0);
+    }
+    savedScrollTop.current = 0;
+  }, [setSelectedIndex]);
+
+  useEffect(() => {
+    const currentFirstId = posts[0]?.id ?? null;
+
+    // Detect refresh: we had posts before and the first post ID changed
+    // This indicates the posts array was replaced with new content
+    if (
+      prevFirstPostId.current !== null &&
+      currentFirstId !== null &&
+      currentFirstId !== prevFirstPostId.current
+    ) {
+      resetToTop();
+    }
+
+    prevFirstPostId.current = currentFirstId;
+  }, [posts, resetToTop]);
 
   // Notify parent of selection changes (e.g., for collapsible headers)
   useEffect(() => {
