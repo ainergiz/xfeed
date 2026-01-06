@@ -18,8 +18,8 @@
     "prepare": "lefthook install"
   },
   "dependencies": {
-    "@opentui/core": "^0.1.68",
-    "@opentui/react": "^0.1.68",
+    "@opentui/core": "^0.1.69",
+    "@opentui/react": "^0.1.69",
     "@steipete/sweet-cookie": "file:./vendor/sweet-cookie",
     "@tanstack/react-query": "^5.90.16",
     "@tanstack/react-router": "^1.144.0",

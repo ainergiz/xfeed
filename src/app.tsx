@@ -60,11 +60,10 @@ export function App({ client, user }: AppProps) {
 
 function AppContent({ client, user }: AppProps) {
   const renderer = useRenderer();
-  const { currentView, navigate, goBack, cycleNext, isMainView } =
-    useNavigation<View>({
-      initialView: "timeline",
-      mainViews: MAIN_VIEWS,
-    });
+  const { currentView, navigate, goBack, isMainView } = useNavigation<View>({
+    initialView: "timeline",
+    mainViews: MAIN_VIEWS,
+  });
   const [postCount, setPostCount] = useState(0);
   const [bookmarkCount, setBookmarkCount] = useState(0);
   const [bookmarkHasMore, setBookmarkHasMore] = useState(false);

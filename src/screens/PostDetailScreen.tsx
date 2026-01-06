@@ -3,7 +3,7 @@
  * Shows parent tweet (if reply), main tweet, and replies below
  */
 
-import type { ScrollBoxRenderable } from "@opentui/core";
+import type { MouseEvent, ScrollBoxRenderable } from "@opentui/core";
 
 import { useKeyboard } from "@opentui/react";
 import { useState, useRef, useEffect, useCallback } from "react";
@@ -803,13 +803,30 @@ export function PostDetailScreen({
   ) : null;
 
   // Mentions section - simplified UI based on count
+  // Click handler for mention rows
+  const handleMentionRowClick = useCallback(
+    (username: string) => (event: MouseEvent) => {
+      if (event.type === "up" && event.button === 0) {
+        onProfileOpen?.(username);
+      }
+    },
+    [onProfileOpen]
+  );
+
   const firstMention = tweet.mentions?.[0];
   const mentionsContent = hasMentions ? (
     <box style={{ marginTop: 1, paddingLeft: 1, paddingRight: 1 }}>
       <box style={{ flexDirection: "column" }}>
         {mentionCount === 1 ? (
-          // Single mention - show directly with profile shortcut
-          <box style={{ flexDirection: "row" }}>
+          // Single mention - clickable row
+          <box
+            style={{ flexDirection: "row" }}
+            onMouse={
+              firstMention
+                ? handleMentionRowClick(firstMention.username)
+                : undefined
+            }
+          >
             <text fg={colors.dim}>Mentions: </text>
             <text fg={colors.mention}>@{firstMention?.username}</text>
             {firstMention?.name && (
@@ -817,17 +834,17 @@ export function PostDetailScreen({
             )}
             <text fg={colors.dim}> (</text>
             <text fg={colors.primary}>m</text>
-            <text fg={colors.dim}> profile)</text>
+            <text fg={colors.dim}>/click)</text>
           </box>
         ) : mentionsMode ? (
-          // Multiple mentions - navigation mode active
+          // Multiple mentions - navigation mode active, each row clickable
           <>
             <box style={{ flexDirection: "row" }}>
               <text fg={colors.dim}>Mentions ({mentionCount}): </text>
               <text fg={colors.primary}>j/k</text>
               <text fg={colors.dim}> navigate </text>
               <text fg={colors.primary}>Enter</text>
-              <text fg={colors.dim}> profile</text>
+              <text fg={colors.dim}>/click profile</text>
             </box>
             {tweet.mentions?.map((mention, idx) => {
               const isSelected = idx === mentionIndex;
@@ -835,6 +852,7 @@ export function PostDetailScreen({
                 <box
                   key={mention.username}
                   style={{ flexDirection: "row", marginTop: idx === 0 ? 1 : 0 }}
+                  onMouse={handleMentionRowClick(mention.username)}
                 >
                   <text fg={isSelected ? colors.mention : colors.muted}>
                     {isSelected ? ">" : " "} @{mention.username}
@@ -847,13 +865,21 @@ export function PostDetailScreen({
             })}
           </>
         ) : (
-          // Multiple mentions - collapsed view
-          <box style={{ flexDirection: "row" }}>
+          // Multiple mentions - collapsed view, click to expand
+          <box
+            style={{ flexDirection: "row" }}
+            onMouse={(event: MouseEvent) => {
+              if (event.type === "up" && event.button === 0) {
+                setMentionsMode(true);
+                setMentionIndex(0);
+              }
+            }}
+          >
             <text fg={colors.dim}>Mentions: </text>
             <text fg={colors.mention}>@{firstMention?.username}</text>
             <text fg={colors.dim}> +{mentionCount - 1} more (</text>
             <text fg={colors.primary}>m</text>
-            <text fg={colors.dim}> to navigate)</text>
+            <text fg={colors.dim}>/click)</text>
           </box>
         )}
       </box>
