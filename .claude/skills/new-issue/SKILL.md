@@ -33,10 +33,15 @@ Before creating, verify this isn't already solved:
    # Use Grep/Glob to find relevant code
    ```
 
-2. **Check recent commits:**
+2. **Check recent commits** (filter by relevant keywords):
    ```bash
+   # Generic recent commits
    gh api repos/{owner}/{repo}/commits --jq '.[0:20] | .[] | "\(.sha[0:7]) \(.commit.message | split("\n")[0])"'
+
+   # Targeted search for specific keywords (more useful)
+   gh api repos/{owner}/{repo}/commits --jq '[.[] | select(.commit.message | test("KEYWORD1|KEYWORD2"; "i"))] | .[0:10] | .[] | "\(.sha[0:7]) \(.commit.message | split("\n")[0])"'
    ```
+   Replace `KEYWORD1|KEYWORD2` with terms relevant to the issue (e.g., "retweet|repost" for a retweet bug).
 
 3. **If already fixed/implemented**, inform the user:
    > "It looks like this might already be addressed. I found [what you found]. Are you aware of this?"
@@ -119,16 +124,21 @@ Structure the issue:
 
 ### Step 6: Confirm Before Creating
 
-Present your findings:
-> "Here's the issue I'm planning to create:
+Present a **concise summary** (don't overwhelm with details upfront):
+
+> "Ready to create issue:
 >
 > **Title:** [title]
-> **Summary:** [summary]
-> **Key findings:** [what you discovered]
+> **Summary:** [1-2 sentences max]
 >
-> Ready to create?"
+> Does this look good?"
 
-Options: "Create the issue", "Edit first", "Show details", "Cancel"
+Options: "Create the issue", "Show more details", "Edit first", "Cancel"
+
+**If user selects "Show more details"**, then display:
+- Key findings from codebase exploration
+- Proposed implementation approaches
+- Files that would be affected
 
 ### Step 7: Create the Issue
 
@@ -169,9 +179,47 @@ Use conventional format:
 - `docs(area): brief description` - Documentation
 - `chore(area): brief description` - Maintenance
 
+## Handling Screenshots & Attachments
+
+If the user provides screenshots or images for the issue:
+
+1. **Check for attached files** in the conversation (e.g., `.context/attachments/`)
+2. **Read and understand** the images before drafting the issue
+3. **Create the issue first** (without images or with placeholder text) to get the issue number
+4. **Upload images with issue-prefixed names** to a draft release:
+
+```bash
+# Create or reuse a draft release for issue assets
+gh release view issue-assets 2>/dev/null || \
+  gh release create issue-assets --draft --title "Issue Assets" --notes "Screenshots for issues"
+
+# Copy and rename with issue prefix (e.g., 216-description.png)
+cp "path/to/screenshot.png" /tmp/{issue#}-{description}.png
+
+# Upload the renamed file
+gh release upload issue-assets /tmp/{issue#}-{description}.png
+
+# Get the URL
+gh release view issue-assets --json assets --jq '.assets[] | select(.name | startswith("{issue#}")) | "\(.name): \(.url)"'
+```
+
+5. **Edit the issue** to add the image URLs (not as a separate comment):
+```bash
+gh issue edit {issue#} --body "$(cat <<'EOF'
+[issue body with images]
+![description](https://github.com/owner/repo/releases/download/issue-assets/{issue#}-description.png)
+EOF
+)"
+```
+
+**Naming convention:** `{issue#}-{description}.png` (e.g., `216-xfeed-display.png`, `216-xcom-expected.png`)
+
+**Note:** The `gh` CLI cannot upload images directly to issues ([feature requested since 2020](https://github.com/cli/cli/issues/1895)). Release assets are the cleanest workaround that keeps images within the repo's GitHub ecosystem.
+
 ## Notes
 
 - Always prioritize preventing duplicates - saves everyone time
 - Be thorough but concise - don't overwhelm the user
 - For simple, clearly new issues, streamline the process
 - Keep the user informed at each decision point
+- Check for user-provided debug URLs and include them in the issue
