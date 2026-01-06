@@ -1,6 +1,6 @@
 ---
 name: x-api-debug
-description: Debug X (Twitter) API issues including stale queryIds, feature mismatches, and partial errors. Use when timeline/bookmarks fail with "Query: Unspecified" or similar errors.
+description: Debug X (Twitter) API issues including stale queryIds, feature mismatches, and partial errors. Use when timeline/bookmarks/replies fail with "Query: Unspecified", "features cannot be null", or HTTP 400 errors.
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob, mcp__claude-in-chrome__*
 ---
 
@@ -28,7 +28,21 @@ This error usually means one of:
 2. **Feature mismatch** - Required features missing or wrong values
 3. **Partial errors** - API returns errors alongside valid data (not a real failure)
 
-### 2. Debugging Steps
+### 2. "features cannot be null" Error (HTTP 400)
+
+X periodically adds **required** feature flags. If missing, you get:
+```
+{"errors":[{"message":"The following features cannot be null: feature_name_here"...}]}
+```
+
+**Fix:** Add the missing feature to the appropriate `build*Features()` method in `src/api/client.ts`.
+
+Common culprits:
+- `responsive_web_grok_annotations_enabled` - Required for TweetDetail (added Jan 2026)
+- `responsive_web_grok_analyze_button_fetch_trends_enabled`
+- `responsive_web_grok_share_attachment_enabled`
+
+### 3. Debugging Steps
 
 #### Step 1: Check if it's a partial error
 
@@ -70,7 +84,7 @@ Key features that often change:
 - `responsive_web_graphql_exclude_directive_enabled`
 - `responsive_web_grok_*` features
 
-### 3. Updating QueryIds
+### 4. Updating QueryIds
 
 Files to update when queryIds change:
 
@@ -81,14 +95,14 @@ Files to update when queryIds change:
 | `src/api/query-ids.ts` | FALLBACK_QUERY_IDS constant |
 | `src/api/client.ts` | Method fallbacks (getHomeTimelineQueryIds, etc.) |
 
-### 4. Endpoint-Specific Notes
+### 5. Endpoint-Specific Notes
 
 | Endpoint | Notes |
 |----------|-------|
 | HomeTimeline | For You feed |
 | HomeLatestTimeline | Following feed |
 | Bookmarks | REQUIRES `responsive_web_graphql_exclude_directive_enabled: true` |
-| TweetDetail | Thread view |
+| TweetDetail | Thread view, replies. REQUIRES `responsive_web_grok_annotations_enabled: false` |
 | UserTweets | Profile tweets |
 
 ## Testing API Calls Directly
@@ -136,6 +150,35 @@ The client attempts to discover fresh queryIds by scraping X's client bundles:
 
 If discovery fails, falls back to hardcoded IDs in `query-ids.ts`.
 
+## Quick Debug Script
+
+For rapid API testing, create a temporary debug script:
+
+```typescript
+// debug-api.ts - run with: bun debug-api.ts <tweet_id>
+import { XClient } from "./src/api/client";
+import { loadConfig } from "./src/config/loader";
+
+const config = loadConfig();
+const client = new XClient({
+  cookies: { authToken: config.authToken!, ct0: config.ct0! },
+});
+
+// Access private method for raw response
+const fetchTweetDetail = (client as any).fetchTweetDetail.bind(client);
+const response = await fetchTweetDetail(process.argv[2]);
+
+if (!response.success) {
+  console.error("Error:", response.error);
+  // Look for "features cannot be null" in error message
+  process.exit(1);
+}
+
+const instructions = response.data.threaded_conversation_with_injections_v2?.instructions;
+console.log("Instructions:", instructions?.length);
+console.log("Entry types:", instructions?.[1]?.entries?.map((e: any) => e.entryId?.split("-")[0]));
+```
+
 ## Workflow: Full Debug Session
 
 1. User reports "Query: Unspecified" or timeline not loading
@@ -151,3 +194,12 @@ If discovery fails, falls back to hardcoded IDs in `query-ids.ts`.
 8. Check error handling for partial errors
 9. Test with `bun run start`
 10. Run `bun run test` to ensure no regressions
+
+## Historical Fixes
+
+Track feature flag changes to identify patterns:
+
+| Date | Endpoint | Feature Added | Notes |
+|------|----------|---------------|-------|
+| 2026-01-06 | TweetDetail | `responsive_web_grok_annotations_enabled: false` | Required for replies to load |
+| 2026-01-04 | SearchTimeline | Various grok features | Updated to match X web UI |
