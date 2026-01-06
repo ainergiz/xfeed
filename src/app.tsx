@@ -1,5 +1,56 @@
+import { useDialog, useDialogState } from "@opentui-ui/dialog/react";
 import { useKeyboard, useRenderer } from "@opentui/react";
+import { appendFileSync, writeFileSync } from "node:fs";
 import { useCallback, useEffect, useRef, useState } from "react";
+
+// =============================================================================
+// DEBUG: Demonstrating @opentui-ui/dialog hit grid bug
+// See: https://github.com/ainergiz/xfeed/issues/204
+// =============================================================================
+const DEBUG_LOG = "/tmp/xfeed-dialog-bug.log";
+writeFileSync(DEBUG_LOG, `=== Dialog Hit Grid Bug Debug Log ===\n\n`);
+
+const debugLog = (msg: string) => {
+  const timestamp = new Date().toISOString();
+  appendFileSync(DEBUG_LOG, `${timestamp} ${msg}\n`);
+};
+
+/**
+ * Debug hook to monitor DialogContainerRenderable state.
+ * Logs the container's visibility and position to demonstrate the bug.
+ */
+function useDialogContainerDebug() {
+  const renderer = useRenderer();
+  const isDialogOpen = useDialogState((s) => s.isOpen);
+
+  useEffect(() => {
+    const container = renderer.root
+      .getChildren()
+      .find((c) => c.id === "dialog-container");
+
+    if (container) {
+      debugLog(`[DialogContainer] Found container:`);
+      debugLog(`  - id: ${container.id}`);
+      debugLog(`  - visible: ${container.visible}`);
+      debugLog(`  - position: (${container.x}, ${container.y})`);
+      debugLog(`  - size: ${container.width}x${container.height}`);
+      debugLog(`  - isDialogOpen: ${isDialogOpen}`);
+      debugLog(``);
+
+      if (container.visible && !isDialogOpen) {
+        debugLog(`[BUG] Container is VISIBLE but NO DIALOGS are open!`);
+        debugLog(`      This blocks all mouse events to elements underneath.`);
+        debugLog(
+          `      The container covers the entire screen (${container.width}x${container.height})`
+        );
+        debugLog(`      and intercepts scroll/click events.`);
+        debugLog(``);
+      }
+    } else {
+      debugLog(`[DialogContainer] Container not found yet`);
+    }
+  }, [renderer, isDialogOpen]);
+}
 
 import type { XClient } from "@/api/client";
 import type {
@@ -21,6 +72,12 @@ import {
 import { useActions } from "@/hooks/useActions";
 import { useNavigation } from "@/hooks/useNavigation";
 import { copyToClipboard } from "@/lib/clipboard";
+import { DeleteFolderConfirmContent } from "@/modals/DeleteFolderConfirmModal";
+// Dialog content components (for @opentui-ui/dialog)
+import {
+  ExitConfirmationContent,
+  type ExitChoice,
+} from "@/modals/ExitConfirmationModal";
 import { BookmarksScreen } from "@/screens/BookmarksScreen";
 import { NotificationsScreen } from "@/screens/NotificationsScreen";
 import { PostDetailScreen } from "@/screens/PostDetailScreen";
@@ -60,6 +117,10 @@ export function App({ client, user }: AppProps) {
 
 function AppContent({ client, user }: AppProps) {
   const renderer = useRenderer();
+
+  // DEBUG: Monitor dialog container state to demonstrate bug
+  useDialogContainerDebug();
+
   const { currentView, navigate, goBack, isMainView } = useNavigation<View>({
     initialView: "timeline",
     mainViews: MAIN_VIEWS,
@@ -72,8 +133,15 @@ function AppContent({ client, user }: AppProps) {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [showFooter, setShowFooter] = useState(true);
 
-  // Modal context
+  // Modal context (legacy - will be removed after full migration)
   const { openModal, closeModal, isModalOpen } = useModal();
+
+  // Dialog context (@opentui-ui/dialog)
+  const dialog = useDialog();
+  const isDialogOpen = useDialogState((s) => s.isOpen);
+
+  // Combined check for any modal/dialog being open
+  const isAnyModalOpen = isModalOpen || isDialogOpen;
 
   // Set up session expired callback
   useEffect(() => {
@@ -403,26 +471,49 @@ function AppContent({ client, user }: AppProps) {
   }, [client, selectedBookmarkFolder, openModal, closeModal]);
 
   // Delete current bookmark folder
-  const handleDeleteBookmarkFolder = useCallback(() => {
+  const handleDeleteBookmarkFolder = useCallback(async () => {
     if (!selectedBookmarkFolder) return;
 
-    openModal("delete-folder-confirm", {
-      folderName: selectedBookmarkFolder.name,
-      onConfirm: async () => {
-        const result = await client.deleteBookmarkFolder(
-          selectedBookmarkFolder.id
-        );
-        if (result.success) {
-          setActionMessage(`Deleted folder "${selectedBookmarkFolder.name}"`);
-          setSelectedBookmarkFolder(null);
-          closeModal();
-        } else {
-          throw new Error(result.error);
-        }
-      },
-      onCancel: closeModal,
+    const folderName = selectedBookmarkFolder.name;
+    const folderId = selectedBookmarkFolder.id;
+
+    const confirmed = await dialog.confirm({
+      content: (ctx) => (
+        <DeleteFolderConfirmContent
+          {...ctx}
+          folderName={folderName}
+          onConfirm={async () => {
+            const result = await client.deleteBookmarkFolder(folderId);
+            if (!result.success) {
+              throw new Error(result.error);
+            }
+          }}
+        />
+      ),
+      unstyled: true,
     });
-  }, [client, selectedBookmarkFolder, openModal, closeModal]);
+
+    if (confirmed) {
+      setActionMessage(`Deleted folder "${folderName}"`);
+      setSelectedBookmarkFolder(null);
+    }
+  }, [client, selectedBookmarkFolder, dialog]);
+
+  // Show exit confirmation dialog using @opentui-ui/dialog
+  const showExitConfirmation = useCallback(async () => {
+    const result = await dialog.choice<ExitChoice>({
+      content: (ctx) => <ExitConfirmationContent {...ctx} />,
+      unstyled: true,
+    });
+
+    if (result === "logout") {
+      clearBrowserPreference();
+      renderer.destroy();
+    } else if (result === "exit") {
+      renderer.destroy();
+    }
+    // undefined = cancelled, do nothing
+  }, [dialog, renderer]);
 
   // Handle notification select - navigate to tweet detail or profile based on type
   const handleNotificationSelect = useCallback(
@@ -480,8 +571,8 @@ function AppContent({ client, user }: AppProps) {
       }
     }
 
-    // Don't handle keys when modals are showing - they handle their own keyboard
-    if (isModalOpen) {
+    // Don't handle keys when modals/dialogs are showing - they handle their own keyboard
+    if (isAnyModalOpen) {
       return;
     }
 
@@ -505,14 +596,7 @@ function AppContent({ client, user }: AppProps) {
       if (isMainView) {
         if (currentView === "timeline") {
           // On timeline: show exit confirmation
-          openModal("exit-confirmation", {
-            onLogout: () => {
-              clearBrowserPreference();
-              renderer.destroy();
-            },
-            onConfirm: () => renderer.destroy(),
-            onCancel: closeModal,
-          });
+          showExitConfirmation();
         } else {
           // On bookmarks/notifications: go to timeline
           navigate("timeline");
@@ -527,14 +611,7 @@ function AppContent({ client, user }: AppProps) {
       if (isMainView) {
         if (currentView === "timeline") {
           // On timeline: show exit confirmation (same as escape)
-          openModal("exit-confirmation", {
-            onLogout: () => {
-              clearBrowserPreference();
-              renderer.destroy();
-            },
-            onConfirm: () => renderer.destroy(),
-            onCancel: closeModal,
-          });
+          showExitConfirmation();
         } else {
           // On bookmarks/notifications: go to timeline
           navigate("timeline");
@@ -642,7 +719,9 @@ function AppContent({ client, user }: AppProps) {
         >
           <TimelineScreenExperimental
             client={client}
-            focused={currentView === "timeline" && !showSplash && !isModalOpen}
+            focused={
+              currentView === "timeline" && !showSplash && !isAnyModalOpen
+            }
             onPostCountChange={handlePostCountChange}
             onInitialLoadComplete={handleInitialLoadComplete}
             onPostSelect={handlePostSelect}
@@ -657,7 +736,7 @@ function AppContent({ client, user }: AppProps) {
           <PostDetailScreen
             client={client}
             tweet={selectedPost}
-            focused={!isModalOpen}
+            focused={!isAnyModalOpen}
             onBack={handleBackFromDetail}
             onProfileOpen={handleProfileOpen}
             onLike={() => toggleLike(selectedPost)}
@@ -734,7 +813,9 @@ function AppContent({ client, user }: AppProps) {
         >
           <BookmarksScreen
             client={client}
-            focused={currentView === "bookmarks" && !showSplash && !isModalOpen}
+            focused={
+              currentView === "bookmarks" && !showSplash && !isAnyModalOpen
+            }
             selectedFolder={selectedBookmarkFolder}
             onFolderPickerOpen={handleBookmarkFolderSelectorOpen}
             onPostCountChange={handleBookmarkCountChange}
@@ -761,7 +842,7 @@ function AppContent({ client, user }: AppProps) {
           <NotificationsScreen
             client={client}
             focused={
-              currentView === "notifications" && !showSplash && !isModalOpen
+              currentView === "notifications" && !showSplash && !isAnyModalOpen
             }
             onNotificationCountChange={handleNotificationCountChange}
             onUnreadCountChange={handleUnreadCountChange}
