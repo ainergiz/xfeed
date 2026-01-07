@@ -2013,7 +2013,9 @@ export class XClient {
 
     return {
       success: false,
-      error: `${this.formatErrors(errors)} | fallback: ${fallback.error ?? "Unknown error"}`,
+      error: `${this.formatErrors(errors)} | fallback: ${
+        fallback.error ?? "Unknown error"
+      }`,
     };
   }
 
@@ -3465,6 +3467,21 @@ export class XClient {
     return Array.from(new Set([primary, "JR2gceKucIKcVNB_9JkhsA"]));
   }
 
+  private async getUserRepliesQueryIds(): Promise<string[]> {
+    const primary = await this.getQueryId("UserTweetsAndReplies");
+    return Array.from(new Set([primary, "_P1zJA2kS9W1PLHKdThsrg"]));
+  }
+
+  private async getUserMediaQueryIds(): Promise<string[]> {
+    const primary = await this.getQueryId("UserMedia");
+    return Array.from(new Set([primary, "YqiE3JL1KNgf9nSt-YCt0A"]));
+  }
+
+  private async getUserHighlightsQueryIds(): Promise<string[]> {
+    const primary = await this.getQueryId("UserHighlightsTweets");
+    return Array.from(new Set([primary, "D-zTJ8kigVHMaLAydoXtqA"]));
+  }
+
   private buildUserProfileFeatures(): Record<string, boolean> {
     return {
       ...this.buildSearchFeatures(),
@@ -4008,6 +4025,362 @@ export class XClient {
         return { success: true, tweets: secondAttempt.tweets };
       }
       return { success: false, error: secondAttempt.error };
+    }
+
+    return { success: false, error: firstAttempt.error };
+  }
+
+  /**
+   * Get user's tweets and replies (includes reply tweets)
+   * @param userId Target user's ID
+   * @param count Number of tweets to fetch (default 20)
+   *
+   * @note This endpoint currently returns 404 errors consistently.
+   * The UserTweetsAndReplies API may require:
+   * - Additional authentication headers
+   * - Different feature flags
+   * - Client-specific transaction IDs
+   *
+   * Working example URL (from browser):
+   * https://x.com/i/api/graphql/_P1zJA2kS9W1PLHKdThsrg/UserTweetsAndReplies?
+   * variables={"userId":"...","count":20,"includePromotedContent":true,"withCommunity":true,"withVoice":true}
+   *
+   * TODO: Investigate why this endpoint fails while UserTweets works with similar parameters.
+   */
+  async getUserReplies(
+    userId: string,
+    count = 20
+  ): Promise<import("./types").UserTweetsResult> {
+    const variables = {
+      userId,
+      count,
+      includePromotedContent: true,
+      withCommunity: true,
+      withVoice: true,
+    };
+
+    const features = this.buildSearchFeatures();
+    const fieldToggles = {
+      withArticlePlainText: false,
+    };
+
+    const tryOnce = async () => {
+      let lastError: string | undefined;
+      let had404 = false;
+      const queryIds = await this.getUserRepliesQueryIds();
+
+      for (const queryId of queryIds) {
+        const params = new URLSearchParams({
+          variables: JSON.stringify(variables),
+          features: JSON.stringify(features),
+          fieldToggles: JSON.stringify(fieldToggles),
+        });
+        const url = `${X_API_BASE}/${queryId}/UserTweetsAndReplies?${params.toString()}`;
+
+        try {
+          const response = await this.fetchWithTimeout(url, {
+            method: "GET",
+            headers: this.getHeaders(),
+          });
+
+          if (response.status === 404) {
+            had404 = true;
+            lastError = `HTTP ${response.status}`;
+            console.error(
+              `[DEBUG] UserTweetsAndReplies 404 for queryId: ${queryId}`
+            );
+            continue;
+          }
+
+          if (!response.ok) {
+            const text = await response.text();
+            return {
+              success: false as const,
+              error: `HTTP ${response.status}: ${text.slice(0, 200)}`,
+              had404,
+            };
+          }
+
+          // biome-ignore lint/suspicious/noExplicitAny: X API response varies
+          const data = (await response.json()) as any;
+
+          if (data.errors && data.errors.length > 0) {
+            return {
+              success: false as const,
+              error: data.errors
+                .map((e: { message: string }) => e.message)
+                .join(", "),
+              had404,
+            };
+          }
+
+          const instructions =
+            data.data?.user?.result?.timeline_v2?.timeline?.instructions ||
+            data.data?.user?.result?.timeline?.timeline?.instructions;
+
+          if (!instructions) {
+            lastError = "No instructions found in response";
+            continue;
+          }
+
+          const tweets = this.parseTweetsFromInstructions(
+            instructions,
+            this.quoteDepth
+          );
+
+          return { success: true as const, tweets, had404 };
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : String(error);
+        }
+      }
+
+      return {
+        success: false as const,
+        error: lastError ?? "Unknown error fetching user replies",
+        had404,
+      };
+    };
+
+    const firstAttempt = await tryOnce();
+    if (firstAttempt.success && firstAttempt.tweets.length > 0) {
+      return { success: true, tweets: firstAttempt.tweets };
+    }
+
+    if (firstAttempt.had404) {
+      await this.refreshQueryIds();
+      const secondAttempt = await tryOnce();
+      if (secondAttempt.success && secondAttempt.tweets.length > 0) {
+        return { success: true, tweets: secondAttempt.tweets };
+      }
+    }
+
+    return {
+      success: firstAttempt.success,
+      tweets: firstAttempt.success ? firstAttempt.tweets : undefined,
+      error: firstAttempt.success ? undefined : firstAttempt.error,
+    };
+  }
+
+  /**
+   * Get user's media tweets (photos and videos)
+   * @param userId Target user's ID
+   * @param count Number of tweets to fetch (default 20)
+   */
+  async getUserMedia(
+    userId: string,
+    count = 20
+  ): Promise<import("./types").UserTweetsResult> {
+    const variables = {
+      userId,
+      count,
+      includePromotedContent: true,
+      withClientEventToken: false,
+      withBirdwatchNotes: false,
+      withVoice: true,
+      withV2Timeline: true,
+    };
+
+    const features = this.buildTimelineFeatures();
+    const fieldToggles = {
+      withArticlePlainText: false,
+    };
+
+    const tryOnce = async () => {
+      let lastError: string | undefined;
+      let had404 = false;
+      const queryIds = await this.getUserMediaQueryIds();
+
+      for (const queryId of queryIds) {
+        const params = new URLSearchParams({
+          variables: JSON.stringify(variables),
+          features: JSON.stringify(features),
+          fieldToggles: JSON.stringify(fieldToggles),
+        });
+        const url = `${X_API_BASE}/${queryId}/UserMedia?${params.toString()}`;
+
+        try {
+          const response = await this.fetchWithTimeout(url, {
+            method: "GET",
+            headers: this.getHeaders(),
+          });
+
+          if (response.status === 404) {
+            had404 = true;
+            lastError = `HTTP ${response.status}`;
+            continue;
+          }
+
+          if (!response.ok) {
+            const text = await response.text();
+            return {
+              success: false as const,
+              error: `HTTP ${response.status}: ${text.slice(0, 200)}`,
+              had404,
+            };
+          }
+
+          // biome-ignore lint/suspicious/noExplicitAny: X API response varies
+          const data = (await response.json()) as any;
+
+          if (data.errors && data.errors.length > 0) {
+            return {
+              success: false as const,
+              error: data.errors
+                .map((e: { message: string }) => e.message)
+                .join(", "),
+              had404,
+            };
+          }
+
+          const instructions =
+            data.data?.user?.result?.timeline_v2?.timeline?.instructions ||
+            data.data?.user?.result?.timeline?.timeline?.instructions;
+
+          if (!instructions) {
+            lastError = "No instructions found in response";
+            continue;
+          }
+
+          const tweets = this.parseTweetsFromInstructions(
+            instructions,
+            this.quoteDepth
+          );
+
+          return { success: true as const, tweets, had404 };
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : String(error);
+        }
+      }
+
+      return {
+        success: false as const,
+        error: lastError ?? "Unknown error fetching user media",
+        had404,
+      };
+    };
+
+    const firstAttempt = await tryOnce();
+    if (firstAttempt.success) {
+      return { success: true, tweets: firstAttempt.tweets };
+    }
+
+    if (firstAttempt.had404) {
+      await this.refreshQueryIds();
+      const secondAttempt = await tryOnce();
+      if (secondAttempt.success) {
+        return { success: true, tweets: secondAttempt.tweets };
+      }
+    }
+
+    return { success: false, error: firstAttempt.error };
+  }
+
+  /**
+   * Get user's highlighted/pinned tweets
+   * @param userId Target user's ID
+   * @param count Number of tweets to fetch (default 20)
+   */
+  async getUserHighlights(
+    userId: string,
+    count = 20
+  ): Promise<import("./types").UserTweetsResult> {
+    const variables = {
+      userId,
+      count,
+      includePromotedContent: true,
+      withVoice: true,
+    };
+
+    const features = this.buildTimelineFeatures();
+    const fieldToggles = {
+      withArticlePlainText: false,
+    };
+
+    const tryOnce = async () => {
+      let lastError: string | undefined;
+      let had404 = false;
+      const queryIds = await this.getUserHighlightsQueryIds();
+
+      for (const queryId of queryIds) {
+        const params = new URLSearchParams({
+          variables: JSON.stringify(variables),
+          features: JSON.stringify(features),
+          fieldToggles: JSON.stringify(fieldToggles),
+        });
+        const url = `${X_API_BASE}/${queryId}/UserHighlightsTweets?${params.toString()}`;
+
+        try {
+          const response = await this.fetchWithTimeout(url, {
+            method: "GET",
+            headers: this.getHeaders(),
+          });
+
+          if (response.status === 404) {
+            had404 = true;
+            lastError = `HTTP ${response.status}`;
+            continue;
+          }
+
+          if (!response.ok) {
+            const text = await response.text();
+            return {
+              success: false as const,
+              error: `HTTP ${response.status}: ${text.slice(0, 200)}`,
+              had404,
+            };
+          }
+
+          // biome-ignore lint/suspicious/noExplicitAny: X API response varies
+          const data = (await response.json()) as any;
+
+          if (data.errors && data.errors.length > 0) {
+            return {
+              success: false as const,
+              error: data.errors
+                .map((e: { message: string }) => e.message)
+                .join(", "),
+              had404,
+            };
+          }
+
+          const instructions =
+            data.data?.user?.result?.timeline_v2?.timeline?.instructions ||
+            data.data?.user?.result?.timeline?.timeline?.instructions;
+
+          if (!instructions) {
+            lastError = "No instructions found in response";
+            continue;
+          }
+
+          const tweets = this.parseTweetsFromInstructions(
+            instructions,
+            this.quoteDepth
+          );
+
+          return { success: true as const, tweets, had404 };
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : String(error);
+        }
+      }
+
+      return {
+        success: false as const,
+        error: lastError ?? "Unknown error fetching user highlights",
+        had404,
+      };
+    };
+
+    const firstAttempt = await tryOnce();
+    if (firstAttempt.success) {
+      return { success: true, tweets: firstAttempt.tweets };
+    }
+
+    if (firstAttempt.had404) {
+      await this.refreshQueryIds();
+      const secondAttempt = await tryOnce();
+      if (secondAttempt.success) {
+        return { success: true, tweets: secondAttempt.tweets };
+      }
     }
 
     return { success: false, error: firstAttempt.error };
