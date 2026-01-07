@@ -146,9 +146,7 @@ export function BookmarksScreen({
   if (isLoading) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        {focused && (
-          <ScreenHeader folderName={folderName} inFolder={inFolder} />
-        )}
+        <ScreenHeader folderName={folderName} inFolder={inFolder} />
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg={colors.muted}>Loading bookmarks...</text>
         </box>
@@ -159,9 +157,7 @@ export function BookmarksScreen({
   if (error) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        {focused && (
-          <ScreenHeader folderName={folderName} inFolder={inFolder} />
-        )}
+        <ScreenHeader folderName={folderName} inFolder={inFolder} />
         <ErrorBanner error={error} onRetry={refresh} retryDisabled={false} />
       </box>
     );
@@ -170,9 +166,7 @@ export function BookmarksScreen({
   if (posts.length === 0) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        {focused && (
-          <ScreenHeader folderName={folderName} inFolder={inFolder} />
-        )}
+        <ScreenHeader folderName={folderName} inFolder={inFolder} />
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg={colors.muted}>
             {selectedFolder
@@ -186,7 +180,7 @@ export function BookmarksScreen({
 
   return (
     <box style={{ flexDirection: "column", height: "100%" }}>
-      {focused && <ScreenHeader folderName={folderName} inFolder={inFolder} />}
+      <ScreenHeader folderName={folderName} inFolder={inFolder} />
       <PostList
         posts={posts}
         focused={focused}

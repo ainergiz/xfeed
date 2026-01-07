@@ -168,7 +168,7 @@ export function TimelineScreenExperimental({
   if (isLoading) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        {focused && <TabBar activeTab={tab} isRefetching={isRefetching} />}
+        <TabBar activeTab={tab} isRefetching={isRefetching} />
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg={colors.muted}>Loading timeline...</text>
         </box>
@@ -179,7 +179,7 @@ export function TimelineScreenExperimental({
   if (error) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        {focused && <TabBar activeTab={tab} isRefetching={isRefetching} />}
+        <TabBar activeTab={tab} isRefetching={isRefetching} />
         <ErrorBanner error={error} onRetry={refresh} retryDisabled={false} />
       </box>
     );
@@ -188,7 +188,7 @@ export function TimelineScreenExperimental({
   if (posts.length === 0) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        {focused && <TabBar activeTab={tab} isRefetching={isRefetching} />}
+        <TabBar activeTab={tab} isRefetching={isRefetching} />
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg={colors.muted}>
             No posts to display. Press r to refresh.
@@ -200,7 +200,7 @@ export function TimelineScreenExperimental({
 
   return (
     <box style={{ flexDirection: "column", height: "100%" }}>
-      {focused && <TabBar activeTab={tab} isRefetching={isRefetching} />}
+      <TabBar activeTab={tab} isRefetching={isRefetching} />
 
       {/* Refresh banner */}
       {focused && showRefreshBanner && <RefreshBanner />}

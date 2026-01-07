@@ -1,3 +1,4 @@
+import { useDialog, useDialogState } from "@opentui-ui/dialog/react";
 import { useKeyboard, useRenderer } from "@opentui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -21,6 +22,8 @@ import {
 import { useActions } from "@/hooks/useActions";
 import { useNavigation } from "@/hooks/useNavigation";
 import { copyToClipboard } from "@/lib/clipboard";
+import { DeleteFolderConfirmContent } from "@/modals/DeleteFolderConfirmModal";
+import { ExitConfirmationContent } from "@/modals/ExitConfirmationModal";
 import { BookmarksScreen } from "@/screens/BookmarksScreen";
 import { NotificationsScreen } from "@/screens/NotificationsScreen";
 import { PostDetailScreen } from "@/screens/PostDetailScreen";
@@ -72,8 +75,15 @@ function AppContent({ client, user }: AppProps) {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [showFooter, setShowFooter] = useState(true);
 
-  // Modal context
+  // Modal context (legacy - being migrated to @opentui-ui/dialog)
   const { openModal, closeModal, isModalOpen } = useModal();
+
+  // Dialog system (@opentui-ui/dialog)
+  const dialog = useDialog();
+  const isDialogOpen = useDialogState((s) => s.isOpen);
+
+  // Combined modal state (legacy + new dialog)
+  const isAnyModalOpen = isModalOpen || isDialogOpen;
 
   // Set up session expired callback
   useEffect(() => {
@@ -403,26 +413,37 @@ function AppContent({ client, user }: AppProps) {
   }, [client, selectedBookmarkFolder, openModal, closeModal]);
 
   // Delete current bookmark folder
-  const handleDeleteBookmarkFolder = useCallback(() => {
+  const handleDeleteBookmarkFolder = useCallback(async () => {
     if (!selectedBookmarkFolder) return;
 
-    openModal("delete-folder-confirm", {
-      folderName: selectedBookmarkFolder.name,
-      onConfirm: async () => {
-        const result = await client.deleteBookmarkFolder(
-          selectedBookmarkFolder.id
-        );
-        if (result.success) {
-          setActionMessage(`Deleted folder "${selectedBookmarkFolder.name}"`);
-          setSelectedBookmarkFolder(null);
-          closeModal();
-        } else {
-          throw new Error(result.error);
-        }
-      },
-      onCancel: closeModal,
+    const confirmed = await dialog.confirm({
+      content: (ctx) => (
+        <DeleteFolderConfirmContent
+          folderName={selectedBookmarkFolder.name}
+          onConfirm={async () => {
+            const result = await client.deleteBookmarkFolder(
+              selectedBookmarkFolder.id
+            );
+            if (result.success) {
+              setActionMessage(
+                `Deleted folder "${selectedBookmarkFolder.name}"`
+              );
+              setSelectedBookmarkFolder(null);
+            } else {
+              throw new Error(result.error);
+            }
+          }}
+          resolve={ctx.resolve}
+          dismiss={ctx.dismiss}
+          dialogId={ctx.dialogId}
+        />
+      ),
+      unstyled: true,
     });
-  }, [client, selectedBookmarkFolder, openModal, closeModal]);
+
+    // Dialog was dismissed without confirming
+    if (!confirmed) return;
+  }, [client, selectedBookmarkFolder, dialog]);
 
   // Handle notification select - navigate to tweet detail or profile based on type
   const handleNotificationSelect = useCallback(
@@ -463,6 +484,30 @@ function AppContent({ client, user }: AppProps) {
     [navigate, initState]
   );
 
+  // Show exit confirmation dialog
+  const showExitConfirmation = useCallback(() => {
+    dialog
+      .choice<"logout" | "exit">({
+        content: (ctx) => (
+          <ExitConfirmationContent
+            resolve={ctx.resolve}
+            dismiss={ctx.dismiss}
+            dialogId={ctx.dialogId}
+          />
+        ),
+        unstyled: true,
+      })
+      .then((choice) => {
+        if (choice === "logout") {
+          clearBrowserPreference();
+          renderer.destroy();
+        } else if (choice === "exit") {
+          renderer.destroy();
+        }
+        // undefined = cancelled, do nothing
+      });
+  }, [dialog, renderer]);
+
   useKeyboard((key) => {
     // Handle copy with 'c' - Cmd+C is intercepted by terminal
     if (key.name === "c") {
@@ -481,7 +526,7 @@ function AppContent({ client, user }: AppProps) {
     }
 
     // Don't handle keys when modals are showing - they handle their own keyboard
-    if (isModalOpen) {
+    if (isAnyModalOpen) {
       return;
     }
 
@@ -505,14 +550,7 @@ function AppContent({ client, user }: AppProps) {
       if (isMainView) {
         if (currentView === "timeline") {
           // On timeline: show exit confirmation
-          openModal("exit-confirmation", {
-            onLogout: () => {
-              clearBrowserPreference();
-              renderer.destroy();
-            },
-            onConfirm: () => renderer.destroy(),
-            onCancel: closeModal,
-          });
+          showExitConfirmation();
         } else {
           // On bookmarks/notifications: go to timeline
           navigate("timeline");
@@ -527,14 +565,7 @@ function AppContent({ client, user }: AppProps) {
       if (isMainView) {
         if (currentView === "timeline") {
           // On timeline: show exit confirmation (same as escape)
-          openModal("exit-confirmation", {
-            onLogout: () => {
-              clearBrowserPreference();
-              renderer.destroy();
-            },
-            onConfirm: () => renderer.destroy(),
-            onCancel: closeModal,
-          });
+          showExitConfirmation();
         } else {
           // On bookmarks/notifications: go to timeline
           navigate("timeline");
@@ -642,7 +673,9 @@ function AppContent({ client, user }: AppProps) {
         >
           <TimelineScreenExperimental
             client={client}
-            focused={currentView === "timeline" && !showSplash && !isModalOpen}
+            focused={
+              currentView === "timeline" && !showSplash && !isAnyModalOpen
+            }
             onPostCountChange={handlePostCountChange}
             onInitialLoadComplete={handleInitialLoadComplete}
             onPostSelect={handlePostSelect}
@@ -657,7 +690,7 @@ function AppContent({ client, user }: AppProps) {
           <PostDetailScreen
             client={client}
             tweet={selectedPost}
-            focused={!isModalOpen}
+            focused={!isAnyModalOpen}
             onBack={handleBackFromDetail}
             onProfileOpen={handleProfileOpen}
             onLike={() => toggleLike(selectedPost)}
@@ -734,7 +767,9 @@ function AppContent({ client, user }: AppProps) {
         >
           <BookmarksScreen
             client={client}
-            focused={currentView === "bookmarks" && !showSplash && !isModalOpen}
+            focused={
+              currentView === "bookmarks" && !showSplash && !isAnyModalOpen
+            }
             selectedFolder={selectedBookmarkFolder}
             onFolderPickerOpen={handleBookmarkFolderSelectorOpen}
             onPostCountChange={handleBookmarkCountChange}
@@ -761,7 +796,7 @@ function AppContent({ client, user }: AppProps) {
           <NotificationsScreen
             client={client}
             focused={
-              currentView === "notifications" && !showSplash && !isModalOpen
+              currentView === "notifications" && !showSplash && !isAnyModalOpen
             }
             onNotificationCountChange={handleNotificationCountChange}
             onUnreadCountChange={handleUnreadCountChange}

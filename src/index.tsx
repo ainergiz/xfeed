@@ -29,6 +29,8 @@ function checkTerminalCompatibility(): void {
   }
 }
 
+import { DialogProvider } from "@opentui-ui/dialog/react";
+
 import { App } from "@/app";
 import { detectAvailableBrowsers, isInteractive } from "@/auth/browser-detect";
 import { promptBrowserSelection } from "@/auth/browser-picker";
@@ -308,7 +310,14 @@ cli
       createRoot(renderer).render(
         <PreferencesProvider preferences={preferences}>
           <ModalProvider>
-            <App client={authResult.client} user={authResult.user} />
+            <DialogProvider
+              backdropColor="#000000"
+              backdropOpacity={0.8}
+              size="small"
+              unstyled
+            >
+              <App client={authResult.client} user={authResult.user} />
+            </DialogProvider>
           </ModalProvider>
         </PreferencesProvider>
       );
