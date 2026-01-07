@@ -148,6 +148,14 @@ export function ProfileScreen({
     }
   }, [isSelf, activeTab, likesFetched, isLikesLoading, fetchLikes]);
 
+  // Reset UI state when navigating to a different profile
+  useEffect(() => {
+    setIsCollapsed(false);
+    setActiveTab("tweets");
+    setMentionsMode(false);
+    setMentionIndex(0);
+  }, [username]);
+
   // Extract mentions from bio
   const bioMentions = user?.description
     ? extractMentions(user.description)

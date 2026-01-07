@@ -69,7 +69,7 @@ function ScreenHeader({ folderName, inFolder }: ScreenHeaderProps) {
       </text>
       <text fg={colors.dim}>
         {" "}
-        (f folders, c new{inFolder ? ", e rename, D delete" : ""})
+        (f folder, n new{inFolder ? ", e rename, D delete" : ""})
       </text>
     </box>
   );
@@ -124,8 +124,8 @@ export function BookmarksScreen({
       onFolderPickerOpen?.();
     }
 
-    // Create new folder with 'c'
-    if (key.name === "c") {
+    // Create new folder with 'n'
+    if (key.name === "n") {
       onCreateFolder?.();
     }
 
