@@ -701,10 +701,10 @@ function AppContent({ client, user }: AppProps) {
       >
         {/* TanStack Query experiment: TimelineScreenExperimental */}
         <box
+          visible={currentView === "timeline"}
           style={{
-            flexGrow: currentView === "timeline" ? 1 : 0,
-            height: currentView === "timeline" ? "100%" : 0,
-            overflow: "hidden",
+            flexGrow: 1,
+            height: "100%",
           }}
         >
           <TimelineScreenExperimental
@@ -747,10 +747,10 @@ function AppContent({ client, user }: AppProps) {
 
         {/* Keep ThreadScreen mounted to preserve state, hide when not active */}
         <box
+          visible={currentView === "thread"}
           style={{
-            flexGrow: currentView === "thread" ? 1 : 0,
-            height: currentView === "thread" ? "100%" : 0,
-            overflow: "hidden",
+            flexGrow: 1,
+            height: "100%",
           }}
         >
           {threadRootTweet && (
@@ -767,10 +767,10 @@ function AppContent({ client, user }: AppProps) {
 
         {/* Keep ProfileScreen mounted to preserve state, hide when not active */}
         <box
+          visible={currentView === "profile"}
           style={{
-            flexGrow: currentView === "profile" ? 1 : 0,
-            height: currentView === "profile" ? "100%" : 0,
-            overflow: "hidden",
+            flexGrow: 1,
+            height: "100%",
           }}
         >
           {profileUsername && (
@@ -793,10 +793,10 @@ function AppContent({ client, user }: AppProps) {
 
         {/* Keep BookmarksScreen mounted to preserve state, hide when not active */}
         <box
+          visible={currentView === "bookmarks"}
           style={{
-            flexGrow: currentView === "bookmarks" ? 1 : 0,
-            height: currentView === "bookmarks" ? "100%" : 0,
-            overflow: "hidden",
+            flexGrow: 1,
+            height: "100%",
           }}
         >
           <BookmarksScreen
@@ -821,10 +821,10 @@ function AppContent({ client, user }: AppProps) {
 
         {/* Keep NotificationsScreen mounted to preserve state, hide when not active */}
         <box
+          visible={currentView === "notifications"}
           style={{
-            flexGrow: currentView === "notifications" ? 1 : 0,
-            height: currentView === "notifications" ? "100%" : 0,
-            overflow: "hidden",
+            flexGrow: 1,
+            height: "100%",
           }}
         >
           <NotificationsScreen
