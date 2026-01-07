@@ -13,7 +13,6 @@ import type {
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { clearBrowserPreference } from "@/config/loader";
-import { useModal } from "@/contexts/ModalContext";
 import {
   QueryProvider,
   TimelineScreenExperimental,
@@ -22,8 +21,15 @@ import {
 import { useActions } from "@/hooks/useActions";
 import { useNavigation } from "@/hooks/useNavigation";
 import { copyToClipboard } from "@/lib/clipboard";
+import { BookmarkFolderSelectorContent } from "@/modals/BookmarkFolderSelector";
 import { DeleteFolderConfirmContent } from "@/modals/DeleteFolderConfirmModal";
 import { ExitConfirmationContent } from "@/modals/ExitConfirmationModal";
+import { FolderNameInputContent } from "@/modals/FolderNameInputModal";
+import {
+  FolderPickerContent,
+  type FolderPickerResult,
+} from "@/modals/FolderPicker";
+import { SessionExpiredContent } from "@/modals/SessionExpiredModal";
 import { BookmarksScreen } from "@/screens/BookmarksScreen";
 import { NotificationsScreen } from "@/screens/NotificationsScreen";
 import { PostDetailScreen } from "@/screens/PostDetailScreen";
@@ -75,22 +81,24 @@ function AppContent({ client, user }: AppProps) {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [showFooter, setShowFooter] = useState(true);
 
-  // Modal context (legacy - being migrated to @opentui-ui/dialog)
-  const { openModal, closeModal, isModalOpen } = useModal();
-
   // Dialog system (@opentui-ui/dialog)
   const dialog = useDialog();
   const isDialogOpen = useDialogState((s) => s.isOpen);
 
-  // Combined modal state (legacy + new dialog)
-  const isAnyModalOpen = isModalOpen || isDialogOpen;
-
   // Set up session expired callback
   useEffect(() => {
     client.setOnSessionExpired(() => {
-      openModal("session-expired", {});
+      dialog.alert({
+        content: (ctx) => (
+          <SessionExpiredContent
+            dismiss={ctx.dismiss}
+            dialogId={ctx.dialogId}
+          />
+        ),
+        unstyled: true,
+      });
     });
-  }, [client, openModal]);
+  }, [client, dialog]);
 
   // State for bookmark folder selection (moved here for useActions integration)
   const [selectedBookmarkFolder, setSelectedBookmarkFolder] =
@@ -333,84 +341,117 @@ function AppContent({ client, user }: AppProps) {
     [navigate, initState]
   );
 
-  // Open folder picker modal from post detail
-  const handleMoveToFolder = useCallback(() => {
+  // Open folder picker dialog from post detail
+  const handleMoveToFolder = useCallback(async () => {
     if (!selectedPost) return;
 
-    openModal("folder-picker", {
-      client,
-      tweet: selectedPost,
-      onSelect: async (folderId: string, folderName: string) => {
-        const result = await client.moveBookmarkToFolder(
-          selectedPost.id,
-          folderId
-        );
-
-        if (result.success) {
-          setActionMessage(`Moved to "${folderName}"`);
-        } else {
-          setActionMessage(`Error: ${result.error}`);
-        }
-
-        closeModal();
-      },
-      onClose: closeModal,
+    const result = await dialog.choice<FolderPickerResult>({
+      content: (ctx) => (
+        <FolderPickerContent
+          client={client}
+          resolve={ctx.resolve}
+          dismiss={ctx.dismiss}
+          dialogId={ctx.dialogId}
+        />
+      ),
+      unstyled: true,
     });
-  }, [client, selectedPost, openModal, closeModal]);
 
-  // Open bookmark folder selector modal
-  const handleBookmarkFolderSelectorOpen = useCallback(() => {
-    openModal("bookmark-folder-selector", {
-      client,
-      currentFolder: selectedBookmarkFolder,
-      onSelect: (folder: BookmarkFolder | null) => {
-        setSelectedBookmarkFolder(folder);
-        closeModal();
-      },
-      onClose: closeModal,
+    // undefined means dismissed
+    if (!result) return;
+
+    const moveResult = await client.moveBookmarkToFolder(
+      selectedPost.id,
+      result.folderId
+    );
+
+    if (moveResult.success) {
+      setActionMessage(`Moved to "${result.folderName}"`);
+    } else {
+      setActionMessage(`Error: ${moveResult.error}`);
+    }
+  }, [client, selectedPost, dialog]);
+
+  // Open bookmark folder selector dialog
+  const handleBookmarkFolderSelectorOpen = useCallback(async () => {
+    const folder = await dialog.choice<BookmarkFolder | null>({
+      content: (ctx) => (
+        <BookmarkFolderSelectorContent
+          client={client}
+          currentFolder={selectedBookmarkFolder}
+          resolve={ctx.resolve}
+          dismiss={ctx.dismiss}
+          dialogId={ctx.dialogId}
+        />
+      ),
+      unstyled: true,
     });
-  }, [client, selectedBookmarkFolder, openModal, closeModal]);
+
+    // undefined means dismissed, don't change selection
+    if (folder !== undefined) {
+      setSelectedBookmarkFolder(folder);
+    }
+  }, [client, selectedBookmarkFolder, dialog]);
 
   // Create new bookmark folder
-  const handleCreateBookmarkFolder = useCallback(() => {
-    openModal("folder-name-input", {
-      mode: "create",
-      onSubmit: async (name: string) => {
-        const result = await client.createBookmarkFolder(name);
-        if (result.success) {
-          setActionMessage(`Created folder "${name}"`);
-          closeModal();
-        } else {
-          throw new Error(result.error);
-        }
-      },
-      onClose: closeModal,
+  const handleCreateBookmarkFolder = useCallback(async () => {
+    const name = await dialog.prompt<string>({
+      content: (ctx) => (
+        <FolderNameInputContent
+          mode="create"
+          onSubmit={async (folderName) => {
+            const result = await client.createBookmarkFolder(folderName);
+            if (!result.success) {
+              throw new Error(result.error);
+            }
+          }}
+          resolve={ctx.resolve}
+          dismiss={ctx.dismiss}
+          dialogId={ctx.dialogId}
+        />
+      ),
+      unstyled: true,
     });
-  }, [client, openModal, closeModal]);
+
+    // undefined means dismissed
+    if (name) {
+      setActionMessage(`Created folder "${name}"`);
+    }
+  }, [client, dialog]);
 
   // Edit current bookmark folder
-  const handleEditBookmarkFolder = useCallback(() => {
+  const handleEditBookmarkFolder = useCallback(async () => {
     if (!selectedBookmarkFolder) return;
 
-    openModal("folder-name-input", {
-      mode: "edit",
-      initialName: selectedBookmarkFolder.name,
-      onSubmit: async (name: string) => {
-        const result = await client.editBookmarkFolder(
-          selectedBookmarkFolder.id,
-          name
-        );
-        if (result.success) {
-          setSelectedBookmarkFolder(result.folder);
-          setActionMessage(`Renamed folder to "${name}"`);
-          closeModal();
-        } else {
-          throw new Error(result.error);
-        }
-      },
-      onClose: closeModal,
+    const name = await dialog.prompt<string>({
+      content: (ctx) => (
+        <FolderNameInputContent
+          mode="edit"
+          initialName={selectedBookmarkFolder.name}
+          onSubmit={async (folderName) => {
+            const result = await client.editBookmarkFolder(
+              selectedBookmarkFolder.id,
+              folderName
+            );
+            if (result.success) {
+              setSelectedBookmarkFolder(result.folder);
+            } else {
+              throw new Error(result.error);
+            }
+          }}
+          resolve={ctx.resolve}
+          dismiss={ctx.dismiss}
+          dialogId={ctx.dialogId}
+        />
+      ),
+      unstyled: true,
     });
-  }, [client, selectedBookmarkFolder, openModal, closeModal]);
+
+    // undefined means dismissed
+    if (name) {
+      setActionMessage(`Renamed folder to "${name}"`);
+    }
+  }, [client, selectedBookmarkFolder, dialog]);
 
   // Delete current bookmark folder
   const handleDeleteBookmarkFolder = useCallback(async () => {
@@ -526,7 +567,7 @@ function AppContent({ client, user }: AppProps) {
     }
 
     // Don't handle keys when modals are showing - they handle their own keyboard
-    if (isAnyModalOpen) {
+    if (isDialogOpen) {
       return;
     }
 
@@ -673,9 +714,7 @@ function AppContent({ client, user }: AppProps) {
         >
           <TimelineScreenExperimental
             client={client}
-            focused={
-              currentView === "timeline" && !showSplash && !isAnyModalOpen
-            }
+            focused={currentView === "timeline" && !showSplash && !isDialogOpen}
             onPostCountChange={handlePostCountChange}
             onInitialLoadComplete={handleInitialLoadComplete}
             onPostSelect={handlePostSelect}
@@ -690,7 +729,7 @@ function AppContent({ client, user }: AppProps) {
           <PostDetailScreen
             client={client}
             tweet={selectedPost}
-            focused={!isAnyModalOpen}
+            focused={!isDialogOpen}
             onBack={handleBackFromDetail}
             onProfileOpen={handleProfileOpen}
             onLike={() => toggleLike(selectedPost)}
@@ -768,7 +807,7 @@ function AppContent({ client, user }: AppProps) {
           <BookmarksScreen
             client={client}
             focused={
-              currentView === "bookmarks" && !showSplash && !isAnyModalOpen
+              currentView === "bookmarks" && !showSplash && !isDialogOpen
             }
             selectedFolder={selectedBookmarkFolder}
             onFolderPickerOpen={handleBookmarkFolderSelectorOpen}
@@ -796,7 +835,7 @@ function AppContent({ client, user }: AppProps) {
           <NotificationsScreen
             client={client}
             focused={
-              currentView === "notifications" && !showSplash && !isAnyModalOpen
+              currentView === "notifications" && !showSplash && !isDialogOpen
             }
             onNotificationCountChange={handleNotificationCountChange}
             onUnreadCountChange={handleUnreadCountChange}
