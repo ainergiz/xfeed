@@ -1,50 +1,60 @@
 /**
  * FolderNameInputModal - Modal for creating or editing a bookmark folder name
  *
- * Uses OpenTUI's <input> intrinsic for text entry with:
+ * Uses @opentui-ui/dialog for async dialog management.
+ * Features:
  * - Max 25 character limit
  * - Enter to submit, Esc to cancel
  * - Loading state during submission
  * - Error display on failure
  */
 
-import { useKeyboard } from "@opentui/react";
-import { useEffect, useState } from "react";
+import {
+  useDialogKeyboard,
+  type PromptContext,
+} from "@opentui-ui/dialog/react";
+import { useState } from "react";
 
 import { colors } from "@/lib/colors";
 
 const MAX_FOLDER_NAME_LENGTH = 25;
 
-interface FolderNameInputModalProps {
+// Dialog colors (Catppuccin-inspired)
+const dialogColors = {
+  bgDark: "#1e1e2e",
+  bgPanel: "#181825",
+  bgInput: "#11111b",
+  textPrimary: "#cdd6f4",
+  textSecondary: "#bac2de",
+  textMuted: "#6c7086",
+  accent: "#89b4fa",
+};
+
+/** Props for FolderNameInputContent (used with dialog.prompt) */
+export interface FolderNameInputContentProps extends PromptContext<string> {
   /** Whether creating a new folder or editing existing */
   mode: "create" | "edit";
   /** Initial name value (for edit mode) */
   initialName?: string;
-  /** Called when user submits a valid name */
-  onSubmit: (name: string) => Promise<void>;
-  /** Called when user cancels (Esc) */
-  onClose: () => void;
-  /** Whether the modal is focused */
-  focused?: boolean;
+  /** Optional async validation/submission before resolving */
+  onSubmit?: (name: string) => Promise<void>;
 }
 
-export function FolderNameInputModal({
+/**
+ * Content component for folder name input dialog.
+ * Use with dialog.prompt<string>().
+ */
+export function FolderNameInputContent({
   mode,
   initialName = "",
   onSubmit,
-  onClose,
-  focused = true,
-}: FolderNameInputModalProps) {
+  resolve,
+  dismiss,
+  dialogId,
+}: FolderNameInputContentProps) {
   const [value, setValue] = useState(initialName);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Reset state when modal opens
-  useEffect(() => {
-    setValue(initialName);
-    setError(null);
-    setIsSubmitting(false);
-  }, [initialName]);
 
   const handleSubmit = async () => {
     const trimmed = value.trim();
@@ -63,122 +73,110 @@ export function FolderNameInputModal({
     setError(null);
 
     try {
-      await onSubmit(trimmed);
+      if (onSubmit) {
+        await onSubmit(trimmed);
+      }
+      resolve(trimmed);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save folder");
       setIsSubmitting(false);
     }
   };
 
-  useKeyboard((key) => {
-    if (!focused || isSubmitting) return;
+  useDialogKeyboard((key) => {
+    if (isSubmitting) return;
 
     if (key.name === "escape") {
-      onClose();
+      dismiss();
     }
-  });
+  }, dialogId);
 
-  const title = mode === "create" ? "Create folder" : "Rename folder";
+  const title = mode === "create" ? "Create Folder" : "Rename Folder";
   const buttonText = mode === "create" ? "Create" : "Save";
 
   return (
-    <box
-      style={{
-        flexDirection: "column",
-        height: "100%",
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-      backgroundColor="#000000"
-      opacity={0.8}
-    >
+    <box flexDirection="column">
+      {/* Header */}
       <box
-        style={{
-          flexDirection: "column",
-          padding: 2,
-          minWidth: 35,
-          maxWidth: 50,
-        }}
+        backgroundColor={dialogColors.bgPanel}
+        paddingLeft={3}
+        paddingRight={3}
+        paddingTop={1}
+        paddingBottom={1}
+        flexDirection="row"
+        gap={1}
       >
-        <box
-          style={{
-            borderStyle: "rounded",
-            borderColor: error ? colors.error : "#444444",
-            padding: 1,
-            flexDirection: "column",
+        <text fg={dialogColors.accent}>📁</text>
+        <text fg={dialogColors.textPrimary}>
+          <b>{title}</b>
+        </text>
+      </box>
+
+      {/* Content */}
+      <box
+        backgroundColor={dialogColors.bgDark}
+        paddingLeft={3}
+        paddingRight={3}
+        paddingTop={1}
+        paddingBottom={1}
+        flexDirection="column"
+        gap={1}
+      >
+        {/* Input field */}
+        <input
+          value={value}
+          placeholder="Enter folder name..."
+          maxLength={MAX_FOLDER_NAME_LENGTH}
+          focused={!isSubmitting}
+          onInput={(newValue: string) => {
+            setValue(newValue);
+            if (error) setError(null);
           }}
-          backgroundColor="#000000"
+          onSubmit={() => {
+            handleSubmit();
+          }}
+          width={30}
+          height={1}
+          backgroundColor={dialogColors.bgInput}
+          textColor={dialogColors.textPrimary}
+          placeholderColor={dialogColors.textMuted}
+          cursorColor={dialogColors.accent}
+        />
+
+        {/* Character count */}
+        <text
+          fg={
+            value.length > MAX_FOLDER_NAME_LENGTH
+              ? colors.error
+              : dialogColors.textMuted
+          }
         >
-          {/* Title */}
-          <box style={{ paddingBottom: 1 }}>
-            <text fg={colors.primary}>
-              <b>{title}</b>
-            </text>
-          </box>
+          {value.length}/{MAX_FOLDER_NAME_LENGTH}
+        </text>
 
-          {/* Input field */}
-          <box
-            style={{
-              flexDirection: "row",
-              paddingBottom: 1,
-            }}
-          >
-            <input
-              value={value}
-              placeholder="Enter folder name..."
-              maxLength={MAX_FOLDER_NAME_LENGTH}
-              focused={focused && !isSubmitting}
-              onInput={(newValue: string) => {
-                setValue(newValue);
-                if (error) setError(null);
-              }}
-              onSubmit={() => {
-                handleSubmit();
-              }}
-              width={30}
-              height={1}
-              backgroundColor="#1a1a1a"
-              textColor="#ffffff"
-              placeholderColor="#666666"
-              cursorColor={colors.primary}
-            />
-          </box>
+        {/* Error message */}
+        {error ? <text fg={colors.error}>{error}</text> : null}
 
-          {/* Character count */}
-          <box style={{ paddingBottom: 1 }}>
-            <text
-              fg={
-                value.length > MAX_FOLDER_NAME_LENGTH
-                  ? colors.error
-                  : colors.dim
-              }
-            >
-              {value.length}/{MAX_FOLDER_NAME_LENGTH}
-            </text>
-          </box>
+        {/* Loading state */}
+        {isSubmitting ? (
+          <text fg={dialogColors.textMuted}>Saving...</text>
+        ) : null}
+      </box>
 
-          {/* Error message */}
-          {error ? (
-            <box style={{ paddingBottom: 1 }}>
-              <text fg={colors.error}>{error}</text>
-            </box>
-          ) : null}
-
-          {/* Loading state */}
-          {isSubmitting ? (
-            <box style={{ paddingBottom: 1 }}>
-              <text fg={colors.muted}>Saving...</text>
-            </box>
-          ) : null}
-
-          {/* Footer hints */}
-          <box style={{ flexDirection: "row" }}>
-            <text fg={colors.dim}>Enter</text>
-            <text fg="#444444"> {buttonText.toLowerCase()} </text>
-            <text fg={colors.dim}>Esc</text>
-            <text fg="#444444"> cancel</text>
-          </box>
-        </box>
+      {/* Footer */}
+      <box
+        backgroundColor={dialogColors.bgPanel}
+        paddingLeft={3}
+        paddingRight={3}
+        paddingTop={1}
+        paddingBottom={1}
+        flexDirection="row"
+        gap={2}
+      >
+        <text fg={dialogColors.textMuted}>Enter</text>
+        <text fg={dialogColors.textSecondary}>{buttonText.toLowerCase()}</text>
+        <text fg={dialogColors.textMuted}>Esc</text>
+        <text fg={dialogColors.textSecondary}>cancel</text>
       </box>
     </box>
   );

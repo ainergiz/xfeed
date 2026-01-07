@@ -1,5 +1,5 @@
 /**
- * ExitConfirmationModal - Modal for confirming app exit with logout option
+ * ExitConfirmationContent - Dialog content for confirming app exit with logout option
  *
  * Shows options: Logout and exit, Just exit, Cancel
  * Uses @opentui-ui/dialog for async dialog management.
@@ -11,10 +11,20 @@ import {
 } from "@opentui-ui/dialog/react";
 import { useState } from "react";
 
-import { colors } from "@/lib/colors";
-
 const OPTIONS = ["Logout and exit", "Just exit", "Cancel"] as const;
 const OPTION_COUNT = OPTIONS.length;
+
+// Dialog colors (Catppuccin-inspired)
+const dialogColors = {
+  bgDark: "#1e1e2e",
+  bgPanel: "#181825",
+  bgHover: "#313244",
+  textPrimary: "#cdd6f4",
+  textSecondary: "#bac2de",
+  textMuted: "#6c7086",
+  accent: "#89b4fa",
+  warning: "#fab387",
+};
 
 /** Choice type for exit confirmation dialog */
 export type ExitChoice = "logout" | "exit";
@@ -75,166 +85,65 @@ export function ExitConfirmationContent({
   }, dialogId);
 
   return (
-    <box
-      style={{
-        flexDirection: "column",
-        padding: 2,
-        minWidth: 30,
-      }}
-    >
+    <box flexDirection="column">
+      {/* Header */}
       <box
-        style={{
-          borderStyle: "rounded",
-          borderColor: "#444444",
-          padding: 1,
-        }}
-        backgroundColor="#000000"
+        backgroundColor={dialogColors.bgPanel}
+        paddingLeft={3}
+        paddingRight={3}
+        paddingTop={1}
+        paddingBottom={1}
+        flexDirection="row"
+        gap={1}
       >
-        <box style={{ paddingBottom: 1 }}>
-          <text fg={colors.primary}>Exit xfeed?</text>
-        </box>
-
-        {OPTIONS.map((option, index) => (
-          <box key={option} style={{ flexDirection: "row" }}>
-            <text fg={selectedIndex === index ? colors.primary : colors.muted}>
-              {selectedIndex === index ? "> " : "  "}
-              {option}
-            </text>
-          </box>
-        ))}
-
-        <box style={{ paddingTop: 1, flexDirection: "row" }}>
-          <text fg={colors.dim}>l</text>
-          <text fg="#444444"> logout </text>
-          <text fg={colors.dim}>y</text>
-          <text fg="#444444"> exit </text>
-          <text fg={colors.dim}>n/Esc</text>
-          <text fg="#444444"> cancel</text>
-        </box>
+        <text fg={dialogColors.warning}>⚠</text>
+        <text fg={dialogColors.textPrimary}>
+          <b>Exit xfeed?</b>
+        </text>
       </box>
-    </box>
-  );
-}
 
-// =============================================================================
-// Legacy export for backwards compatibility during migration
-// TODO: Remove after all modals are migrated to @opentui-ui/dialog
-// =============================================================================
-
-import { useKeyboard } from "@opentui/react";
-
-interface ExitConfirmationModalProps {
-  /** Called when user chooses to logout and exit (l or Enter on Logout) */
-  onLogout: () => void;
-  /** Called when user confirms exit without logout (y or Enter on Just exit) */
-  onConfirm: () => void;
-  /** Called when user cancels (n or Escape) */
-  onCancel: () => void;
-  /** Whether the modal is focused (should handle keyboard) */
-  focused?: boolean;
-}
-
-/**
- * @deprecated Use ExitConfirmationContent with dialog.choice() instead.
- * Kept for backwards compatibility with ModalContext during migration.
- */
-export function ExitConfirmationModal({
-  onLogout,
-  onConfirm,
-  onCancel,
-  focused = true,
-}: ExitConfirmationModalProps) {
-  const [selectedIndex, setSelectedIndex] = useState(2);
-
-  useKeyboard((key) => {
-    if (!focused) return;
-
-    if (key.name === "l") {
-      onLogout();
-      return;
-    }
-
-    if (key.name === "y") {
-      onConfirm();
-      return;
-    }
-
-    if (key.name === "n" || key.name === "escape") {
-      onCancel();
-      return;
-    }
-
-    if (key.name === "j" || key.name === "down" || key.name === "tab") {
-      setSelectedIndex((prev) => (prev + 1) % OPTION_COUNT);
-      return;
-    }
-
-    if (key.name === "k" || key.name === "up") {
-      setSelectedIndex((prev) => (prev - 1 + OPTION_COUNT) % OPTION_COUNT);
-      return;
-    }
-
-    if (key.name === "return") {
-      if (selectedIndex === 0) {
-        onLogout();
-      } else if (selectedIndex === 1) {
-        onConfirm();
-      } else {
-        onCancel();
-      }
-    }
-  });
-
-  return (
-    <box
-      style={{
-        flexDirection: "column",
-        height: "100%",
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-      backgroundColor="#000000"
-      opacity={0.8}
-    >
+      {/* Content */}
       <box
-        style={{
-          flexDirection: "column",
-          padding: 2,
-          minWidth: 30,
-        }}
+        backgroundColor={dialogColors.bgDark}
+        paddingLeft={3}
+        paddingRight={3}
+        paddingTop={1}
+        paddingBottom={1}
+        flexDirection="column"
       >
-        <box
-          style={{
-            borderStyle: "rounded",
-            borderColor: "#444444",
-            padding: 1,
-          }}
-          backgroundColor="#000000"
-        >
-          <box style={{ paddingBottom: 1 }}>
-            <text fg={colors.primary}>Exit xfeed?</text>
-          </box>
+        {OPTIONS.map((option, index) => (
+          <text
+            key={option}
+            fg={
+              selectedIndex === index
+                ? dialogColors.textPrimary
+                : dialogColors.textSecondary
+            }
+            bg={selectedIndex === index ? dialogColors.bgHover : undefined}
+          >
+            {selectedIndex === index ? " › " : "   "}
+            {option}
+            {"  "}
+          </text>
+        ))}
+      </box>
 
-          {OPTIONS.map((option, index) => (
-            <box key={option} style={{ flexDirection: "row" }}>
-              <text
-                fg={selectedIndex === index ? colors.primary : colors.muted}
-              >
-                {selectedIndex === index ? "> " : "  "}
-                {option}
-              </text>
-            </box>
-          ))}
-
-          <box style={{ paddingTop: 1, flexDirection: "row" }}>
-            <text fg={colors.dim}>l</text>
-            <text fg="#444444"> logout </text>
-            <text fg={colors.dim}>y</text>
-            <text fg="#444444"> exit </text>
-            <text fg={colors.dim}>n/Esc</text>
-            <text fg="#444444"> cancel</text>
-          </box>
-        </box>
+      {/* Footer */}
+      <box
+        backgroundColor={dialogColors.bgPanel}
+        paddingLeft={3}
+        paddingRight={3}
+        paddingTop={1}
+        paddingBottom={1}
+        flexDirection="row"
+        gap={2}
+      >
+        <text fg={dialogColors.textMuted}>l</text>
+        <text fg={dialogColors.textSecondary}>logout</text>
+        <text fg={dialogColors.textMuted}>y</text>
+        <text fg={dialogColors.textSecondary}>exit</text>
+        <text fg={dialogColors.textMuted}>n/Esc</text>
+        <text fg={dialogColors.textSecondary}>cancel</text>
       </box>
     </box>
   );
