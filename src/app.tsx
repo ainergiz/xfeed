@@ -1,4 +1,5 @@
 import { useDialog, useDialogState } from "@opentui-ui/dialog/react";
+import { ToasterRenderable, toast } from "@opentui-ui/toast";
 import { useKeyboard, useRenderer } from "@opentui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -78,12 +79,34 @@ function AppContent({ client, user }: AppProps) {
   const [bookmarkHasMore, setBookmarkHasMore] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
-  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [showFooter, setShowFooter] = useState(true);
 
   // Dialog system (@opentui-ui/dialog)
   const dialog = useDialog();
   const isDialogOpen = useDialogState((s) => s.isOpen);
+
+  // Toast system (@opentui-ui/toast) - top-right position
+  useEffect(() => {
+    const toaster = new ToasterRenderable(renderer, {
+      position: "top-right",
+      stackingMode: "stack",
+      visibleToasts: 5,
+      offset: { top: 1, right: 1 },
+      toastOptions: {
+        duration: 3000,
+        style: {
+          backgroundColor: "#1e1e2e",
+          foregroundColor: "#cdd6f4",
+          borderColor: "#313244",
+          mutedColor: "#6c7086",
+        },
+        success: { style: { borderColor: "#a6e3a1" } },
+        error: { style: { borderColor: "#f38ba8" } },
+      },
+    });
+    renderer.root.add(toaster);
+    return () => toaster.destroy();
+  }, [renderer]);
 
   // Set up session expired callback
   useEffect(() => {
@@ -107,26 +130,18 @@ function AppContent({ client, user }: AppProps) {
   // TanStack Query mutation for bookmark operations with optimistic updates
   const bookmarkMutation = useBookmarkMutation({
     client,
-    onSuccess: (message) => setActionMessage(message),
-    onError: (error) => setActionMessage(`Error: ${error}`),
+    onSuccess: (message) => toast.success(message),
+    onError: (error) => toast.error(error),
   });
 
   // Actions hook for like/bookmark mutations
   const { toggleLike, toggleBookmark, getState, initState } = useActions({
     client,
-    onError: (error) => setActionMessage(`Error: ${error}`),
-    onSuccess: (message) => setActionMessage(message),
+    onError: (error) => toast.error(error),
+    onSuccess: (message) => toast.success(message),
     bookmarkMutation,
     currentFolderId: selectedBookmarkFolder?.id,
   });
-
-  // Clear action message after 3 seconds
-  useEffect(() => {
-    if (actionMessage) {
-      const timer = setTimeout(() => setActionMessage(null), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [actionMessage]);
 
   // Splash screen state
   const [showSplash, setShowSplash] = useState(true);
@@ -226,7 +241,7 @@ function AppContent({ client, user }: AppProps) {
 
       // Prevent circular navigation (tweet already in stack)
       if (postStack.some((p) => p.id === quotedTweet.id)) {
-        setActionMessage("Already viewing this tweet");
+        toast.info("Already viewing this tweet");
         return;
       }
 
@@ -244,7 +259,7 @@ function AppContent({ client, user }: AppProps) {
           // Push to navigation history to keep stacks in sync with handleBackFromDetail
           navigate("post-detail");
         } else {
-          setActionMessage(result.error || "Could not load quoted tweet");
+          toast.error(result.error || "Could not load quoted tweet");
         }
       } finally {
         setIsLoadingQuote(false);
@@ -283,7 +298,7 @@ function AppContent({ client, user }: AppProps) {
           );
           navigate("post-detail");
         } else {
-          setActionMessage(result.error || "Could not load parent tweet");
+          toast.error(result.error || "Could not load parent tweet");
         }
       } finally {
         setIsLoadingParent(false);
@@ -366,9 +381,9 @@ function AppContent({ client, user }: AppProps) {
     );
 
     if (moveResult.success) {
-      setActionMessage(`Moved to "${result.folderName}"`);
+      toast.success(`Moved to "${result.folderName}"`);
     } else {
-      setActionMessage(`Error: ${moveResult.error}`);
+      toast.error(moveResult.error);
     }
   }, [client, selectedPost, dialog]);
 
@@ -415,7 +430,7 @@ function AppContent({ client, user }: AppProps) {
 
     // undefined means dismissed
     if (name) {
-      setActionMessage(`Created folder "${name}"`);
+      toast.success(`Created folder "${name}"`);
     }
   }, [client, dialog]);
 
@@ -449,7 +464,7 @@ function AppContent({ client, user }: AppProps) {
 
     // undefined means dismissed
     if (name) {
-      setActionMessage(`Renamed folder to "${name}"`);
+      toast.success(`Renamed folder to "${name}"`);
     }
   }, [client, selectedBookmarkFolder, dialog]);
 
@@ -466,9 +481,7 @@ function AppContent({ client, user }: AppProps) {
               selectedBookmarkFolder.id
             );
             if (result.success) {
-              setActionMessage(
-                `Deleted folder "${selectedBookmarkFolder.name}"`
-              );
+              toast.success(`Deleted folder "${selectedBookmarkFolder.name}"`);
               setSelectedBookmarkFolder(null);
             } else {
               throw new Error(result.error);
@@ -558,7 +571,7 @@ function AppContent({ client, user }: AppProps) {
         if (text) {
           copyToClipboard(text).then((result) => {
             if (result.success) {
-              setActionMessage("Copied to clipboard");
+              toast.success("Copied to clipboard");
             }
           });
           return;

@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@opentui-ui/dialog": "^0.1.2",
+    "@opentui-ui/toast": "^0.0.5",
     "@opentui/core": "^0.1.69",
     "@opentui/react": "^0.1.69",
     "@steipete/sweet-cookie": "file:./vendor/sweet-cookie",
