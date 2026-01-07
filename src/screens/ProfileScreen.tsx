@@ -1,11 +1,11 @@
 /**
  * ProfileScreen - User profile view with bio and recent tweets
  * Supports collapsible header when scrolling through tweets
- * When viewing own profile (isSelf), shows tabs for Tweets/Likes
+ * Shows tabs for Tweets/Replies/Highlights/Media/Likes on all profiles
  */
 
 import { useKeyboard } from "@opentui/react";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 
 import type { XClient } from "@/api/client";
 import type { TweetData, UserData } from "@/api/types";
@@ -13,14 +13,33 @@ import type { TweetActionState } from "@/hooks/useActions";
 
 import { Footer, type Keybinding } from "@/components/Footer";
 import { PostList } from "@/components/PostList";
-import { useProfileQuery } from "@/experiments/use-profile-query";
+import {
+  useProfileQuery,
+  type ProfileTab,
+} from "@/experiments/use-profile-query";
 import { useUserActions } from "@/experiments/use-user-actions";
 import { colors } from "@/lib/colors";
 import { formatCount } from "@/lib/format";
 import { openInBrowser, previewImageUrl } from "@/lib/media";
 import { extractMentions, renderTextWithMentions } from "@/lib/text";
 
-type ProfileTab = "tweets" | "likes";
+/**
+ * Tab configuration for profile navigation
+ *
+ * NOTE: Replies tab is disabled due to UserTweetsAndReplies API consistently
+ * returning 404 errors. The endpoint requires specific authentication or
+ * additional parameters that are not currently known. Re-enable when the
+ * API issue is resolved.
+ *
+ * See: https://x.com/i/api/graphql/{queryId}/UserTweetsAndReplies
+ */
+const PROFILE_TABS: readonly { key: ProfileTab; label: string }[] = [
+  { key: "tweets", label: "Tweets" },
+  // { key: "replies", label: "Replies" }, // Disabled: API returns 404
+  { key: "highlights", label: "Highlights" },
+  { key: "media", label: "Media" },
+  { key: "likes", label: "Likes" },
+] as const;
 
 /**
  * Format X's created_at date to "Joined Month Year"
@@ -107,6 +126,21 @@ export function ProfileScreen({
     likesError,
     fetchLikes,
     likesFetched,
+    repliesTweets,
+    isRepliesLoading,
+    repliesError,
+    fetchReplies,
+    repliesFetched,
+    mediaTweets,
+    isMediaLoading,
+    mediaError,
+    fetchMedia,
+    mediaFetched,
+    highlightsTweets,
+    isHighlightsLoading,
+    highlightsError,
+    fetchHighlights,
+    highlightsFetched,
   } = useProfileQuery({
     client,
     username,
@@ -131,8 +165,19 @@ export function ProfileScreen({
     }
   }, [user]);
 
-  // Tab state (only used when isSelf)
+  // Tab state - available tabs depend on whether viewing own profile
+  const availableTabs = useMemo(() => {
+    // Likes tab only available on own profile (others' likes are private)
+    return PROFILE_TABS.filter((tab) => tab.key !== "likes" || isSelf);
+  }, [isSelf]);
+
   const [activeTab, setActiveTab] = useState<ProfileTab>("tweets");
+
+  // Get current tab index for arrow navigation
+  const activeTabIndex = useMemo(
+    () => availableTabs.findIndex((t) => t.key === activeTab),
+    [availableTabs, activeTab]
+  );
 
   // Track if header should be collapsed (when scrolled past first tweet)
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -141,12 +186,46 @@ export function ProfileScreen({
   const [mentionsMode, setMentionsMode] = useState(false);
   const [mentionIndex, setMentionIndex] = useState(0);
 
-  // Fetch likes when switching to likes tab for the first time
+  // Trigger lazy loading when switching to non-default tabs
   useEffect(() => {
-    if (isSelf && activeTab === "likes" && !likesFetched && !isLikesLoading) {
-      fetchLikes();
+    switch (activeTab) {
+      case "replies":
+        if (!repliesFetched && !isRepliesLoading) {
+          fetchReplies();
+        }
+        break;
+      case "highlights":
+        if (!highlightsFetched && !isHighlightsLoading) {
+          fetchHighlights();
+        }
+        break;
+      case "media":
+        if (!mediaFetched && !isMediaLoading) {
+          fetchMedia();
+        }
+        break;
+      case "likes":
+        if (isSelf && !likesFetched && !isLikesLoading) {
+          fetchLikes();
+        }
+        break;
     }
-  }, [isSelf, activeTab, likesFetched, isLikesLoading, fetchLikes]);
+  }, [
+    activeTab,
+    isSelf,
+    repliesFetched,
+    isRepliesLoading,
+    fetchReplies,
+    highlightsFetched,
+    isHighlightsLoading,
+    fetchHighlights,
+    mediaFetched,
+    isMediaLoading,
+    fetchMedia,
+    likesFetched,
+    isLikesLoading,
+    fetchLikes,
+  ]);
 
   // Reset UI state when navigating to a different profile
   useEffect(() => {
@@ -251,25 +330,37 @@ export function ProfileScreen({
           }
         }
         break;
+      // Tab navigation with number keys 1-5
       case "1":
-        // Switch to tweets tab (only on own profile)
-        if (isSelf && activeTab !== "tweets") {
-          setActiveTab("tweets");
-          setIsCollapsed(false);
-        }
-        break;
       case "2":
-        // Switch to likes tab (only on own profile)
-        if (isSelf && activeTab !== "likes") {
-          setActiveTab("likes");
+      case "3":
+      case "4":
+      case "5": {
+        const targetIndex = Number.parseInt(key.name, 10) - 1;
+        const targetTab = availableTabs[targetIndex];
+        if (targetTab && activeTab !== targetTab.key) {
+          setActiveTab(targetTab.key);
           setIsCollapsed(false);
         }
         break;
-      case "tab":
-        // Cycle between tabs (only on own profile)
-        if (isSelf) {
-          setActiveTab((prev) => (prev === "tweets" ? "likes" : "tweets"));
-          setIsCollapsed(false);
+      }
+      // Tab navigation with arrow keys
+      case "left":
+        if (activeTabIndex > 0) {
+          const prevTab = availableTabs[activeTabIndex - 1];
+          if (prevTab) {
+            setActiveTab(prevTab.key);
+            setIsCollapsed(false);
+          }
+        }
+        break;
+      case "right":
+        if (activeTabIndex < availableTabs.length - 1) {
+          const nextTab = availableTabs[activeTabIndex + 1];
+          if (nextTab) {
+            setActiveTab(nextTab.key);
+            setIsCollapsed(false);
+          }
         }
         break;
       case "f":
@@ -480,8 +571,24 @@ export function ProfileScreen({
     </box>
   );
 
-  // Tab bar for own profile (Tweets | Likes)
-  const tabBar = isSelf && (
+  // Determine if current tab is loading
+  const isCurrentTabLoading = (() => {
+    switch (activeTab) {
+      case "replies":
+        return isRepliesLoading;
+      case "highlights":
+        return isHighlightsLoading;
+      case "media":
+        return isMediaLoading;
+      case "likes":
+        return isLikesLoading;
+      default:
+        return false;
+    }
+  })();
+
+  // Tab bar showing all available tabs
+  const tabBar = (
     <box
       style={{
         paddingLeft: 1,
@@ -490,16 +597,21 @@ export function ProfileScreen({
         flexDirection: "row",
       }}
     >
-      <text fg={activeTab === "tweets" ? colors.primary : colors.dim}>
-        {activeTab === "tweets" ? <b>[1] Tweets</b> : " 1  Tweets"}
-      </text>
-      <text fg={colors.dim}> | </text>
-      <text fg={activeTab === "likes" ? colors.primary : colors.dim}>
-        {activeTab === "likes" ? <b>[2] Likes</b> : " 2  Likes"}
-      </text>
-      {activeTab === "likes" && isLikesLoading && (
-        <text fg={colors.muted}> (loading...)</text>
-      )}
+      {availableTabs.map((tab, idx) => (
+        <box key={tab.key} style={{ flexDirection: "row" }}>
+          <text fg={activeTab === tab.key ? colors.primary : colors.dim}>
+            {activeTab === tab.key ? (
+              <b>
+                [{idx + 1}] {tab.label}
+              </b>
+            ) : (
+              ` ${idx + 1}  ${tab.label}`
+            )}
+          </text>
+          {idx < availableTabs.length - 1 && <text fg={colors.dim}> | </text>}
+        </box>
+      ))}
+      {isCurrentTabLoading && <text fg={colors.muted}> (loading...)</text>}
     </box>
   );
 
@@ -521,14 +633,45 @@ export function ProfileScreen({
   );
 
   // Determine which posts to show based on active tab
-  const displayPosts = isSelf && activeTab === "likes" ? likedTweets : tweets;
-  const displayError = isSelf && activeTab === "likes" ? likesError : null;
+  const displayPosts = (() => {
+    switch (activeTab) {
+      case "tweets":
+        return tweets;
+      case "replies":
+        return repliesTweets;
+      case "highlights":
+        return highlightsTweets;
+      case "media":
+        return mediaTweets;
+      case "likes":
+        return likedTweets;
+      default:
+        return tweets;
+    }
+  })();
+
+  // Determine error for current tab
+  const displayError = (() => {
+    switch (activeTab) {
+      case "replies":
+        return repliesError;
+      case "highlights":
+        return highlightsError;
+      case "media":
+        return mediaError;
+      case "likes":
+        return likesError;
+      default:
+        return null;
+    }
+  })();
 
   // Footer keybindings - show available actions based on what data exists
-  // Tab keybindings (1/2) are shown in the tab bar itself, not in footer
+  // Tab shortcuts are shown in the tab bar itself via ←/→ and 1-5
   const footerBindings: Keybinding[] = [
     { key: "h/Esc", label: "back" },
     { key: "j/k", label: "nav" },
+    { key: "←/→", label: "tabs" },
     { key: "l", label: "like" },
     { key: "b", label: "bkmk" },
     {
@@ -590,10 +733,22 @@ export function ProfileScreen({
   }
 
   // Empty state message based on active tab
-  const emptyMessage =
-    isSelf && activeTab === "likes"
-      ? "No liked tweets"
-      : "No tweets to display";
+  const emptyMessage = (() => {
+    switch (activeTab) {
+      case "tweets":
+        return "No tweets to display";
+      case "replies":
+        return "No replies to display";
+      case "highlights":
+        return "No highlights to display";
+      case "media":
+        return "No media to display";
+      case "likes":
+        return "No liked tweets";
+      default:
+        return "No content to display";
+    }
+  })();
 
   return (
     <box style={{ flexDirection: "column", height: "100%" }}>

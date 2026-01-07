@@ -133,6 +133,12 @@ export const queryKeys = {
       [...queryKeys.user.all, username, "profile"] as const,
     tweets: (userId: string) =>
       [...queryKeys.user.all, userId, "tweets"] as const,
+    replies: (userId: string) =>
+      [...queryKeys.user.all, userId, "replies"] as const,
+    media: (userId: string) =>
+      [...queryKeys.user.all, userId, "media"] as const,
+    highlights: (userId: string) =>
+      [...queryKeys.user.all, userId, "highlights"] as const,
     likes: () => [...queryKeys.user.all, "likes"] as const,
   },
 } as const;
