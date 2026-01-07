@@ -601,20 +601,6 @@ function AppContent({ client, user }: AppProps) {
       // Overlay views (post-detail, profile) handle their own escape
     }
 
-    // Handle 'h' key for vim-style navigation (go back/left to home)
-    if (key.name === "h") {
-      if (isMainView) {
-        if (currentView === "timeline") {
-          // On timeline: show exit confirmation (same as escape)
-          showExitConfirmation();
-        } else {
-          // On bookmarks/notifications: go to timeline
-          navigate("timeline");
-        }
-        return;
-      }
-    }
-
     // Toggle footer visibility with '.' - works on all screens
     if (key.sequence === ".") {
       setShowFooter((prev) => !prev);
@@ -626,42 +612,38 @@ function AppContent({ client, user }: AppProps) {
       return;
     }
 
-    // Global navigation with number keys - works from anywhere
-    if (key.name === "1") {
-      // Clear overlay state and go to timeline
+    // Tab cycling for main screens - works from anywhere
+    if (key.name === "tab") {
+      // Clear overlay state
       setPostStack([]);
       setProfileStack([]);
       setThreadRootTweet(null);
-      navigate("timeline");
-      return;
-    }
 
-    if (key.name === "2") {
-      // Clear overlay state and go to bookmarks
-      setPostStack([]);
-      setProfileStack([]);
-      setThreadRootTweet(null);
-      navigate("bookmarks");
-      return;
-    }
-
-    if (key.name === "3") {
-      // Clear overlay state and go to notifications
-      setPostStack([]);
-      setProfileStack([]);
-      setThreadRootTweet(null);
-      navigate("notifications");
+      // Find current position and cycle
+      const currentIdx = MAIN_VIEWS.indexOf(
+        currentView as (typeof MAIN_VIEWS)[number]
+      );
+      if (currentIdx === -1) {
+        // From overlay view, go to timeline
+        navigate("timeline");
+      } else if (key.shift) {
+        // Shift+Tab: cycle backward
+        const prevIdx =
+          (currentIdx - 1 + MAIN_VIEWS.length) % MAIN_VIEWS.length;
+        const prevView = MAIN_VIEWS[prevIdx];
+        if (prevView) navigate(prevView);
+      } else {
+        // Tab: cycle forward
+        const nextIdx = (currentIdx + 1) % MAIN_VIEWS.length;
+        const nextView = MAIN_VIEWS[nextIdx];
+        if (nextView) navigate(nextView);
+      }
       return;
     }
 
     // Don't handle other keys during overlay views
     if (!isMainView) {
       return;
-    }
-
-    // Go to notifications with 'n'
-    if (key.name === "n") {
-      navigate("notifications");
     }
 
     // Go to own profile with 'p'

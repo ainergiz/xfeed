@@ -69,7 +69,7 @@ function ScreenHeader({ folderName, inFolder }: ScreenHeaderProps) {
       </text>
       <text fg={colors.dim}>
         {" "}
-        (Tab/f folders, c new{inFolder ? ", e rename, D delete" : ""})
+        (f folders, c new{inFolder ? ", e rename, D delete" : ""})
       </text>
     </box>
   );
@@ -119,8 +119,8 @@ export function BookmarksScreen({
       refresh();
     }
 
-    // Open folder picker with 'f' or Tab
-    if (key.name === "f" || key.name === "tab") {
+    // Open folder picker with 'f'
+    if (key.name === "f") {
       onFolderPickerOpen?.();
     }
 
