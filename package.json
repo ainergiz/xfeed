@@ -6,6 +6,7 @@
   "bin": "./dist/index.js",
   "scripts": {
     "start": "bun src/index.tsx",
+    "mcp": "bun src/mcp/server.ts",
     "build": "bun build src/index.tsx --outdir dist --target bun --external '@opentui/*' --external 'react' --external '@tanstack/*' --external 'cac' --external 'x-client-transaction-id' --external '@steipete/sweet-cookie'",
     "prepublishOnly": "bun run build",
     "typecheck": "tsc --noEmit",
@@ -18,6 +19,7 @@
     "prepare": "lefthook install"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.2",
     "@opentui-ui/dialog": "^0.1.2",
     "@opentui-ui/toast": "^0.0.5",
     "@opentui/core": "^0.1.69",
@@ -27,7 +29,8 @@
     "@tanstack/react-router": "^1.144.0",
     "cac": "^6.7.14",
     "react": "^19.2.0",
-    "x-client-transaction-id": "^0.1.9"
+    "x-client-transaction-id": "^0.1.9",
+    "zod": "^4.3.5"
   },
   "devDependencies": {
     "@types/bun": "latest",
