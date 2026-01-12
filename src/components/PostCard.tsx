@@ -48,6 +48,8 @@ interface PostCardProps {
   isJustLiked?: boolean;
   /** True briefly after bookmarking (for visual pulse feedback) */
   isJustBookmarked?: boolean;
+  /** Whether the tweet has an annotation */
+  hasAnnotation?: boolean;
   /** Parent post author username - if provided, strips leading @mention matching this user */
   parentAuthorUsername?: string;
   /** Main post author username (for nested reply mention stripping) */
@@ -66,6 +68,9 @@ const HEART_FILLED = "\u2665"; // ♥
 const FLAG_EMPTY = "\u2690"; // ⚐
 const FLAG_FILLED = "\u2691"; // ⚑
 
+// Unicode symbol for annotation indicator
+const NOTE_INDICATOR = "+"; // Simple plus sign for "has note"
+
 export function PostCard({
   post,
   isSelected,
@@ -74,6 +79,7 @@ export function PostCard({
   isBookmarked,
   isJustLiked,
   isJustBookmarked,
+  hasAnnotation,
   parentAuthorUsername,
   mainPostAuthorUsername,
   onCardClick,
@@ -192,7 +198,7 @@ export function PostCard({
         backgroundColor: isSelected ? colors.selectedBg : undefined,
       }}
     >
-      {/* Author line with selection indicator */}
+      {/* Author line with selection indicator and annotation marker */}
       <box style={{ flexDirection: "row" }}>
         <text fg={colors.primary}>{isSelected ? "> " : "  "}</text>
         <text>
@@ -200,6 +206,9 @@ export function PostCard({
         </text>
         <text fg={colors.handle}> @{post.author.username}</text>
         <text fg={colors.dim}>{timeAgo ? ` · ${timeAgo}` : ""}</text>
+        {hasAnnotation ? (
+          <text fg={colors.warning}> [{NOTE_INDICATOR}]</text>
+        ) : null}
       </box>
 
       {/* Post text */}

@@ -85,6 +85,10 @@ interface PostDetailScreenProps {
   onBookmark?: () => void;
   /** Called when user presses 'm' to move bookmark to folder */
   onMoveToFolder?: () => void;
+  /** Called when user presses 'a' to annotate bookmark */
+  onAnnotate?: () => void;
+  /** Annotation text for the tweet (if any) */
+  annotationText?: string;
   /** Whether the tweet is currently liked */
   isLiked?: boolean;
   /** Whether the tweet is currently bookmarked */
@@ -141,6 +145,8 @@ export function PostDetailScreen({
   onLike,
   onBookmark,
   onMoveToFolder,
+  onAnnotate,
+  annotationText,
   isLiked = false,
   isBookmarked = false,
   isJustLiked = false,
@@ -544,6 +550,12 @@ export function PostDetailScreen({
           onMoveToFolder?.();
         }
         break;
+      case "a":
+        // Annotate bookmark (only if bookmarked)
+        if (isBookmarked) {
+          onAnnotate?.();
+        }
+        break;
       case "p":
         // Open author profile
         onProfileOpen?.(tweet.author.username);
@@ -645,6 +657,31 @@ export function PostDetailScreen({
             </box>
           </box>
         ) : null}
+      </box>
+    ) : null;
+
+  // Annotation section (only for bookmarked posts with annotations)
+  const annotationContent =
+    isBookmarked && annotationText ? (
+      <box
+        style={{
+          marginBottom: 1,
+          paddingLeft: 1,
+          paddingRight: 1,
+          borderStyle: "single",
+          borderColor: colors.warning,
+        }}
+      >
+        <box style={{ flexDirection: "column" }}>
+          <box style={{ flexDirection: "row" }}>
+            <text fg={colors.warning}>+ Your note:</text>
+          </box>
+          <box style={{ marginTop: 1 }}>
+            <text fg="#cccccc" selectable selectionBg="#264F78">
+              {annotationText}
+            </text>
+          </box>
+        </box>
       </box>
     ) : null;
 
@@ -1011,6 +1048,11 @@ export function PostDetailScreen({
       show: hasQuote,
     },
     { key: "f", label: "folder", show: isBookmarked },
+    {
+      key: "a",
+      label: annotationText ? "edit note" : "annotate",
+      show: isBookmarked,
+    },
   ];
 
   // Main layout - always use scrollbox for thread content
@@ -1023,6 +1065,7 @@ export function PostDetailScreen({
         style={{ flexGrow: 1, height: "100%" }}
       >
         {parentContent}
+        {annotationContent}
         {authorContent}
         {postContent}
         {truncationIndicator}
