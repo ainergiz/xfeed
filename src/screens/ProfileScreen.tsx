@@ -767,6 +767,7 @@ export function ProfileScreen({
           onSelectedIndexChange={handleSelectedIndexChange}
           onLike={onLike}
           onBookmark={onBookmark}
+          onProfileOpen={onProfileOpen}
           getActionState={getActionState}
           initActionState={initActionState}
         />

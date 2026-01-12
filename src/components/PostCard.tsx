@@ -36,6 +36,9 @@ function stripLeadingMention(text: string, username: string): string {
   return text.replace(pattern, "");
 }
 
+// Threshold for inline expansion - if remaining text is shorter, expand inline
+const INLINE_EXPAND_THRESHOLD = 280;
+
 interface PostCardProps {
   post: TweetData;
   isSelected: boolean;
@@ -58,6 +61,8 @@ interface PostCardProps {
   onLikeClick?: () => void;
   /** Called when the bookmark icon is clicked */
   onBookmarkClick?: () => void;
+  /** Called when user clicks on a profile handle */
+  onProfileOpen?: (username: string) => void;
 }
 
 // Unicode symbols for like/bookmark states
@@ -79,12 +84,15 @@ export function PostCard({
   onCardClick,
   onLikeClick,
   onBookmarkClick,
+  onProfileOpen,
 }: PostCardProps) {
   // Track drag state to differentiate clicks from text selection
   // Using refs to avoid re-renders on mouse events
   const cardDragState = useRef({ isDragging: false, startX: 0, startY: 0 });
   const likeDragState = useRef({ isDragging: false, startX: 0, startY: 0 });
   const bookmarkDragState = useRef({ isDragging: false, startX: 0, startY: 0 });
+  const handleDragState = useRef({ isDragging: false, startX: 0, startY: 0 });
+  const showMoreDragState = useRef({ isDragging: false, startX: 0, startY: 0 });
 
   // Threshold in pixels - if mouse moves more than this, it's a drag not a click
   const DRAG_THRESHOLD = 3;
@@ -167,15 +175,84 @@ export function PostCard({
       }
     : undefined;
 
+  // Handle click handler for profile navigation
+  const handleHandleMouse = onProfileOpen
+    ? (event: MouseEvent) => {
+        if (event.button !== 0) return;
+        event.stopPropagation();
+
+        if (event.type === "down") {
+          handleDragState.current = {
+            isDragging: false,
+            startX: event.x,
+            startY: event.y,
+          };
+        } else if (event.type === "drag") {
+          const dx = Math.abs(event.x - handleDragState.current.startX);
+          const dy = Math.abs(event.y - handleDragState.current.startY);
+          if (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD) {
+            handleDragState.current.isDragging = true;
+          }
+        } else if (event.type === "up") {
+          if (!handleDragState.current.isDragging) {
+            onProfileOpen(post.author.username);
+          }
+          handleDragState.current.isDragging = false;
+        }
+      }
+    : undefined;
+
   // Hover state for action icons
   const [isLikeHovered, setIsLikeHovered] = useState(false);
   const [isBookmarkHovered, setIsBookmarkHovered] = useState(false);
+  const [isHandleHovered, setIsHandleHovered] = useState(false);
+  const [isShowMoreHovered, setIsShowMoreHovered] = useState(false);
+
+  // Inline expansion state for truncated posts
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const textToDisplay = parentAuthorUsername
     ? stripLeadingMention(post.text, parentAuthorUsername)
     : post.text;
-  const displayText = truncateText(textToDisplay, MAX_TEXT_LINES);
-  const showShowMore = isTruncated(textToDisplay, MAX_TEXT_LINES);
+  const truncatedText = truncateText(textToDisplay, MAX_TEXT_LINES);
+  const showShowMore = isTruncated(textToDisplay, MAX_TEXT_LINES) && !isExpanded;
+
+  // Calculate remaining text length for expansion behavior
+  const remainingLength = textToDisplay.length - truncatedText.length;
+  const shouldExpandInline = remainingLength < INLINE_EXPAND_THRESHOLD;
+
+  // Show more click handler - either expand inline or open detail view
+  const handleShowMoreMouse = (event: MouseEvent) => {
+    if (event.button !== 0) return;
+    event.stopPropagation();
+
+    if (event.type === "down") {
+      showMoreDragState.current = {
+        isDragging: false,
+        startX: event.x,
+        startY: event.y,
+      };
+    } else if (event.type === "drag") {
+      const dx = Math.abs(event.x - showMoreDragState.current.startX);
+      const dy = Math.abs(event.y - showMoreDragState.current.startY);
+      if (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD) {
+        showMoreDragState.current.isDragging = true;
+      }
+    } else if (event.type === "up") {
+      if (!showMoreDragState.current.isDragging) {
+        if (shouldExpandInline) {
+          setIsExpanded(true);
+        } else {
+          // Long posts open in detail view
+          onCardClick?.();
+        }
+      }
+      showMoreDragState.current.isDragging = false;
+    }
+  };
+
+  // Display either truncated or full text based on expansion state
+  const displayText = isExpanded ? textToDisplay : truncatedText;
   const timeAgo = formatRelativeTime(post.createdAt);
   const hasMedia = post.media && post.media.length > 0;
 
@@ -198,7 +275,14 @@ export function PostCard({
         <text>
           <b fg={colors.primary}>{post.author.name}</b>
         </text>
-        <text fg={colors.handle}> @{post.author.username}</text>
+        <text
+          onMouse={handleHandleMouse}
+          onMouseOver={() => setIsHandleHovered(true)}
+          onMouseOut={() => setIsHandleHovered(false)}
+          fg={isHandleHovered ? colors.primary : colors.handle}
+        >
+          {" "}@{post.author.username}
+        </text>
         <text fg={colors.dim}>{timeAgo ? ` · ${timeAgo}` : ""}</text>
       </box>
 
@@ -207,13 +291,22 @@ export function PostCard({
         <text fg="#ffffff" selectable selectionBg="#264F78">
           {displayText}
         </text>
-        {showShowMore && <text fg={colors.primary}>[Show more]</text>}
+        {showShowMore && (
+          <text
+            onMouse={handleShowMoreMouse}
+            onMouseOver={() => setIsShowMoreHovered(true)}
+            onMouseOut={() => setIsShowMoreHovered(false)}
+            fg={isShowMoreHovered ? colors.quoted : colors.primary}
+          >
+            [Show more]
+          </text>
+        )}
       </box>
 
       {/* Quoted tweet (if present) */}
       {post.quotedTweet ? (
         <box style={{ paddingLeft: 2 }}>
-          <QuotedPostCard post={post.quotedTweet} />
+          <QuotedPostCard post={post.quotedTweet} onProfileOpen={onProfileOpen} />
         </box>
       ) : null}
 

@@ -715,6 +715,7 @@ function AppContent({ client, user }: AppProps) {
             onPostSelect={handlePostSelect}
             onLike={toggleLike}
             onBookmark={toggleBookmark}
+            onProfileOpen={handleProfileOpen}
             getActionState={getState}
             initActionState={initState}
           />
@@ -811,6 +812,7 @@ function AppContent({ client, user }: AppProps) {
             onPostSelect={handlePostSelect}
             onLike={toggleLike}
             onBookmark={toggleBookmark}
+            onProfileOpen={handleProfileOpen}
             getActionState={getState}
             initActionState={initState}
             onCreateFolder={handleCreateBookmarkFolder}

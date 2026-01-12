@@ -30,6 +30,8 @@ interface BookmarksScreenProps {
   onLike?: (post: TweetData) => void;
   /** Called when user presses 'b' to toggle bookmark */
   onBookmark?: (post: TweetData) => void;
+  /** Called when user clicks on a profile handle */
+  onProfileOpen?: (username: string) => void;
   /** Get current action state for a tweet */
   getActionState?: (tweetId: string) => TweetActionState;
   /** Initialize action state from API data */
@@ -85,6 +87,7 @@ export function BookmarksScreen({
   onPostSelect,
   onLike,
   onBookmark,
+  onProfileOpen,
   getActionState,
   initActionState,
   onCreateFolder,
@@ -187,6 +190,7 @@ export function BookmarksScreen({
         onPostSelect={onPostSelect}
         onLike={onLike}
         onBookmark={onBookmark}
+        onProfileOpen={onProfileOpen}
         getActionState={getActionState}
         initActionState={initActionState}
         onLoadMore={fetchNextPage}

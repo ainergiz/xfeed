@@ -29,6 +29,8 @@ interface TimelineScreenExperimentalProps {
   onPostSelect?: (post: TweetData) => void;
   onLike?: (post: TweetData) => void;
   onBookmark?: (post: TweetData) => void;
+  /** Called when user clicks on a profile handle */
+  onProfileOpen?: (username: string) => void;
   getActionState?: (tweetId: string) => TweetActionState;
   initActionState?: (
     tweetId: string,
@@ -108,6 +110,7 @@ export function TimelineScreenExperimental({
   onPostSelect,
   onLike,
   onBookmark,
+  onProfileOpen,
   getActionState,
   initActionState,
 }: TimelineScreenExperimentalProps) {
@@ -207,6 +210,7 @@ export function TimelineScreenExperimental({
         onPostSelect={onPostSelect}
         onLike={onLike}
         onBookmark={onBookmark}
+        onProfileOpen={onProfileOpen}
         getActionState={getActionState}
         initActionState={initActionState}
         onLoadMore={fetchNextPage}

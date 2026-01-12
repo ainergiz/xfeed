@@ -23,6 +23,8 @@ interface PostListProps {
   onLike?: (post: TweetData) => void;
   /** Called when user presses 'b' to toggle bookmark on selected post */
   onBookmark?: (post: TweetData) => void;
+  /** Called when user clicks on a profile handle */
+  onProfileOpen?: (username: string) => void;
   /** Get current action state for a tweet */
   getActionState?: (tweetId: string) => TweetActionState;
   /** Initialize action state from API data */
@@ -53,6 +55,7 @@ export function PostList({
   onSelectedIndexChange,
   onLike,
   onBookmark,
+  onProfileOpen,
   getActionState,
   initActionState,
   onLoadMore,
@@ -217,6 +220,7 @@ export function PostList({
             onCardClick={() => onPostSelect?.(post)}
             onLikeClick={() => onLike?.(post)}
             onBookmarkClick={() => onBookmark?.(post)}
+            onProfileOpen={onProfileOpen}
           />
         );
       })}
