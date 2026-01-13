@@ -19,8 +19,10 @@ import {
   TimelineScreenExperimental,
   useBookmarkMutation,
 } from "@/experiments";
+import { usePreferences } from "@/contexts/PreferencesContext";
 import { useActions } from "@/hooks/useActions";
 import { useAnnotations } from "@/hooks/useAnnotations";
+import { useBookmarkFolders } from "@/hooks/useBookmarkFolders";
 import { useNavigation } from "@/hooks/useNavigation";
 import { copyToClipboard } from "@/lib/clipboard";
 import {
@@ -135,6 +137,48 @@ function AppContent({ client, user }: AppProps) {
   // State for bookmark folder selection (moved here for useActions integration)
   const [selectedBookmarkFolder, setSelectedBookmarkFolder] =
     useState<BookmarkFolder | null>(null);
+
+  // Get user preferences for default bookmark folder
+  const { preferences } = usePreferences();
+
+  // Fetch bookmark folders to resolve default folder preference
+  const { folders: bookmarkFolders } = useBookmarkFolders({ client });
+
+  // Track if we've already applied the default folder preference
+  const defaultFolderApplied = useRef(false);
+
+  // Set default bookmark folder from preferences when folders are loaded
+  useEffect(() => {
+    // Skip if:
+    // - No folders loaded yet
+    // - Already applied the default
+    // - User configured "all" (null = All Bookmarks)
+    if (
+      bookmarkFolders.length === 0 ||
+      defaultFolderApplied.current ||
+      preferences.bookmarks.default_folder === "all"
+    ) {
+      return;
+    }
+
+    defaultFolderApplied.current = true;
+
+    // Find the folder matching the configured name
+    const matchingFolder = bookmarkFolders.find(
+      (f) => f.name === preferences.bookmarks.default_folder
+    );
+
+    if (matchingFolder) {
+      setSelectedBookmarkFolder(matchingFolder);
+    } else {
+      // Warn if configured folder not found
+      console.warn(
+        `Bookmark folder "${preferences.bookmarks.default_folder}" not found. ` +
+          `Available folders: ${bookmarkFolders.map((f) => f.name).join(", ") || "(none)"}. ` +
+          `Using "All Bookmarks" instead.`
+      );
+    }
+  }, [bookmarkFolders, preferences.bookmarks.default_folder]);
 
   // TanStack Query mutation for bookmark operations with optimistic updates
   const bookmarkMutation = useBookmarkMutation({

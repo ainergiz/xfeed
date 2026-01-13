@@ -89,6 +89,24 @@ export function loadPreferences(): LoadPreferencesResult {
     }
   }
 
+  // Validate [bookmarks] section
+  const bookmarks = parsed["bookmarks"];
+  if (bookmarks) {
+    // Validate bookmarks.default_folder
+    if ("default_folder" in bookmarks) {
+      const value = bookmarks["default_folder"];
+      if (typeof value === "string" && value.trim() !== "") {
+        preferences.bookmarks.default_folder = value;
+      } else {
+        warnings.push(
+          `Invalid bookmarks.default_folder: "${value}". ` +
+            `Must be a non-empty string. ` +
+            `Using default: "${DEFAULT_PREFERENCES.bookmarks.default_folder}"`
+        );
+      }
+    }
+  }
+
   return { preferences, warnings };
 }
 

@@ -111,6 +111,72 @@ describe("preferences", () => {
       expect(result.preferences).toEqual(DEFAULT_PREFERENCES);
       expect(result.warnings).toEqual([]);
     });
+
+    // Bookmarks preferences tests
+    it('parses valid bookmarks.default_folder = "all"', () => {
+      setMockFile(true, '[bookmarks]\ndefault_folder = "all"');
+
+      const result = loadPreferences();
+
+      expect(result.preferences.bookmarks.default_folder).toBe("all");
+      expect(result.warnings).toEqual([]);
+    });
+
+    it("parses valid bookmarks.default_folder with folder name", () => {
+      setMockFile(true, '[bookmarks]\ndefault_folder = "Read Later"');
+
+      const result = loadPreferences();
+
+      expect(result.preferences.bookmarks.default_folder).toBe("Read Later");
+      expect(result.warnings).toEqual([]);
+    });
+
+    it("warns on empty bookmarks.default_folder and uses default", () => {
+      setMockFile(true, '[bookmarks]\ndefault_folder = ""');
+
+      const result = loadPreferences();
+
+      expect(result.preferences.bookmarks.default_folder).toBe("all");
+      expect(result.warnings).toHaveLength(1);
+      expect(result.warnings[0]).toContain("Invalid bookmarks.default_folder");
+      expect(result.warnings[0]).toContain('""');
+    });
+
+    it("uses default for unrecognized bookmarks.default_folder syntax", () => {
+      // TOML parser silently ignores lines with unsupported syntax (like bare numbers)
+      setMockFile(true, "[bookmarks]\ndefault_folder = 123");
+
+      const result = loadPreferences();
+
+      // Since the line is ignored, default is used without warning
+      expect(result.preferences.bookmarks.default_folder).toBe("all");
+      expect(result.warnings).toEqual([]);
+    });
+
+    it("ignores unknown keys in bookmarks section", () => {
+      setMockFile(
+        true,
+        '[bookmarks]\nunknown_key = "value"\ndefault_folder = "Work"'
+      );
+
+      const result = loadPreferences();
+
+      expect(result.preferences.bookmarks.default_folder).toBe("Work");
+      expect(result.warnings).toEqual([]);
+    });
+
+    it("parses both timeline and bookmarks sections", () => {
+      setMockFile(
+        true,
+        '[timeline]\ndefault_tab = "following"\n\n[bookmarks]\ndefault_folder = "Read Later"'
+      );
+
+      const result = loadPreferences();
+
+      expect(result.preferences.timeline.default_tab).toBe("following");
+      expect(result.preferences.bookmarks.default_folder).toBe("Read Later");
+      expect(result.warnings).toEqual([]);
+    });
   });
 
   describe("getPreferencesPath", () => {
