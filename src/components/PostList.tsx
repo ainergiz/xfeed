@@ -37,6 +37,8 @@ interface PostListProps {
   loadingMore?: boolean;
   /** Whether there are more posts available to load */
   hasMore?: boolean;
+  /** Increment this to reset selection and scroll to top (e.g., on refresh) */
+  refreshKey?: number;
 }
 
 /**
@@ -58,11 +60,14 @@ export function PostList({
   onLoadMore,
   loadingMore = false,
   hasMore = true,
+  refreshKey,
 }: PostListProps) {
   const scrollRef = useRef<ScrollBoxRenderable>(null);
   // Save scroll position so we can restore when refocused
   const savedScrollTop = useRef(0);
   const wasFocused = useRef(focused);
+  // Track previous refreshKey to detect when refresh is triggered
+  const prevRefreshKey = useRef(refreshKey);
 
   // Restore scroll position when gaining focus
   useEffect(() => {
@@ -77,7 +82,7 @@ export function PostList({
     wasFocused.current = focused;
   }, [focused]);
 
-  const { selectedIndex } = useListNavigation({
+  const { selectedIndex, setSelectedIndex } = useListNavigation({
     itemCount: posts.length,
     enabled: focused,
     onSelect: (index) => {
@@ -92,6 +97,24 @@ export function PostList({
       }
     },
   });
+
+  // Reset to top when refreshKey changes (user explicitly triggered refresh)
+  useEffect(() => {
+    // Skip on initial mount (prevRefreshKey.current will equal refreshKey)
+    if (
+      prevRefreshKey.current !== undefined &&
+      refreshKey !== undefined &&
+      refreshKey !== prevRefreshKey.current
+    ) {
+      setSelectedIndex(0);
+      if (scrollRef.current) {
+        scrollRef.current.scrollTo(0);
+      }
+      savedScrollTop.current = 0;
+    }
+
+    prevRefreshKey.current = refreshKey;
+  }, [refreshKey, setSelectedIndex]);
 
   // Notify parent of selection changes (e.g., for collapsible headers)
   useEffect(() => {

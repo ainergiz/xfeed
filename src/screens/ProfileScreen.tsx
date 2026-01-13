@@ -173,6 +173,9 @@ export function ProfileScreen({
 
   const [activeTab, setActiveTab] = useState<ProfileTab>("tweets");
 
+  // Track refresh to reset PostList selection/scroll
+  const [refreshKey, setRefreshKey] = useState(0);
+
   // Get current tab index for arrow navigation
   const activeTabIndex = useMemo(
     () => availableTabs.findIndex((t) => t.key === activeTab),
@@ -289,6 +292,7 @@ export function ProfileScreen({
         break;
       case "r":
         refresh();
+        setRefreshKey((k) => k + 1);
         break;
       case "a":
         // Open avatar/profile photo in Quick Look
@@ -769,6 +773,7 @@ export function ProfileScreen({
           onBookmark={onBookmark}
           getActionState={getActionState}
           initActionState={initActionState}
+          refreshKey={refreshKey}
         />
       ) : (
         <box style={{ padding: 1, flexGrow: 1 }}>
