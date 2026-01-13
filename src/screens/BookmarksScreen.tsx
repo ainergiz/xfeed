@@ -5,7 +5,7 @@
  */
 
 import { useKeyboard } from "@opentui/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import type { XClient } from "@/api/client";
 import type { BookmarkFolder, TweetData } from "@/api/types";
@@ -101,6 +101,9 @@ export function BookmarksScreen({
     fetchNextPage,
   } = useBookmarksQuery({ client, folderId: selectedFolder?.id });
 
+  // Track refresh to reset PostList selection/scroll
+  const [refreshKey, setRefreshKey] = useState(0);
+
   // Report post count to parent
   useEffect(() => {
     onPostCountChange?.(posts.length);
@@ -117,6 +120,7 @@ export function BookmarksScreen({
 
     if (key.name === "r") {
       refresh();
+      setRefreshKey((k) => k + 1);
     }
 
     // Open folder picker with 'f' or Tab
@@ -198,6 +202,7 @@ export function BookmarksScreen({
         onLoadMore={fetchNextPage}
         loadingMore={isFetchingNextPage}
         hasMore={hasNextPage}
+        refreshKey={refreshKey}
       />
     </box>
   );

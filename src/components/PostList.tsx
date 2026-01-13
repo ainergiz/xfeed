@@ -5,7 +5,7 @@
 import type { ScrollBoxRenderable } from "@opentui/core";
 
 import { useKeyboard } from "@opentui/react";
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import type { TweetData } from "@/api/types";
 import type { TweetActionState } from "@/hooks/useActions";
@@ -37,6 +37,8 @@ interface PostListProps {
   loadingMore?: boolean;
   /** Whether there are more posts available to load */
   hasMore?: boolean;
+  /** Increment this to reset selection and scroll to top (e.g., on refresh) */
+  refreshKey?: number;
 }
 
 /**
@@ -58,13 +60,14 @@ export function PostList({
   onLoadMore,
   loadingMore = false,
   hasMore = true,
+  refreshKey,
 }: PostListProps) {
   const scrollRef = useRef<ScrollBoxRenderable>(null);
   // Save scroll position so we can restore when refocused
   const savedScrollTop = useRef(0);
   const wasFocused = useRef(focused);
-  // Track first post ID to detect refresh (posts array replaced with new content)
-  const prevFirstPostId = useRef<string | null>(null);
+  // Track previous refreshKey to detect when refresh is triggered
+  const prevRefreshKey = useRef(refreshKey);
 
   // Restore scroll position when gaining focus
   useEffect(() => {
@@ -95,31 +98,23 @@ export function PostList({
     },
   });
 
-  // Reset to top when posts are refreshed (first post ID changes)
-  // This provides visual feedback that refresh completed and shows newest content
-  const resetToTop = useCallback(() => {
-    setSelectedIndex(0);
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo(0);
-    }
-    savedScrollTop.current = 0;
-  }, [setSelectedIndex]);
-
+  // Reset to top when refreshKey changes (user explicitly triggered refresh)
   useEffect(() => {
-    const currentFirstId = posts[0]?.id ?? null;
-
-    // Detect refresh: we had posts before and the first post ID changed
-    // This indicates the posts array was replaced with new content
+    // Skip on initial mount (prevRefreshKey.current will equal refreshKey)
     if (
-      prevFirstPostId.current !== null &&
-      currentFirstId !== null &&
-      currentFirstId !== prevFirstPostId.current
+      prevRefreshKey.current !== undefined &&
+      refreshKey !== undefined &&
+      refreshKey !== prevRefreshKey.current
     ) {
-      resetToTop();
+      setSelectedIndex(0);
+      if (scrollRef.current) {
+        scrollRef.current.scrollTo(0);
+      }
+      savedScrollTop.current = 0;
     }
 
-    prevFirstPostId.current = currentFirstId;
-  }, [posts, resetToTop]);
+    prevRefreshKey.current = refreshKey;
+  }, [refreshKey, setSelectedIndex]);
 
   // Notify parent of selection changes (e.g., for collapsible headers)
   useEffect(() => {

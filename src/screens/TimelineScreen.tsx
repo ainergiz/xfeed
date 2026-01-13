@@ -4,7 +4,7 @@
  */
 
 import { useKeyboard } from "@opentui/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import type { XClient } from "@/api/client";
 import type { TweetData } from "@/api/types";
@@ -87,6 +87,9 @@ export function TimelineScreen({
     client,
   });
 
+  // Track refresh to reset PostList selection/scroll
+  const [refreshKey, setRefreshKey] = useState(0);
+
   // Report post count to parent
   useEffect(() => {
     onPostCountChange?.(posts.length);
@@ -105,6 +108,7 @@ export function TimelineScreen({
         break;
       case "r":
         refresh();
+        setRefreshKey((k) => k + 1);
         break;
     }
   });
@@ -156,6 +160,7 @@ export function TimelineScreen({
         onLoadMore={fetchNextPage}
         loadingMore={isFetchingNextPage}
         hasMore={hasNextPage}
+        refreshKey={refreshKey}
       />
     </box>
   );

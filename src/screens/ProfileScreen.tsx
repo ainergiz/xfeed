@@ -134,6 +134,9 @@ export function ProfileScreen({
   // Tab state (only used when isSelf)
   const [activeTab, setActiveTab] = useState<ProfileTab>("tweets");
 
+  // Track refresh to reset PostList selection/scroll
+  const [refreshKey, setRefreshKey] = useState(0);
+
   // Track if header should be collapsed (when scrolled past first tweet)
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -202,6 +205,7 @@ export function ProfileScreen({
         break;
       case "r":
         refresh();
+        setRefreshKey((k) => k + 1);
         break;
       case "a":
         // Open avatar/profile photo in Quick Look
@@ -606,6 +610,7 @@ export function ProfileScreen({
           onBookmark={onBookmark}
           getActionState={getActionState}
           initActionState={initActionState}
+          refreshKey={refreshKey}
         />
       ) : (
         <box style={{ padding: 1, flexGrow: 1 }}>
