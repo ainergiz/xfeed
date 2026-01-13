@@ -14,7 +14,8 @@ import {
   useDialogKeyboard,
   type PromptContext,
 } from "@opentui-ui/dialog/react";
-import { useState } from "react";
+import { useAppContext } from "@opentui/react";
+import { useEffect, useState } from "react";
 
 import { colors } from "@/lib/colors";
 import { parseXUrl, type ParsedUrl } from "@/lib/url-parser";
@@ -36,9 +37,13 @@ export type UrlNavigationResult = ParsedUrl & { type: "tweet" | "profile" };
 /** Props for UrlInputContent (used with dialog.prompt) */
 export interface UrlInputContentProps extends PromptContext<UrlNavigationResult> {
   /** Callback to handle navigation to a tweet */
-  onNavigateToTweet: (tweetId: string) => Promise<{ success: boolean; error?: string }>;
+  onNavigateToTweet: (
+    tweetId: string
+  ) => Promise<{ success: boolean; error?: string }>;
   /** Callback to handle navigation to a profile */
-  onNavigateToProfile: (username: string) => Promise<{ success: boolean; error?: string }>;
+  onNavigateToProfile: (
+    username: string
+  ) => Promise<{ success: boolean; error?: string }>;
 }
 
 /**
@@ -55,6 +60,33 @@ export function UrlInputContent({
   const [value, setValue] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Get keyHandler for paste event handling
+  const { keyHandler } = useAppContext();
+
+  // Handle ESC to dismiss dialog - useDialogKeyboard ensures only topmost dialog responds
+  useDialogKeyboard((key) => {
+    if (isSubmitting) return;
+
+    if (key.name === "escape") {
+      dismiss();
+    }
+  }, dialogId);
+
+  // Handle paste events - Input component doesn't handle paste natively
+  useEffect(() => {
+    if (!keyHandler || isSubmitting) return;
+
+    const handlePaste = (event: { text: string }) => {
+      setValue((prev) => prev + event.text);
+      if (error) setError(null);
+    };
+
+    keyHandler.on("paste", handlePaste);
+    return () => {
+      keyHandler.off("paste", handlePaste);
+    };
+  }, [keyHandler, isSubmitting, error]);
 
   const handleSubmit = async () => {
     const trimmed = value.trim();
@@ -98,16 +130,8 @@ export function UrlInputContent({
     }
   };
 
-  useDialogKeyboard((key) => {
-    if (isSubmitting) return;
-
-    if (key.name === "escape") {
-      dismiss();
-    }
-  }, dialogId);
-
   return (
-    <box flexDirection="column">
+    <box flexDirection="column" width={56}>
       {/* Header */}
       <box
         backgroundColor={dialogColors.bgPanel}

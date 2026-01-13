@@ -5,7 +5,9 @@ import { parseXUrl } from "./url-parser";
 describe("parseXUrl", () => {
   describe("tweet URLs", () => {
     it("parses x.com tweet URL", () => {
-      const result = parseXUrl("https://x.com/doodlestein/status/2007588870662107197");
+      const result = parseXUrl(
+        "https://x.com/doodlestein/status/2007588870662107197"
+      );
       expect(result).toEqual({
         type: "tweet",
         username: "doodlestein",
@@ -14,7 +16,9 @@ describe("parseXUrl", () => {
     });
 
     it("parses twitter.com tweet URL", () => {
-      const result = parseXUrl("https://twitter.com/elonmusk/status/1234567890");
+      const result = parseXUrl(
+        "https://twitter.com/elonmusk/status/1234567890"
+      );
       expect(result).toEqual({
         type: "tweet",
         username: "elonmusk",

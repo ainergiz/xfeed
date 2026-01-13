@@ -583,7 +583,10 @@ function AppContent({ client, user }: AppProps) {
               navigate("post-detail");
               return { success: true };
             }
-            return { success: false, error: tweetResult.error ?? "Tweet not found" };
+            return {
+              success: false,
+              error: tweetResult.error ?? "Tweet not found",
+            };
           }}
           onNavigateToProfile={async (username) => {
             setProfileStack((prev) => [...prev, username]);
@@ -595,7 +598,6 @@ function AppContent({ client, user }: AppProps) {
           dialogId={ctx.dialogId}
         />
       ),
-      unstyled: true,
     });
 
     // Result is undefined if dismissed, otherwise navigation already happened
