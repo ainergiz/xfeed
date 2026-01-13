@@ -39,8 +39,7 @@ export interface AnnotationEditorResult {
 }
 
 /** Props for AnnotationEditorContent (used with dialog.choice) */
-export interface AnnotationEditorContentProps
-  extends PromptContext<AnnotationEditorResult> {
+export interface AnnotationEditorContentProps extends PromptContext<AnnotationEditorResult> {
   /** Initial annotation text (for editing existing annotation) */
   initialText?: string;
   /** Whether an annotation already exists (shows delete option) */
@@ -75,7 +74,9 @@ export function AnnotationEditorContent({
     }
 
     if (trimmed.length > MAX_ANNOTATION_LENGTH) {
-      setError(`Annotation must be ${MAX_ANNOTATION_LENGTH} characters or less`);
+      setError(
+        `Annotation must be ${MAX_ANNOTATION_LENGTH} characters or less`
+      );
       return;
     }
 
@@ -112,6 +113,7 @@ export function AnnotationEditorContent({
         paddingBottom={1}
         flexDirection="row"
         gap={1}
+        width={56}
       >
         <text fg={dialogColors.accent}>+</text>
         <text fg={dialogColors.textPrimary}>
@@ -128,27 +130,33 @@ export function AnnotationEditorContent({
         paddingBottom={1}
         flexDirection="column"
         gap={1}
+        width={56}
       >
-        {/* Input field - larger for annotations */}
-        <input
-          value={value}
-          placeholder="Why did you save this tweet?"
-          maxLength={MAX_ANNOTATION_LENGTH + 50} // Allow typing over limit to show error
-          focused={true}
-          onInput={(newValue: string) => {
-            setValue(newValue);
-            if (error) setError(null);
-          }}
-          onSubmit={() => {
-            handleSubmit();
-          }}
-          width={50}
-          height={3}
+        {/* Input field - wrapped in bordered box for proper styling */}
+        <box
           backgroundColor={dialogColors.bgInput}
-          textColor={dialogColors.textPrimary}
-          placeholderColor={dialogColors.textMuted}
-          cursorColor={dialogColors.accent}
-        />
+          borderStyle="single"
+          borderColor={dialogColors.accent}
+          height={3}
+        >
+          <input
+            value={value}
+            placeholder="Why did you save this tweet?"
+            maxLength={MAX_ANNOTATION_LENGTH + 50}
+            focused={true}
+            onInput={(newValue: string) => {
+              setValue(newValue);
+              if (error) setError(null);
+            }}
+            onSubmit={() => {
+              handleSubmit();
+            }}
+            textColor={dialogColors.textPrimary}
+            placeholderColor={dialogColors.textMuted}
+            cursorColor={dialogColors.accent}
+            focusedBackgroundColor="transparent"
+          />
+        </box>
 
         {/* Character count */}
         <text fg={isOverLimit ? colors.error : dialogColors.textMuted}>
@@ -168,6 +176,7 @@ export function AnnotationEditorContent({
         paddingBottom={1}
         flexDirection="row"
         gap={2}
+        width={56}
       >
         <text fg={dialogColors.textMuted}>Enter</text>
         <text fg={dialogColors.textSecondary}>save</text>

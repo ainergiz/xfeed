@@ -2,10 +2,10 @@
  * Tests for annotations storage layer
  */
 
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 
 import {
   loadAnnotations,
@@ -23,7 +23,10 @@ const TEST_ANNOTATIONS_PATH = path.join(TEST_CONFIG_DIR, "annotations.json");
 
 // Mock the module paths for testing
 const originalConfigDir = path.join(homedir(), ".config", "xfeed");
-const originalAnnotationsPath = path.join(originalConfigDir, "annotations.json");
+const originalAnnotationsPath = path.join(
+  originalConfigDir,
+  "annotations.json"
+);
 
 describe("annotations storage", () => {
   // Store original annotations file content if it exists
@@ -222,8 +225,12 @@ describe("annotations storage", () => {
 
       const result = exportAnnotations();
       expect(result.annotations.length).toBe(2);
-      expect(result.annotations.some((a) => a.tweetId === "export-1")).toBe(true);
-      expect(result.annotations.some((a) => a.tweetId === "export-2")).toBe(true);
+      expect(result.annotations.some((a) => a.tweetId === "export-1")).toBe(
+        true
+      );
+      expect(result.annotations.some((a) => a.tweetId === "export-2")).toBe(
+        true
+      );
     });
   });
 });

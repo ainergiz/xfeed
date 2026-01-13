@@ -153,12 +153,8 @@ function AppContent({ client, user }: AppProps) {
   });
 
   // Annotations hook for bookmark annotations
-  const {
-    getAnnotation,
-    hasAnnotation,
-    setAnnotation,
-    deleteAnnotation,
-  } = useAnnotations();
+  const { getAnnotation, hasAnnotation, setAnnotation, deleteAnnotation } =
+    useAnnotations();
 
   // Splash screen state
   const [showSplash, setShowSplash] = useState(true);
@@ -430,7 +426,9 @@ function AppContent({ client, user }: AppProps) {
         toast.success("Annotation deleted");
       } else if (result.action === "save" && result.text) {
         setAnnotation(tweetId, result.text);
-        toast.success(existingAnnotation ? "Annotation updated" : "Annotation saved");
+        toast.success(
+          existingAnnotation ? "Annotation updated" : "Annotation saved"
+        );
       }
     },
     [dialog, getAnnotation, setAnnotation, deleteAnnotation]
