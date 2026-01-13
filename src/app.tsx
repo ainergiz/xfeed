@@ -31,6 +31,10 @@ import {
   type FolderPickerResult,
 } from "@/modals/FolderPicker";
 import { SessionExpiredContent } from "@/modals/SessionExpiredModal";
+import {
+  UrlInputContent,
+  type UrlNavigationResult,
+} from "@/modals/UrlInputModal";
 import { BookmarksScreen } from "@/screens/BookmarksScreen";
 import { NotificationsScreen } from "@/screens/NotificationsScreen";
 import { PostDetailScreen } from "@/screens/PostDetailScreen";
@@ -562,6 +566,44 @@ function AppContent({ client, user }: AppProps) {
       });
   }, [dialog, renderer]);
 
+  // Open URL navigation modal (go to tweet or profile by URL)
+  const handleUrlNavigationOpen = useCallback(async () => {
+    const result = await dialog.prompt<UrlNavigationResult>({
+      content: (ctx) => (
+        <UrlInputContent
+          onNavigateToTweet={async (tweetId) => {
+            const tweetResult = await client.getTweet(tweetId);
+            if (tweetResult.success && tweetResult.tweet) {
+              setPostStack((prev) => [...prev, tweetResult.tweet!]);
+              initState(
+                tweetResult.tweet.id,
+                tweetResult.tweet.favorited ?? false,
+                tweetResult.tweet.bookmarked ?? false
+              );
+              navigate("post-detail");
+              return { success: true };
+            }
+            return {
+              success: false,
+              error: tweetResult.error ?? "Tweet not found",
+            };
+          }}
+          onNavigateToProfile={async (username) => {
+            setProfileStack((prev) => [...prev, username]);
+            navigate("profile");
+            return { success: true };
+          }}
+          resolve={ctx.resolve}
+          dismiss={ctx.dismiss}
+          dialogId={ctx.dialogId}
+        />
+      ),
+    });
+
+    // Result is undefined if dismissed, otherwise navigation already happened
+    if (!result) return;
+  }, [client, dialog, initState, navigate]);
+
   useKeyboard((key) => {
     // Handle copy with 'c' - Cmd+C is intercepted by terminal
     if (key.name === "c") {
@@ -663,6 +705,11 @@ function AppContent({ client, user }: AppProps) {
     if (key.name === "p") {
       setProfileStack((prev) => [...prev, user.username]);
       navigate("profile");
+    }
+
+    // Open URL navigation modal with 'g' (go to)
+    if (key.name === "g") {
+      handleUrlNavigationOpen();
     }
   });
 
