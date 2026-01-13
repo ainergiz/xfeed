@@ -1,12 +1,16 @@
 /**
- * BookmarkFolderSelector - Modal for selecting which bookmark folder to view
+ * BookmarkFolderSelectorContent - Dialog content for selecting which bookmark folder to view
  *
  * Displays "All Bookmarks" followed by user's folders with vim-style navigation.
  * Used for switching between bookmark views.
- * Structure matches FolderPicker exactly.
+ *
+ * Uses @opentui-ui/dialog for async dialog management.
  */
 
-import { useKeyboard } from "@opentui/react";
+import {
+  useDialogKeyboard,
+  type ChoiceContext,
+} from "@opentui-ui/dialog/react";
 import { useEffect, useState } from "react";
 
 import type { XClient } from "@/api/client";
@@ -16,27 +20,40 @@ import { useBookmarkFolders } from "@/hooks/useBookmarkFolders";
 import { useListNavigation } from "@/hooks/useListNavigation";
 import { colors } from "@/lib/colors";
 
-interface BookmarkFolderSelectorProps {
+/** Choice type for bookmark folder selector - null means "All Bookmarks" */
+export type BookmarkFolderChoice = BookmarkFolder | null;
+
+/** Props for BookmarkFolderSelectorContent (used with dialog.choice) */
+export interface BookmarkFolderSelectorContentProps extends ChoiceContext<BookmarkFolderChoice> {
   client: XClient;
   /** Currently selected folder (null = all bookmarks) */
   currentFolder?: BookmarkFolder | null;
-  /** Called when a folder is selected (null = all bookmarks) */
-  onSelect: (folder: BookmarkFolder | null) => void;
-  /** Called when picker is dismissed (Esc) */
-  onClose: () => void;
-  /** Whether the picker is focused (should handle keyboard) */
-  focused?: boolean;
 }
 
 const MAX_VISIBLE_ITEMS = 5;
 
-export function BookmarkFolderSelector({
+// Dialog colors (Catppuccin-inspired)
+const dialogColors = {
+  bgDark: "#1e1e2e",
+  bgPanel: "#181825",
+  bgHover: "#313244",
+  textPrimary: "#cdd6f4",
+  textSecondary: "#bac2de",
+  textMuted: "#6c7086",
+  accent: "#89b4fa",
+};
+
+/**
+ * Content component for bookmark folder selection dialog.
+ * Use with dialog.choice<BookmarkFolder | null>().
+ */
+export function BookmarkFolderSelectorContent({
   client,
   currentFolder,
-  onSelect,
-  onClose,
-  focused = true,
-}: BookmarkFolderSelectorProps) {
+  resolve,
+  dismiss,
+  dialogId,
+}: BookmarkFolderSelectorContentProps) {
   const { folders, loading, error } = useBookmarkFolders({ client });
   const [windowStart, setWindowStart] = useState(0);
 
@@ -59,19 +76,18 @@ export function BookmarkFolderSelector({
 
   const { selectedIndex } = useListNavigation({
     itemCount,
-    enabled: focused && !loading && itemCount > 0,
+    enabled: !loading && itemCount > 0,
     onSelect: (index) => {
       const item = items[index];
-      onSelect(item ?? null);
+      resolve(item ?? null);
     },
   });
 
-  useKeyboard((key) => {
-    if (!focused) return;
+  useDialogKeyboard((key) => {
     if (key.name === "escape") {
-      onClose();
+      dismiss();
     }
-  });
+  }, dialogId);
 
   // Keep selected item within the visible window
   useEffect(() => {
@@ -89,40 +105,41 @@ export function BookmarkFolderSelector({
   // Loading state
   if (loading) {
     return (
-      <box
-        style={{
-          flexDirection: "column",
-          height: "100%",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-        backgroundColor="#000000"
-        opacity={0.8}
-      >
+      <box flexDirection="column">
         <box
-          style={{
-            flexDirection: "column",
-            padding: 2,
-            minWidth: 30,
-          }}
+          backgroundColor={dialogColors.bgPanel}
+          paddingLeft={3}
+          paddingRight={3}
+          paddingTop={1}
+          paddingBottom={1}
+          flexDirection="row"
+          gap={1}
         >
-          <box
-            style={{
-              borderStyle: "rounded",
-              borderColor: "#444444",
-              padding: 1,
-            }}
-            backgroundColor="#000000"
-          >
-            <box style={{ paddingBottom: 1 }}>
-              <text fg={colors.primary}>Select folder</text>
-            </box>
-            <text fg={colors.muted}>Loading folders...</text>
-            <box style={{ paddingTop: 1 }}>
-              <text fg={colors.dim}>Esc</text>
-              <text fg="#444444"> cancel</text>
-            </box>
-          </box>
+          <text fg={dialogColors.accent}>📁</text>
+          <text fg={dialogColors.textPrimary}>
+            <b>Select Folder</b>
+          </text>
+        </box>
+        <box
+          backgroundColor={dialogColors.bgDark}
+          paddingLeft={3}
+          paddingRight={3}
+          paddingTop={1}
+          paddingBottom={1}
+        >
+          <text fg={dialogColors.textMuted}>Loading folders...</text>
+        </box>
+        <box
+          backgroundColor={dialogColors.bgPanel}
+          paddingLeft={3}
+          paddingRight={3}
+          paddingTop={1}
+          paddingBottom={1}
+          flexDirection="row"
+          gap={2}
+        >
+          <text fg={dialogColors.textMuted}>Esc</text>
+          <text fg={dialogColors.textSecondary}>cancel</text>
         </box>
       </box>
     );
@@ -131,40 +148,41 @@ export function BookmarkFolderSelector({
   // Error state
   if (error) {
     return (
-      <box
-        style={{
-          flexDirection: "column",
-          height: "100%",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-        backgroundColor="#000000"
-        opacity={0.8}
-      >
+      <box flexDirection="column">
         <box
-          style={{
-            flexDirection: "column",
-            padding: 2,
-            minWidth: 30,
-          }}
+          backgroundColor={dialogColors.bgPanel}
+          paddingLeft={3}
+          paddingRight={3}
+          paddingTop={1}
+          paddingBottom={1}
+          flexDirection="row"
+          gap={1}
         >
-          <box
-            style={{
-              borderStyle: "rounded",
-              borderColor: colors.error,
-              padding: 1,
-            }}
-            backgroundColor="#000000"
-          >
-            <box style={{ paddingBottom: 1 }}>
-              <text fg={colors.primary}>Select folder</text>
-            </box>
-            <text fg={colors.error}>Error: {error}</text>
-            <box style={{ paddingTop: 1 }}>
-              <text fg={colors.dim}>Esc</text>
-              <text fg="#444444"> close</text>
-            </box>
-          </box>
+          <text fg={dialogColors.accent}>📁</text>
+          <text fg={dialogColors.textPrimary}>
+            <b>Select Folder</b>
+          </text>
+        </box>
+        <box
+          backgroundColor={dialogColors.bgDark}
+          paddingLeft={3}
+          paddingRight={3}
+          paddingTop={1}
+          paddingBottom={1}
+        >
+          <text fg={colors.error}>Error: {error}</text>
+        </box>
+        <box
+          backgroundColor={dialogColors.bgPanel}
+          paddingLeft={3}
+          paddingRight={3}
+          paddingTop={1}
+          paddingBottom={1}
+          flexDirection="row"
+          gap={2}
+        >
+          <text fg={dialogColors.textMuted}>Esc</text>
+          <text fg={dialogColors.textSecondary}>close</text>
         </box>
       </box>
     );
@@ -180,80 +198,80 @@ export function BookmarkFolderSelector({
     windowStart + MAX_VISIBLE_ITEMS
   );
 
+  const title = isViewingAllBookmarks ? "Switch to Folder" : "Switch View";
+
   return (
-    <box
-      style={{
-        flexDirection: "column",
-        height: "100%",
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-      backgroundColor="#000000"
-      opacity={0.8}
-    >
+    <box flexDirection="column">
+      {/* Header */}
       <box
-        style={{
-          flexDirection: "column",
-          padding: 2,
-          minWidth: 30,
-          maxWidth: 50,
-        }}
+        backgroundColor={dialogColors.bgPanel}
+        paddingLeft={3}
+        paddingRight={3}
+        paddingTop={1}
+        paddingBottom={1}
+        flexDirection="row"
+        gap={1}
       >
-        <box
-          style={{
-            borderStyle: "rounded",
-            borderColor: "#444444",
-            padding: 1,
-          }}
-          backgroundColor="#000000"
-        >
-          <box style={{ paddingBottom: 1, flexDirection: "row" }}>
-            <text fg={colors.primary}>
-              {isViewingAllBookmarks ? "Switch to folder" : "Switch view"}
+        <text fg={dialogColors.accent}>📁</text>
+        <text fg={dialogColors.textPrimary}>
+          <b>{title}</b>
+        </text>
+        <text fg={dialogColors.textMuted}>({itemCount} options)</text>
+      </box>
+
+      {/* Content */}
+      <box
+        backgroundColor={dialogColors.bgDark}
+        paddingLeft={3}
+        paddingRight={3}
+        paddingTop={1}
+        paddingBottom={1}
+        flexDirection="column"
+      >
+        {hasMoreAbove ? <text fg={dialogColors.textMuted}>↑ more</text> : null}
+
+        {visibleItems.map((item, visibleIndex) => {
+          const actualIndex = windowStart + visibleIndex;
+          const isSelected = actualIndex === selectedIndex;
+          const isAllBookmarks = item === null;
+          const label = isAllBookmarks ? "All Bookmarks" : item.name;
+
+          return (
+            <text
+              key={isAllBookmarks ? "all" : item.id}
+              fg={
+                isSelected
+                  ? dialogColors.textPrimary
+                  : dialogColors.textSecondary
+              }
+              bg={isSelected ? dialogColors.bgHover : undefined}
+            >
+              {isSelected ? " › " : "   "}
+              {label}
+              {"  "}
             </text>
-            <text fg={colors.dim}> ({itemCount} options)</text>
-          </box>
+          );
+        })}
 
-          {hasMoreAbove ? (
-            <box style={{ flexDirection: "row" }}>
-              <text fg={colors.dim}> ↑ more</text>
-            </box>
-          ) : null}
+        {hasMoreBelow ? <text fg={dialogColors.textMuted}>↓ more</text> : null}
+      </box>
 
-          {visibleItems.map((item, visibleIndex) => {
-            const actualIndex = windowStart + visibleIndex;
-            const isSelected = actualIndex === selectedIndex;
-            const isAllBookmarks = item === null;
-            const label = isAllBookmarks ? "All Bookmarks" : item.name;
-
-            return (
-              <box
-                key={isAllBookmarks ? "all" : item.id}
-                style={{ flexDirection: "row" }}
-              >
-                <text fg={isSelected ? colors.primary : colors.muted}>
-                  {isSelected ? "> " : "  "}
-                  {label}
-                </text>
-              </box>
-            );
-          })}
-
-          {hasMoreBelow ? (
-            <box style={{ flexDirection: "row" }}>
-              <text fg={colors.dim}> ↓ more</text>
-            </box>
-          ) : null}
-
-          <box style={{ paddingTop: 1, flexDirection: "row" }}>
-            <text fg={colors.dim}>j/k</text>
-            <text fg="#444444"> nav </text>
-            <text fg={colors.dim}>Enter</text>
-            <text fg="#444444"> select </text>
-            <text fg={colors.dim}>Esc</text>
-            <text fg="#444444"> cancel</text>
-          </box>
-        </box>
+      {/* Footer */}
+      <box
+        backgroundColor={dialogColors.bgPanel}
+        paddingLeft={3}
+        paddingRight={3}
+        paddingTop={1}
+        paddingBottom={1}
+        flexDirection="row"
+        gap={2}
+      >
+        <text fg={dialogColors.textMuted}>j/k</text>
+        <text fg={dialogColors.textSecondary}>nav</text>
+        <text fg={dialogColors.textMuted}>Enter</text>
+        <text fg={dialogColors.textSecondary}>select</text>
+        <text fg={dialogColors.textMuted}>Esc</text>
+        <text fg={dialogColors.textSecondary}>cancel</text>
       </box>
     </box>
   );

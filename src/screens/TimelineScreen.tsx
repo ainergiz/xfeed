@@ -116,7 +116,7 @@ export function TimelineScreen({
   if (isLoading) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        {focused && <TabBar activeTab={tab} />}
+        <TabBar activeTab={tab} />
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg={colors.muted}>Loading timeline...</text>
         </box>
@@ -127,7 +127,7 @@ export function TimelineScreen({
   if (error) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        {focused && <TabBar activeTab={tab} />}
+        <TabBar activeTab={tab} />
         <ErrorBanner error={error} onRetry={refresh} retryDisabled={false} />
       </box>
     );
@@ -136,7 +136,7 @@ export function TimelineScreen({
   if (posts.length === 0) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        {focused && <TabBar activeTab={tab} />}
+        <TabBar activeTab={tab} />
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg={colors.muted}>
             No posts to display. Press r to refresh.
@@ -148,7 +148,7 @@ export function TimelineScreen({
 
   return (
     <box style={{ flexDirection: "column", height: "100%" }}>
-      {focused && <TabBar activeTab={tab} />}
+      <TabBar activeTab={tab} />
       <PostList
         posts={posts}
         focused={focused}

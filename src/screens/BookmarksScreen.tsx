@@ -69,7 +69,7 @@ function ScreenHeader({ folderName, inFolder }: ScreenHeaderProps) {
       </text>
       <text fg={colors.dim}>
         {" "}
-        (Tab/f folders, c new{inFolder ? ", e rename, D delete" : ""})
+        (f folder, n new{inFolder ? ", e rename, D delete" : ""})
       </text>
     </box>
   );
@@ -123,13 +123,13 @@ export function BookmarksScreen({
       setRefreshKey((k) => k + 1);
     }
 
-    // Open folder picker with 'f' or Tab
-    if (key.name === "f" || key.name === "tab") {
+    // Open folder picker with 'f'
+    if (key.name === "f") {
       onFolderPickerOpen?.();
     }
 
-    // Create new folder with 'c'
-    if (key.name === "c") {
+    // Create new folder with 'n'
+    if (key.name === "n") {
       onCreateFolder?.();
     }
 
@@ -150,9 +150,7 @@ export function BookmarksScreen({
   if (isLoading) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        {focused && (
-          <ScreenHeader folderName={folderName} inFolder={inFolder} />
-        )}
+        <ScreenHeader folderName={folderName} inFolder={inFolder} />
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg={colors.muted}>Loading bookmarks...</text>
         </box>
@@ -163,9 +161,7 @@ export function BookmarksScreen({
   if (error) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        {focused && (
-          <ScreenHeader folderName={folderName} inFolder={inFolder} />
-        )}
+        <ScreenHeader folderName={folderName} inFolder={inFolder} />
         <ErrorBanner error={error} onRetry={refresh} retryDisabled={false} />
       </box>
     );
@@ -174,9 +170,7 @@ export function BookmarksScreen({
   if (posts.length === 0) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        {focused && (
-          <ScreenHeader folderName={folderName} inFolder={inFolder} />
-        )}
+        <ScreenHeader folderName={folderName} inFolder={inFolder} />
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg={colors.muted}>
             {selectedFolder
@@ -190,7 +184,7 @@ export function BookmarksScreen({
 
   return (
     <box style={{ flexDirection: "column", height: "100%" }}>
-      {focused && <ScreenHeader folderName={folderName} inFolder={inFolder} />}
+      <ScreenHeader folderName={folderName} inFolder={inFolder} />
       <PostList
         posts={posts}
         focused={focused}

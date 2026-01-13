@@ -1,61 +1,78 @@
 /**
  * FolderPicker - Modal component for selecting a bookmark folder
  *
+ * Uses @opentui-ui/dialog for async dialog management.
  * Displays a list of bookmark folders with vim-style navigation.
  * Used for moving bookmarked tweets into folders.
  */
 
-import { useKeyboard } from "@opentui/react";
+import {
+  useDialogKeyboard,
+  type ChoiceContext,
+} from "@opentui-ui/dialog/react";
 import { useEffect, useState } from "react";
 
 import type { XClient } from "@/api/client";
-import type { TweetData } from "@/api/types";
 
 import { useBookmarkFolders } from "@/hooks/useBookmarkFolders";
 import { useListNavigation } from "@/hooks/useListNavigation";
 import { colors } from "@/lib/colors";
 
-interface FolderPickerProps {
-  client: XClient;
-  /** The tweet being moved */
-  tweet: TweetData;
-  /** Called when a folder is selected */
-  onSelect: (folderId: string, folderName: string) => Promise<void>;
-  /** Called when picker is dismissed (Esc) */
-  onClose: () => void;
-  /** Whether the picker is focused (should handle keyboard) */
-  focused?: boolean;
-}
-
 const MAX_VISIBLE_FOLDERS = 5;
 
-export function FolderPicker({
+// Dialog colors (Catppuccin-inspired)
+const dialogColors = {
+  bgDark: "#1e1e2e",
+  bgPanel: "#181825",
+  bgHover: "#313244",
+  textPrimary: "#cdd6f4",
+  textSecondary: "#bac2de",
+  textMuted: "#6c7086",
+  accent: "#89b4fa",
+};
+
+/** Result type for folder picker - returns { folderId, folderName } */
+export interface FolderPickerResult {
+  folderId: string;
+  folderName: string;
+}
+
+/** Props for FolderPickerContent (used with dialog.choice) */
+export interface FolderPickerContentProps extends ChoiceContext<FolderPickerResult> {
+  /** XClient instance for fetching folders */
+  client: XClient;
+}
+
+/**
+ * Content component for folder picker dialog.
+ * Use with dialog.choice<FolderPickerResult>().
+ */
+export function FolderPickerContent({
   client,
-  tweet: _tweet,
-  onSelect,
-  onClose,
-  focused = true,
-}: FolderPickerProps) {
+  resolve,
+  dismiss,
+  dialogId,
+}: FolderPickerContentProps) {
   const { folders, loading, error } = useBookmarkFolders({ client });
   const [windowStart, setWindowStart] = useState(0);
 
   const { selectedIndex } = useListNavigation({
     itemCount: folders.length,
-    enabled: focused && !loading && folders.length > 0,
-    onSelect: async (index) => {
+    enabled: !loading && !error && folders.length > 0,
+    onSelect: (index) => {
       const folder = folders[index];
       if (folder) {
-        await onSelect(folder.id, folder.name);
+        resolve({ folderId: folder.id, folderName: folder.name });
       }
     },
   });
 
-  useKeyboard((key) => {
-    if (!focused) return;
+  // Keyboard navigation via dialog
+  useDialogKeyboard((key) => {
     if (key.name === "escape") {
-      onClose();
+      dismiss();
     }
-  });
+  }, dialogId);
 
   // Keep selected item within the visible window
   useEffect(() => {
@@ -63,12 +80,9 @@ export function FolderPicker({
 
     const windowEnd = windowStart + MAX_VISIBLE_FOLDERS - 1;
 
-    // If selection is below the window, shift window down
     if (selectedIndex > windowEnd) {
       setWindowStart(selectedIndex - MAX_VISIBLE_FOLDERS + 1);
-    }
-    // If selection is above the window, shift window up
-    else if (selectedIndex < windowStart) {
+    } else if (selectedIndex < windowStart) {
       setWindowStart(selectedIndex);
     }
   }, [selectedIndex, windowStart, folders.length]);
@@ -76,40 +90,41 @@ export function FolderPicker({
   // Loading state
   if (loading) {
     return (
-      <box
-        style={{
-          flexDirection: "column",
-          height: "100%",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-        backgroundColor="#000000"
-        opacity={0.8}
-      >
+      <box flexDirection="column">
         <box
-          style={{
-            flexDirection: "column",
-            padding: 2,
-            minWidth: 30,
-          }}
+          backgroundColor={dialogColors.bgPanel}
+          paddingLeft={3}
+          paddingRight={3}
+          paddingTop={1}
+          paddingBottom={1}
+          flexDirection="row"
+          gap={1}
         >
-          <box
-            style={{
-              borderStyle: "rounded",
-              borderColor: "#444444",
-              padding: 1,
-            }}
-            backgroundColor="#000000"
-          >
-            <box style={{ paddingBottom: 1 }}>
-              <text fg={colors.primary}>Move to folder</text>
-            </box>
-            <text fg={colors.muted}>Loading folders...</text>
-            <box style={{ paddingTop: 1 }}>
-              <text fg={colors.dim}>Esc</text>
-              <text fg="#444444"> cancel</text>
-            </box>
-          </box>
+          <text fg={dialogColors.accent}>📁</text>
+          <text fg={dialogColors.textPrimary}>
+            <b>Move to Folder</b>
+          </text>
+        </box>
+        <box
+          backgroundColor={dialogColors.bgDark}
+          paddingLeft={3}
+          paddingRight={3}
+          paddingTop={1}
+          paddingBottom={1}
+        >
+          <text fg={dialogColors.textMuted}>Loading folders...</text>
+        </box>
+        <box
+          backgroundColor={dialogColors.bgPanel}
+          paddingLeft={3}
+          paddingRight={3}
+          paddingTop={1}
+          paddingBottom={1}
+          flexDirection="row"
+          gap={2}
+        >
+          <text fg={dialogColors.textMuted}>Esc</text>
+          <text fg={dialogColors.textSecondary}>cancel</text>
         </box>
       </box>
     );
@@ -118,40 +133,41 @@ export function FolderPicker({
   // Error state
   if (error) {
     return (
-      <box
-        style={{
-          flexDirection: "column",
-          height: "100%",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-        backgroundColor="#000000"
-        opacity={0.8}
-      >
+      <box flexDirection="column">
         <box
-          style={{
-            flexDirection: "column",
-            padding: 2,
-            minWidth: 30,
-          }}
+          backgroundColor={dialogColors.bgPanel}
+          paddingLeft={3}
+          paddingRight={3}
+          paddingTop={1}
+          paddingBottom={1}
+          flexDirection="row"
+          gap={1}
         >
-          <box
-            style={{
-              borderStyle: "rounded",
-              borderColor: colors.error,
-              padding: 1,
-            }}
-            backgroundColor="#000000"
-          >
-            <box style={{ paddingBottom: 1 }}>
-              <text fg={colors.primary}>Move to folder</text>
-            </box>
-            <text fg={colors.error}>Error: {error}</text>
-            <box style={{ paddingTop: 1 }}>
-              <text fg={colors.dim}>Esc</text>
-              <text fg="#444444"> close</text>
-            </box>
-          </box>
+          <text fg={dialogColors.accent}>📁</text>
+          <text fg={dialogColors.textPrimary}>
+            <b>Move to Folder</b>
+          </text>
+        </box>
+        <box
+          backgroundColor={dialogColors.bgDark}
+          paddingLeft={3}
+          paddingRight={3}
+          paddingTop={1}
+          paddingBottom={1}
+        >
+          <text fg={colors.error}>Error: {error}</text>
+        </box>
+        <box
+          backgroundColor={dialogColors.bgPanel}
+          paddingLeft={3}
+          paddingRight={3}
+          paddingTop={1}
+          paddingBottom={1}
+          flexDirection="row"
+          gap={2}
+        >
+          <text fg={dialogColors.textMuted}>Esc</text>
+          <text fg={dialogColors.textSecondary}>close</text>
         </box>
       </box>
     );
@@ -160,41 +176,44 @@ export function FolderPicker({
   // No folders state
   if (folders.length === 0) {
     return (
-      <box
-        style={{
-          flexDirection: "column",
-          height: "100%",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-        backgroundColor="#000000"
-        opacity={0.8}
-      >
+      <box flexDirection="column">
         <box
-          style={{
-            flexDirection: "column",
-            padding: 2,
-            minWidth: 30,
-          }}
+          backgroundColor={dialogColors.bgPanel}
+          paddingLeft={3}
+          paddingRight={3}
+          paddingTop={1}
+          paddingBottom={1}
+          flexDirection="row"
+          gap={1}
         >
-          <box
-            style={{
-              borderStyle: "rounded",
-              borderColor: "#444444",
-              padding: 1,
-            }}
-            backgroundColor="#000000"
-          >
-            <box style={{ paddingBottom: 1 }}>
-              <text fg={colors.primary}>Move to folder</text>
-            </box>
-            <text fg={colors.muted}>No folders yet.</text>
-            <text fg={colors.dim}>Create folders on x.com</text>
-            <box style={{ paddingTop: 1 }}>
-              <text fg={colors.dim}>Esc</text>
-              <text fg="#444444"> close</text>
-            </box>
-          </box>
+          <text fg={dialogColors.accent}>📁</text>
+          <text fg={dialogColors.textPrimary}>
+            <b>Move to Folder</b>
+          </text>
+        </box>
+        <box
+          backgroundColor={dialogColors.bgDark}
+          paddingLeft={3}
+          paddingRight={3}
+          paddingTop={1}
+          paddingBottom={1}
+          flexDirection="column"
+          gap={1}
+        >
+          <text fg={dialogColors.textSecondary}>No folders yet.</text>
+          <text fg={dialogColors.textMuted}>Create folders on x.com</text>
+        </box>
+        <box
+          backgroundColor={dialogColors.bgPanel}
+          paddingLeft={3}
+          paddingRight={3}
+          paddingTop={1}
+          paddingBottom={1}
+          flexDirection="row"
+          gap={2}
+        >
+          <text fg={dialogColors.textMuted}>Esc</text>
+          <text fg={dialogColors.textSecondary}>close</text>
         </box>
       </box>
     );
@@ -209,72 +228,74 @@ export function FolderPicker({
   );
 
   return (
-    <box
-      style={{
-        flexDirection: "column",
-        height: "100%",
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-      backgroundColor="#000000"
-      opacity={0.8}
-    >
+    <box flexDirection="column">
+      {/* Header */}
       <box
-        style={{
-          flexDirection: "column",
-          padding: 2,
-          minWidth: 30,
-          maxWidth: 50,
-        }}
+        backgroundColor={dialogColors.bgPanel}
+        paddingLeft={3}
+        paddingRight={3}
+        paddingTop={1}
+        paddingBottom={1}
+        flexDirection="row"
+        gap={1}
       >
-        <box
-          style={{
-            flexDirection: "column",
-            borderStyle: "rounded",
-            borderColor: "#444444",
-            padding: 1,
-          }}
-          backgroundColor="#000000"
-        >
-          <box style={{ paddingBottom: 1, flexDirection: "row" }}>
-            <text fg={colors.primary}>Move to folder</text>
-            <text fg={colors.dim}> ({folders.length} folders)</text>
-          </box>
+        <text fg={dialogColors.accent}>📁</text>
+        <text fg={dialogColors.textPrimary}>
+          <b>Move to Folder</b>
+        </text>
+        <text fg={dialogColors.textMuted}>({folders.length} folders)</text>
+      </box>
 
-          {hasMoreAbove ? (
-            <box style={{ flexDirection: "row" }}>
-              <text fg={colors.dim}> ↑ more</text>
-            </box>
-          ) : null}
+      {/* Content */}
+      <box
+        backgroundColor={dialogColors.bgDark}
+        paddingLeft={3}
+        paddingRight={3}
+        paddingTop={1}
+        paddingBottom={1}
+        flexDirection="column"
+      >
+        {hasMoreAbove ? <text fg={dialogColors.textMuted}>↑ more</text> : null}
 
-          {visibleFolders.map((folder, visibleIndex) => {
-            const actualIndex = windowStart + visibleIndex;
-            const isSelected = actualIndex === selectedIndex;
-            return (
-              <box key={folder.id} style={{ flexDirection: "row" }}>
-                <text fg={isSelected ? colors.primary : colors.muted}>
-                  {isSelected ? "> " : "  "}
-                  {folder.name}
-                </text>
-              </box>
-            );
-          })}
+        {visibleFolders.map((folder, visibleIndex) => {
+          const actualIndex = windowStart + visibleIndex;
+          const isSelected = actualIndex === selectedIndex;
+          return (
+            <text
+              key={folder.id}
+              fg={
+                isSelected
+                  ? dialogColors.textPrimary
+                  : dialogColors.textSecondary
+              }
+              bg={isSelected ? dialogColors.bgHover : undefined}
+            >
+              {isSelected ? " › " : "   "}
+              {folder.name}
+              {"  "}
+            </text>
+          );
+        })}
 
-          {hasMoreBelow ? (
-            <box style={{ flexDirection: "row" }}>
-              <text fg={colors.dim}> ↓ more</text>
-            </box>
-          ) : null}
+        {hasMoreBelow ? <text fg={dialogColors.textMuted}>↓ more</text> : null}
+      </box>
 
-          <box style={{ paddingTop: 1, flexDirection: "row" }}>
-            <text fg={colors.dim}>j/k</text>
-            <text fg="#444444"> nav </text>
-            <text fg={colors.dim}>Enter</text>
-            <text fg="#444444"> select </text>
-            <text fg={colors.dim}>Esc</text>
-            <text fg="#444444"> cancel</text>
-          </box>
-        </box>
+      {/* Footer */}
+      <box
+        backgroundColor={dialogColors.bgPanel}
+        paddingLeft={3}
+        paddingRight={3}
+        paddingTop={1}
+        paddingBottom={1}
+        flexDirection="row"
+        gap={2}
+      >
+        <text fg={dialogColors.textMuted}>j/k</text>
+        <text fg={dialogColors.textSecondary}>nav</text>
+        <text fg={dialogColors.textMuted}>Enter</text>
+        <text fg={dialogColors.textSecondary}>select</text>
+        <text fg={dialogColors.textMuted}>Esc</text>
+        <text fg={dialogColors.textSecondary}>cancel</text>
       </box>
     </box>
   );

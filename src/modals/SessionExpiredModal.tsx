@@ -1,46 +1,91 @@
-import { useKeyboard, useRenderer } from "@opentui/react";
+/**
+ * SessionExpiredContent - Dialog content for expired session notification
+ *
+ * Terminal state - displays message and quits app on any key press.
+ * Uses @opentui-ui/dialog for async dialog management.
+ */
 
-import { colors } from "@/lib/colors";
+import { useDialogKeyboard, type AlertContext } from "@opentui-ui/dialog/react";
+import { useRenderer } from "@opentui/react";
 
-export function SessionExpiredModal() {
+// Dialog colors (Catppuccin-inspired)
+const dialogColors = {
+  bgDark: "#1e1e2e",
+  bgPanel: "#181825",
+  textPrimary: "#cdd6f4",
+  textSecondary: "#bac2de",
+  textMuted: "#6c7086",
+  red: "#f38ba8",
+};
+
+/** Props for SessionExpiredContent (used with dialog.alert) */
+export interface SessionExpiredContentProps extends AlertContext {}
+
+/**
+ * Content component for session expired dialog.
+ * Use with dialog.alert().
+ */
+export function SessionExpiredContent({
+  dismiss,
+  dialogId,
+}: SessionExpiredContentProps) {
   const renderer = useRenderer();
 
-  useKeyboard((key) => {
+  useDialogKeyboard((key) => {
     if (key.name === "return" || key.name === "q" || key.name === "escape") {
+      dismiss();
       renderer.destroy();
     }
-  });
+  }, dialogId);
 
   return (
-    <box
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
+    <box flexDirection="column">
+      {/* Header */}
       <box
-        style={{
-          borderStyle: "single",
-          padding: 2,
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 1,
-        }}
-        backgroundColor={colors.selectedBg}
-        borderColor={colors.error}
+        backgroundColor={dialogColors.bgPanel}
+        paddingLeft={3}
+        paddingRight={3}
+        paddingTop={1}
+        paddingBottom={1}
+        flexDirection="row"
+        gap={1}
       >
-        <text fg={colors.error}>Session Expired</text>
-        <text fg="#a8a8a8">Your tokens are no longer valid.</text>
-        <box style={{ marginTop: 1, flexDirection: "row" }}>
-          <text fg="#6b6b6b">Press </text>
-          <text fg="#ffffff">Enter</text>
-          <text fg="#6b6b6b"> to quit</text>
-        </box>
+        <text fg={dialogColors.red}>✕</text>
+        <text fg={dialogColors.textPrimary}>
+          <b>Session Expired</b>
+        </text>
+      </box>
+
+      {/* Content */}
+      <box
+        backgroundColor={dialogColors.bgDark}
+        paddingLeft={3}
+        paddingRight={3}
+        paddingTop={1}
+        paddingBottom={1}
+        flexDirection="column"
+        gap={1}
+      >
+        <text fg={dialogColors.textSecondary}>
+          Your tokens are no longer valid.
+        </text>
+        <text fg={dialogColors.textMuted}>
+          Please restart the app and log in again.
+        </text>
+      </box>
+
+      {/* Footer */}
+      <box
+        backgroundColor={dialogColors.bgPanel}
+        paddingLeft={3}
+        paddingRight={3}
+        paddingTop={1}
+        paddingBottom={1}
+        flexDirection="row"
+        gap={2}
+      >
+        <text fg={dialogColors.textMuted}>Enter</text>
+        <text fg={dialogColors.textSecondary}>quit</text>
       </box>
     </box>
   );

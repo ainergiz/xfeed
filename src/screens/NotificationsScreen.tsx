@@ -22,38 +22,6 @@ interface NotificationsScreenProps {
   onNotificationSelect?: (notification: NotificationData) => void;
 }
 
-interface ScreenHeaderProps {
-  unreadCount: number;
-  isRefetching: boolean;
-}
-
-function ScreenHeader({ unreadCount, isRefetching }: ScreenHeaderProps) {
-  return (
-    <box
-      style={{
-        flexShrink: 0,
-        paddingLeft: 1,
-        paddingRight: 1,
-        paddingBottom: 1,
-        flexDirection: "row",
-        justifyContent: "space-between",
-      }}
-    >
-      <box style={{ flexDirection: "row" }}>
-        <text fg={colors.primary}>
-          <b>Notifications</b>
-        </text>
-        {unreadCount > 0 && <text fg={colors.error}> ({unreadCount} new)</text>}
-      </box>
-      {isRefetching && (
-        <text fg={colors.muted}>
-          <i>syncing...</i>
-        </text>
-      )}
-    </box>
-  );
-}
-
 function NewNotificationsBanner({ count }: { count: number }) {
   return (
     <box
@@ -99,7 +67,6 @@ export function NotificationsScreen({
     fetchNextPage,
     refresh,
     newNotificationsCount,
-    isRefetching,
   } = useNotificationsQuery({ client });
 
   // Report counts to parent
@@ -123,7 +90,6 @@ export function NotificationsScreen({
   if (isLoading) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        {focused && <ScreenHeader unreadCount={0} isRefetching={false} />}
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg={colors.muted}>Loading notifications...</text>
         </box>
@@ -134,9 +100,6 @@ export function NotificationsScreen({
   if (error) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        {focused && (
-          <ScreenHeader unreadCount={0} isRefetching={isRefetching} />
-        )}
         <ErrorBanner error={error} onRetry={refresh} retryDisabled={false} />
       </box>
     );
@@ -145,9 +108,6 @@ export function NotificationsScreen({
   if (notifications.length === 0) {
     return (
       <box style={{ flexDirection: "column", height: "100%" }}>
-        {focused && (
-          <ScreenHeader unreadCount={0} isRefetching={isRefetching} />
-        )}
         <box style={{ padding: 2, flexGrow: 1 }}>
           <text fg={colors.muted}>
             No notifications yet. Press r to refresh.
@@ -159,10 +119,7 @@ export function NotificationsScreen({
 
   return (
     <box style={{ flexDirection: "column", height: "100%" }}>
-      {focused && (
-        <ScreenHeader unreadCount={unreadCount} isRefetching={isRefetching} />
-      )}
-      {focused && newNotificationsCount > 0 && (
+      {newNotificationsCount > 0 && (
         <NewNotificationsBanner count={newNotificationsCount} />
       )}
       <NotificationList

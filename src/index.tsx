@@ -29,6 +29,8 @@ function checkTerminalCompatibility(): void {
   }
 }
 
+import { DialogProvider } from "@opentui-ui/dialog/react";
+
 import { App } from "@/app";
 import { detectAvailableBrowsers, isInteractive } from "@/auth/browser-detect";
 import { promptBrowserSelection } from "@/auth/browser-picker";
@@ -41,7 +43,6 @@ import {
   updateConfig,
 } from "@/config/loader";
 import { getPreferencesPath, loadPreferences } from "@/config/preferences";
-import { ModalProvider } from "@/contexts/ModalContext";
 import { PreferencesProvider } from "@/contexts/PreferencesContext";
 
 const cli = cac("xfeed");
@@ -91,7 +92,9 @@ cli
         !VALID_BROWSERS.includes(options.browser as BrowserId)
       ) {
         console.error(
-          `Invalid browser: ${options.browser}. Must be one of: ${VALID_BROWSERS.join(", ")}`
+          `Invalid browser: ${
+            options.browser
+          }. Must be one of: ${VALID_BROWSERS.join(", ")}`
         );
         process.exit(1);
       }
@@ -307,9 +310,14 @@ cli
 
       createRoot(renderer).render(
         <PreferencesProvider preferences={preferences}>
-          <ModalProvider>
+          <DialogProvider
+            backdropColor="#000000"
+            backdropOpacity={0.8}
+            size="small"
+            unstyled
+          >
             <App client={authResult.client} user={authResult.user} />
-          </ModalProvider>
+          </DialogProvider>
         </PreferencesProvider>
       );
     }

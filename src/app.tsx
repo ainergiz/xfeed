@@ -1,3 +1,5 @@
+import { useDialog, useDialogState } from "@opentui-ui/dialog/react";
+import { ToasterRenderable, toast } from "@opentui-ui/toast";
 import { useKeyboard, useRenderer } from "@opentui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -12,7 +14,6 @@ import type {
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { clearBrowserPreference } from "@/config/loader";
-import { useModal } from "@/contexts/ModalContext";
 import {
   QueryProvider,
   TimelineScreenExperimental,
@@ -21,6 +22,15 @@ import {
 import { useActions } from "@/hooks/useActions";
 import { useNavigation } from "@/hooks/useNavigation";
 import { copyToClipboard } from "@/lib/clipboard";
+import { BookmarkFolderSelectorContent } from "@/modals/BookmarkFolderSelector";
+import { DeleteFolderConfirmContent } from "@/modals/DeleteFolderConfirmModal";
+import { ExitConfirmationContent } from "@/modals/ExitConfirmationModal";
+import { FolderNameInputContent } from "@/modals/FolderNameInputModal";
+import {
+  FolderPickerContent,
+  type FolderPickerResult,
+} from "@/modals/FolderPicker";
+import { SessionExpiredContent } from "@/modals/SessionExpiredModal";
 import { BookmarksScreen } from "@/screens/BookmarksScreen";
 import { NotificationsScreen } from "@/screens/NotificationsScreen";
 import { PostDetailScreen } from "@/screens/PostDetailScreen";
@@ -69,18 +79,49 @@ function AppContent({ client, user }: AppProps) {
   const [bookmarkHasMore, setBookmarkHasMore] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
-  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [showFooter, setShowFooter] = useState(true);
 
-  // Modal context
-  const { openModal, closeModal, isModalOpen } = useModal();
+  // Dialog system (@opentui-ui/dialog)
+  const dialog = useDialog();
+  const isDialogOpen = useDialogState((s) => s.isOpen);
+
+  // Toast system (@opentui-ui/toast) - top-right position
+  useEffect(() => {
+    const toaster = new ToasterRenderable(renderer, {
+      position: "top-right",
+      stackingMode: "stack",
+      visibleToasts: 5,
+      offset: { top: 1, right: 1 },
+      toastOptions: {
+        duration: 3000,
+        style: {
+          backgroundColor: "#1e1e2e",
+          foregroundColor: "#cdd6f4",
+          borderColor: "#313244",
+          mutedColor: "#6c7086",
+        },
+        success: { style: { borderColor: "#a6e3a1" } },
+        error: { style: { borderColor: "#f38ba8" } },
+      },
+    });
+    renderer.root.add(toaster);
+    return () => toaster.destroy();
+  }, [renderer]);
 
   // Set up session expired callback
   useEffect(() => {
     client.setOnSessionExpired(() => {
-      openModal("session-expired", {});
+      dialog.alert({
+        content: (ctx) => (
+          <SessionExpiredContent
+            dismiss={ctx.dismiss}
+            dialogId={ctx.dialogId}
+          />
+        ),
+        unstyled: true,
+      });
     });
-  }, [client, openModal]);
+  }, [client, dialog]);
 
   // State for bookmark folder selection (moved here for useActions integration)
   const [selectedBookmarkFolder, setSelectedBookmarkFolder] =
@@ -89,26 +130,18 @@ function AppContent({ client, user }: AppProps) {
   // TanStack Query mutation for bookmark operations with optimistic updates
   const bookmarkMutation = useBookmarkMutation({
     client,
-    onSuccess: (message) => setActionMessage(message),
-    onError: (error) => setActionMessage(`Error: ${error}`),
+    onSuccess: (message) => toast.success(message),
+    onError: (error) => toast.error(error),
   });
 
   // Actions hook for like/bookmark mutations
   const { toggleLike, toggleBookmark, getState, initState } = useActions({
     client,
-    onError: (error) => setActionMessage(`Error: ${error}`),
-    onSuccess: (message) => setActionMessage(message),
+    onError: (error) => toast.error(error),
+    onSuccess: (message) => toast.success(message),
     bookmarkMutation,
     currentFolderId: selectedBookmarkFolder?.id,
   });
-
-  // Clear action message after 3 seconds
-  useEffect(() => {
-    if (actionMessage) {
-      const timer = setTimeout(() => setActionMessage(null), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [actionMessage]);
 
   // Splash screen state
   const [showSplash, setShowSplash] = useState(true);
@@ -208,7 +241,7 @@ function AppContent({ client, user }: AppProps) {
 
       // Prevent circular navigation (tweet already in stack)
       if (postStack.some((p) => p.id === quotedTweet.id)) {
-        setActionMessage("Already viewing this tweet");
+        toast.info("Already viewing this tweet");
         return;
       }
 
@@ -226,7 +259,7 @@ function AppContent({ client, user }: AppProps) {
           // Push to navigation history to keep stacks in sync with handleBackFromDetail
           navigate("post-detail");
         } else {
-          setActionMessage(result.error || "Could not load quoted tweet");
+          toast.error(result.error || "Could not load quoted tweet");
         }
       } finally {
         setIsLoadingQuote(false);
@@ -265,7 +298,7 @@ function AppContent({ client, user }: AppProps) {
           );
           navigate("post-detail");
         } else {
-          setActionMessage(result.error || "Could not load parent tweet");
+          toast.error(result.error || "Could not load parent tweet");
         }
       } finally {
         setIsLoadingParent(false);
@@ -323,106 +356,148 @@ function AppContent({ client, user }: AppProps) {
     [navigate, initState]
   );
 
-  // Open folder picker modal from post detail
-  const handleMoveToFolder = useCallback(() => {
+  // Open folder picker dialog from post detail
+  const handleMoveToFolder = useCallback(async () => {
     if (!selectedPost) return;
 
-    openModal("folder-picker", {
-      client,
-      tweet: selectedPost,
-      onSelect: async (folderId: string, folderName: string) => {
-        const result = await client.moveBookmarkToFolder(
-          selectedPost.id,
-          folderId
-        );
-
-        if (result.success) {
-          setActionMessage(`Moved to "${folderName}"`);
-        } else {
-          setActionMessage(`Error: ${result.error}`);
-        }
-
-        closeModal();
-      },
-      onClose: closeModal,
+    const result = await dialog.choice<FolderPickerResult>({
+      content: (ctx) => (
+        <FolderPickerContent
+          client={client}
+          resolve={ctx.resolve}
+          dismiss={ctx.dismiss}
+          dialogId={ctx.dialogId}
+        />
+      ),
+      unstyled: true,
     });
-  }, [client, selectedPost, openModal, closeModal]);
 
-  // Open bookmark folder selector modal
-  const handleBookmarkFolderSelectorOpen = useCallback(() => {
-    openModal("bookmark-folder-selector", {
-      client,
-      currentFolder: selectedBookmarkFolder,
-      onSelect: (folder: BookmarkFolder | null) => {
-        setSelectedBookmarkFolder(folder);
-        closeModal();
-      },
-      onClose: closeModal,
+    // undefined means dismissed
+    if (!result) return;
+
+    const moveResult = await client.moveBookmarkToFolder(
+      selectedPost.id,
+      result.folderId
+    );
+
+    if (moveResult.success) {
+      toast.success(`Moved to "${result.folderName}"`);
+    } else {
+      toast.error(moveResult.error);
+    }
+  }, [client, selectedPost, dialog]);
+
+  // Open bookmark folder selector dialog
+  const handleBookmarkFolderSelectorOpen = useCallback(async () => {
+    const folder = await dialog.choice<BookmarkFolder | null>({
+      content: (ctx) => (
+        <BookmarkFolderSelectorContent
+          client={client}
+          currentFolder={selectedBookmarkFolder}
+          resolve={ctx.resolve}
+          dismiss={ctx.dismiss}
+          dialogId={ctx.dialogId}
+        />
+      ),
+      unstyled: true,
     });
-  }, [client, selectedBookmarkFolder, openModal, closeModal]);
+
+    // undefined means dismissed, don't change selection
+    if (folder !== undefined) {
+      setSelectedBookmarkFolder(folder);
+    }
+  }, [client, selectedBookmarkFolder, dialog]);
 
   // Create new bookmark folder
-  const handleCreateBookmarkFolder = useCallback(() => {
-    openModal("folder-name-input", {
-      mode: "create",
-      onSubmit: async (name: string) => {
-        const result = await client.createBookmarkFolder(name);
-        if (result.success) {
-          setActionMessage(`Created folder "${name}"`);
-          closeModal();
-        } else {
-          throw new Error(result.error);
-        }
-      },
-      onClose: closeModal,
+  const handleCreateBookmarkFolder = useCallback(async () => {
+    const name = await dialog.prompt<string>({
+      content: (ctx) => (
+        <FolderNameInputContent
+          mode="create"
+          onSubmit={async (folderName) => {
+            const result = await client.createBookmarkFolder(folderName);
+            if (!result.success) {
+              throw new Error(result.error);
+            }
+          }}
+          resolve={ctx.resolve}
+          dismiss={ctx.dismiss}
+          dialogId={ctx.dialogId}
+        />
+      ),
+      unstyled: true,
     });
-  }, [client, openModal, closeModal]);
+
+    // undefined means dismissed
+    if (name) {
+      toast.success(`Created folder "${name}"`);
+    }
+  }, [client, dialog]);
 
   // Edit current bookmark folder
-  const handleEditBookmarkFolder = useCallback(() => {
+  const handleEditBookmarkFolder = useCallback(async () => {
     if (!selectedBookmarkFolder) return;
 
-    openModal("folder-name-input", {
-      mode: "edit",
-      initialName: selectedBookmarkFolder.name,
-      onSubmit: async (name: string) => {
-        const result = await client.editBookmarkFolder(
-          selectedBookmarkFolder.id,
-          name
-        );
-        if (result.success) {
-          setSelectedBookmarkFolder(result.folder);
-          setActionMessage(`Renamed folder to "${name}"`);
-          closeModal();
-        } else {
-          throw new Error(result.error);
-        }
-      },
-      onClose: closeModal,
+    const name = await dialog.prompt<string>({
+      content: (ctx) => (
+        <FolderNameInputContent
+          mode="edit"
+          initialName={selectedBookmarkFolder.name}
+          onSubmit={async (folderName) => {
+            const result = await client.editBookmarkFolder(
+              selectedBookmarkFolder.id,
+              folderName
+            );
+            if (result.success) {
+              setSelectedBookmarkFolder(result.folder);
+            } else {
+              throw new Error(result.error);
+            }
+          }}
+          resolve={ctx.resolve}
+          dismiss={ctx.dismiss}
+          dialogId={ctx.dialogId}
+        />
+      ),
+      unstyled: true,
     });
-  }, [client, selectedBookmarkFolder, openModal, closeModal]);
+
+    // undefined means dismissed
+    if (name) {
+      toast.success(`Renamed folder to "${name}"`);
+    }
+  }, [client, selectedBookmarkFolder, dialog]);
 
   // Delete current bookmark folder
-  const handleDeleteBookmarkFolder = useCallback(() => {
+  const handleDeleteBookmarkFolder = useCallback(async () => {
     if (!selectedBookmarkFolder) return;
 
-    openModal("delete-folder-confirm", {
-      folderName: selectedBookmarkFolder.name,
-      onConfirm: async () => {
-        const result = await client.deleteBookmarkFolder(
-          selectedBookmarkFolder.id
-        );
-        if (result.success) {
-          setActionMessage(`Deleted folder "${selectedBookmarkFolder.name}"`);
-          setSelectedBookmarkFolder(null);
-          closeModal();
-        } else {
-          throw new Error(result.error);
-        }
-      },
-      onCancel: closeModal,
+    const confirmed = await dialog.confirm({
+      content: (ctx) => (
+        <DeleteFolderConfirmContent
+          folderName={selectedBookmarkFolder.name}
+          onConfirm={async () => {
+            const result = await client.deleteBookmarkFolder(
+              selectedBookmarkFolder.id
+            );
+            if (result.success) {
+              toast.success(`Deleted folder "${selectedBookmarkFolder.name}"`);
+              setSelectedBookmarkFolder(null);
+            } else {
+              throw new Error(result.error);
+            }
+          }}
+          resolve={ctx.resolve}
+          dismiss={ctx.dismiss}
+          dialogId={ctx.dialogId}
+        />
+      ),
+      unstyled: true,
     });
-  }, [client, selectedBookmarkFolder, openModal, closeModal]);
+
+    // Dialog was dismissed without confirming
+    if (!confirmed) return;
+  }, [client, selectedBookmarkFolder, dialog]);
 
   // Handle notification select - navigate to tweet detail or profile based on type
   const handleNotificationSelect = useCallback(
@@ -463,6 +538,30 @@ function AppContent({ client, user }: AppProps) {
     [navigate, initState]
   );
 
+  // Show exit confirmation dialog
+  const showExitConfirmation = useCallback(() => {
+    dialog
+      .choice<"logout" | "exit">({
+        content: (ctx) => (
+          <ExitConfirmationContent
+            resolve={ctx.resolve}
+            dismiss={ctx.dismiss}
+            dialogId={ctx.dialogId}
+          />
+        ),
+        unstyled: true,
+      })
+      .then((choice) => {
+        if (choice === "logout") {
+          clearBrowserPreference();
+          renderer.destroy();
+        } else if (choice === "exit") {
+          renderer.destroy();
+        }
+        // undefined = cancelled, do nothing
+      });
+  }, [dialog, renderer]);
+
   useKeyboard((key) => {
     // Handle copy with 'c' - Cmd+C is intercepted by terminal
     if (key.name === "c") {
@@ -472,7 +571,7 @@ function AppContent({ client, user }: AppProps) {
         if (text) {
           copyToClipboard(text).then((result) => {
             if (result.success) {
-              setActionMessage("Copied to clipboard");
+              toast.success("Copied to clipboard");
             }
           });
           return;
@@ -481,7 +580,7 @@ function AppContent({ client, user }: AppProps) {
     }
 
     // Don't handle keys when modals are showing - they handle their own keyboard
-    if (isModalOpen) {
+    if (isDialogOpen) {
       return;
     }
 
@@ -505,14 +604,7 @@ function AppContent({ client, user }: AppProps) {
       if (isMainView) {
         if (currentView === "timeline") {
           // On timeline: show exit confirmation
-          openModal("exit-confirmation", {
-            onLogout: () => {
-              clearBrowserPreference();
-              renderer.destroy();
-            },
-            onConfirm: () => renderer.destroy(),
-            onCancel: closeModal,
-          });
+          showExitConfirmation();
         } else {
           // On bookmarks/notifications: go to timeline
           navigate("timeline");
@@ -520,27 +612,6 @@ function AppContent({ client, user }: AppProps) {
         return;
       }
       // Overlay views (post-detail, profile) handle their own escape
-    }
-
-    // Handle 'h' key for vim-style navigation (go back/left to home)
-    if (key.name === "h") {
-      if (isMainView) {
-        if (currentView === "timeline") {
-          // On timeline: show exit confirmation (same as escape)
-          openModal("exit-confirmation", {
-            onLogout: () => {
-              clearBrowserPreference();
-              renderer.destroy();
-            },
-            onConfirm: () => renderer.destroy(),
-            onCancel: closeModal,
-          });
-        } else {
-          // On bookmarks/notifications: go to timeline
-          navigate("timeline");
-        }
-        return;
-      }
     }
 
     // Toggle footer visibility with '.' - works on all screens
@@ -554,42 +625,38 @@ function AppContent({ client, user }: AppProps) {
       return;
     }
 
-    // Global navigation with number keys - works from anywhere
-    if (key.name === "1") {
-      // Clear overlay state and go to timeline
+    // Tab cycling for main screens - works from anywhere
+    if (key.name === "tab") {
+      // Clear overlay state
       setPostStack([]);
       setProfileStack([]);
       setThreadRootTweet(null);
-      navigate("timeline");
-      return;
-    }
 
-    if (key.name === "2") {
-      // Clear overlay state and go to bookmarks
-      setPostStack([]);
-      setProfileStack([]);
-      setThreadRootTweet(null);
-      navigate("bookmarks");
-      return;
-    }
-
-    if (key.name === "3") {
-      // Clear overlay state and go to notifications
-      setPostStack([]);
-      setProfileStack([]);
-      setThreadRootTweet(null);
-      navigate("notifications");
+      // Find current position and cycle
+      const currentIdx = MAIN_VIEWS.indexOf(
+        currentView as (typeof MAIN_VIEWS)[number]
+      );
+      if (currentIdx === -1) {
+        // From overlay view, go to timeline
+        navigate("timeline");
+      } else if (key.shift) {
+        // Shift+Tab: cycle backward
+        const prevIdx =
+          (currentIdx - 1 + MAIN_VIEWS.length) % MAIN_VIEWS.length;
+        const prevView = MAIN_VIEWS[prevIdx];
+        if (prevView) navigate(prevView);
+      } else {
+        // Tab: cycle forward
+        const nextIdx = (currentIdx + 1) % MAIN_VIEWS.length;
+        const nextView = MAIN_VIEWS[nextIdx];
+        if (nextView) navigate(nextView);
+      }
       return;
     }
 
     // Don't handle other keys during overlay views
     if (!isMainView) {
       return;
-    }
-
-    // Go to notifications with 'n'
-    if (key.name === "n") {
-      navigate("notifications");
     }
 
     // Go to own profile with 'p'
@@ -634,15 +701,15 @@ function AppContent({ client, user }: AppProps) {
       >
         {/* TanStack Query experiment: TimelineScreenExperimental */}
         <box
+          visible={currentView === "timeline"}
           style={{
-            flexGrow: currentView === "timeline" ? 1 : 0,
-            height: currentView === "timeline" ? "100%" : 0,
-            overflow: "hidden",
+            flexGrow: 1,
+            height: "100%",
           }}
         >
           <TimelineScreenExperimental
             client={client}
-            focused={currentView === "timeline" && !showSplash && !isModalOpen}
+            focused={currentView === "timeline" && !showSplash && !isDialogOpen}
             onPostCountChange={handlePostCountChange}
             onInitialLoadComplete={handleInitialLoadComplete}
             onPostSelect={handlePostSelect}
@@ -657,7 +724,7 @@ function AppContent({ client, user }: AppProps) {
           <PostDetailScreen
             client={client}
             tweet={selectedPost}
-            focused={!isModalOpen}
+            focused={!isDialogOpen}
             onBack={handleBackFromDetail}
             onProfileOpen={handleProfileOpen}
             onLike={() => toggleLike(selectedPost)}
@@ -680,10 +747,10 @@ function AppContent({ client, user }: AppProps) {
 
         {/* Keep ThreadScreen mounted to preserve state, hide when not active */}
         <box
+          visible={currentView === "thread"}
           style={{
-            flexGrow: currentView === "thread" ? 1 : 0,
-            height: currentView === "thread" ? "100%" : 0,
-            overflow: "hidden",
+            flexGrow: 1,
+            height: "100%",
           }}
         >
           {threadRootTweet && (
@@ -700,10 +767,10 @@ function AppContent({ client, user }: AppProps) {
 
         {/* Keep ProfileScreen mounted to preserve state, hide when not active */}
         <box
+          visible={currentView === "profile"}
           style={{
-            flexGrow: currentView === "profile" ? 1 : 0,
-            height: currentView === "profile" ? "100%" : 0,
-            overflow: "hidden",
+            flexGrow: 1,
+            height: "100%",
           }}
         >
           {profileUsername && (
@@ -726,15 +793,17 @@ function AppContent({ client, user }: AppProps) {
 
         {/* Keep BookmarksScreen mounted to preserve state, hide when not active */}
         <box
+          visible={currentView === "bookmarks"}
           style={{
-            flexGrow: currentView === "bookmarks" ? 1 : 0,
-            height: currentView === "bookmarks" ? "100%" : 0,
-            overflow: "hidden",
+            flexGrow: 1,
+            height: "100%",
           }}
         >
           <BookmarksScreen
             client={client}
-            focused={currentView === "bookmarks" && !showSplash && !isModalOpen}
+            focused={
+              currentView === "bookmarks" && !showSplash && !isDialogOpen
+            }
             selectedFolder={selectedBookmarkFolder}
             onFolderPickerOpen={handleBookmarkFolderSelectorOpen}
             onPostCountChange={handleBookmarkCountChange}
@@ -752,16 +821,16 @@ function AppContent({ client, user }: AppProps) {
 
         {/* Keep NotificationsScreen mounted to preserve state, hide when not active */}
         <box
+          visible={currentView === "notifications"}
           style={{
-            flexGrow: currentView === "notifications" ? 1 : 0,
-            height: currentView === "notifications" ? "100%" : 0,
-            overflow: "hidden",
+            flexGrow: 1,
+            height: "100%",
           }}
         >
           <NotificationsScreen
             client={client}
             focused={
-              currentView === "notifications" && !showSplash && !isModalOpen
+              currentView === "notifications" && !showSplash && !isDialogOpen
             }
             onNotificationCountChange={handleNotificationCountChange}
             onUnreadCountChange={handleUnreadCountChange}
