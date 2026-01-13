@@ -23,6 +23,8 @@ interface PostListProps {
   onLike?: (post: TweetData) => void;
   /** Called when user presses 'b' to toggle bookmark on selected post */
   onBookmark?: (post: TweetData) => void;
+  /** Called when user presses 'a' to annotate selected post */
+  onAnnotate?: (post: TweetData) => void;
   /** Get current action state for a tweet */
   getActionState?: (tweetId: string) => TweetActionState;
   /** Initialize action state from API data */
@@ -31,6 +33,8 @@ interface PostListProps {
     liked: boolean,
     bookmarked: boolean
   ) => void;
+  /** Check if a tweet has an annotation */
+  hasAnnotation?: (tweetId: string) => boolean;
   /** Called when user scrolls near the bottom to load more posts */
   onLoadMore?: () => void;
   /** Whether more posts are currently being loaded */
@@ -55,8 +59,10 @@ export function PostList({
   onSelectedIndexChange,
   onLike,
   onBookmark,
+  onAnnotate,
   getActionState,
   initActionState,
+  hasAnnotation,
   onLoadMore,
   loadingMore = false,
   hasMore = true,
@@ -121,7 +127,7 @@ export function PostList({
     onSelectedIndexChange?.(selectedIndex);
   }, [selectedIndex, onSelectedIndexChange]);
 
-  // Handle like/bookmark keyboard shortcuts
+  // Handle like/bookmark/annotate keyboard shortcuts
   useKeyboard((key) => {
     if (!focused || posts.length === 0) return;
 
@@ -132,6 +138,8 @@ export function PostList({
       onLike?.(currentPost);
     } else if (key.name === "b") {
       onBookmark?.(currentPost);
+    } else if (key.name === "a") {
+      onAnnotate?.(currentPost);
     }
   });
 
@@ -237,6 +245,7 @@ export function PostList({
             isBookmarked={actionState?.bookmarked}
             isJustLiked={actionState?.justLiked}
             isJustBookmarked={actionState?.justBookmarked}
+            hasAnnotation={hasAnnotation?.(post.id)}
             onCardClick={() => onPostSelect?.(post)}
             onLikeClick={() => onLike?.(post)}
             onBookmarkClick={() => onBookmark?.(post)}

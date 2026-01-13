@@ -20,8 +20,13 @@ import {
   useBookmarkMutation,
 } from "@/experiments";
 import { useActions } from "@/hooks/useActions";
+import { useAnnotations } from "@/hooks/useAnnotations";
 import { useNavigation } from "@/hooks/useNavigation";
 import { copyToClipboard } from "@/lib/clipboard";
+import {
+  AnnotationEditorContent,
+  type AnnotationEditorResult,
+} from "@/modals/AnnotationEditor";
 import { BookmarkFolderSelectorContent } from "@/modals/BookmarkFolderSelector";
 import { DeleteFolderConfirmContent } from "@/modals/DeleteFolderConfirmModal";
 import { ExitConfirmationContent } from "@/modals/ExitConfirmationModal";
@@ -146,6 +151,10 @@ function AppContent({ client, user }: AppProps) {
     bookmarkMutation,
     currentFolderId: selectedBookmarkFolder?.id,
   });
+
+  // Annotations hook for bookmark annotations
+  const { getAnnotation, hasAnnotation, setAnnotation, deleteAnnotation } =
+    useAnnotations();
 
   // Splash screen state
   const [showSplash, setShowSplash] = useState(true);
@@ -390,6 +399,55 @@ function AppContent({ client, user }: AppProps) {
       toast.error(moveResult.error);
     }
   }, [client, selectedPost, dialog]);
+
+  // Open annotation editor for a tweet
+  const handleAnnotate = useCallback(
+    async (tweetId: string) => {
+      const existingAnnotation = getAnnotation(tweetId);
+
+      const result = await dialog.prompt<AnnotationEditorResult>({
+        content: (ctx) => (
+          <AnnotationEditorContent
+            initialText={existingAnnotation ?? ""}
+            hasExisting={!!existingAnnotation}
+            resolve={ctx.resolve}
+            dismiss={ctx.dismiss}
+            dialogId={ctx.dialogId}
+          />
+        ),
+        unstyled: true,
+      });
+
+      // undefined means dismissed
+      if (!result) return;
+
+      if (result.action === "delete") {
+        deleteAnnotation(tweetId);
+        toast.success("Annotation deleted");
+      } else if (result.action === "save" && result.text) {
+        setAnnotation(tweetId, result.text);
+        toast.success(
+          existingAnnotation ? "Annotation updated" : "Annotation saved"
+        );
+      }
+    },
+    [dialog, getAnnotation, setAnnotation, deleteAnnotation]
+  );
+
+  // Handler for annotating the currently selected post (from PostDetailScreen)
+  const handleAnnotateSelectedPost = useCallback(() => {
+    if (selectedPost) {
+      handleAnnotate(selectedPost.id);
+    }
+  }, [selectedPost, handleAnnotate]);
+
+  // Handler for annotating a post from BookmarksScreen list
+  const handleAnnotateFromList = useCallback(
+    (post: TweetData) => {
+      handleAnnotate(post.id);
+    },
+    [handleAnnotate]
+  );
 
   // Open bookmark folder selector dialog
   const handleBookmarkFolderSelectorOpen = useCallback(async () => {
@@ -777,6 +835,8 @@ function AppContent({ client, user }: AppProps) {
             onLike={() => toggleLike(selectedPost)}
             onBookmark={() => toggleBookmark(selectedPost)}
             onMoveToFolder={handleMoveToFolder}
+            onAnnotate={handleAnnotateSelectedPost}
+            annotationText={getAnnotation(selectedPost.id)}
             isLiked={getState(selectedPost.id).liked}
             isBookmarked={getState(selectedPost.id).bookmarked}
             isJustLiked={getState(selectedPost.id).justLiked}
@@ -858,8 +918,10 @@ function AppContent({ client, user }: AppProps) {
             onPostSelect={handlePostSelect}
             onLike={toggleLike}
             onBookmark={toggleBookmark}
+            onAnnotate={handleAnnotateFromList}
             getActionState={getState}
             initActionState={initState}
+            hasAnnotation={hasAnnotation}
             onCreateFolder={handleCreateBookmarkFolder}
             onEditFolder={handleEditBookmarkFolder}
             onDeleteFolder={handleDeleteBookmarkFolder}

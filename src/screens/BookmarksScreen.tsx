@@ -30,6 +30,8 @@ interface BookmarksScreenProps {
   onLike?: (post: TweetData) => void;
   /** Called when user presses 'b' to toggle bookmark */
   onBookmark?: (post: TweetData) => void;
+  /** Called when user presses 'a' to annotate a bookmark */
+  onAnnotate?: (post: TweetData) => void;
   /** Get current action state for a tweet */
   getActionState?: (tweetId: string) => TweetActionState;
   /** Initialize action state from API data */
@@ -38,6 +40,8 @@ interface BookmarksScreenProps {
     liked: boolean,
     bookmarked: boolean
   ) => void;
+  /** Check if a tweet has an annotation */
+  hasAnnotation?: (tweetId: string) => boolean;
   /** Called when user presses 'c' to create a new folder */
   onCreateFolder?: () => void;
   /** Called when user presses 'e' to edit current folder (only when in a folder) */
@@ -69,7 +73,7 @@ function ScreenHeader({ folderName, inFolder }: ScreenHeaderProps) {
       </text>
       <text fg={colors.dim}>
         {" "}
-        (f folder, n new{inFolder ? ", e rename, D delete" : ""})
+        (a annotate, f folder, n new{inFolder ? ", e rename, D delete" : ""})
       </text>
     </box>
   );
@@ -85,8 +89,10 @@ export function BookmarksScreen({
   onPostSelect,
   onLike,
   onBookmark,
+  onAnnotate,
   getActionState,
   initActionState,
+  hasAnnotation,
   onCreateFolder,
   onEditFolder,
   onDeleteFolder,
@@ -191,8 +197,10 @@ export function BookmarksScreen({
         onPostSelect={onPostSelect}
         onLike={onLike}
         onBookmark={onBookmark}
+        onAnnotate={onAnnotate}
         getActionState={getActionState}
         initActionState={initActionState}
+        hasAnnotation={hasAnnotation}
         onLoadMore={fetchNextPage}
         loadingMore={isFetchingNextPage}
         hasMore={hasNextPage}
