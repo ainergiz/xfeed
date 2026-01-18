@@ -413,6 +413,25 @@ export function PostDetailScreen({
     }
   }, [currentLink]);
 
+  // Click handlers for like/bookmark icons
+  const handleLikeClick = useCallback(
+    (event: MouseEvent) => {
+      if (event.type === "up" && event.button === 0) {
+        onLike?.();
+      }
+    },
+    [onLike]
+  );
+
+  const handleBookmarkClick = useCallback(
+    (event: MouseEvent) => {
+      if (event.type === "up" && event.button === 0) {
+        onBookmark?.();
+      }
+    },
+    [onBookmark]
+  );
+
   useKeyboard((key) => {
     if (!focused) return;
 
@@ -730,7 +749,18 @@ export function PostDetailScreen({
     </box>
   ) : null;
 
-  // Stats bar
+  // Stats bar with clickable like/bookmark icons
+  const likeColor = isJustLiked
+    ? colors.success
+    : isLiked
+      ? colors.liked
+      : colors.muted;
+  const bookmarkColor = isJustBookmarked
+    ? colors.success
+    : isBookmarked
+      ? colors.bookmarked
+      : colors.muted;
+
   const statsContent = (
     <box style={{ marginTop: 1, paddingLeft: 1, paddingRight: 1 }}>
       <box style={{ flexDirection: "row" }}>
@@ -738,6 +768,14 @@ export function PostDetailScreen({
           {formatCount(tweet.replyCount)} replies {"  "}
           {formatCount(tweet.retweetCount)} reposts {"  "}
           {formatCount(tweet.likeCount)} likes
+        </text>
+        <text>{"  "}</text>
+        <text fg={likeColor} onMouse={handleLikeClick}>
+          {isLiked ? HEART_FILLED : HEART_EMPTY}
+        </text>
+        <text>{"  "}</text>
+        <text fg={bookmarkColor} onMouse={handleBookmarkClick}>
+          {isBookmarked ? FLAG_FILLED : FLAG_EMPTY}
         </text>
       </box>
     </box>
