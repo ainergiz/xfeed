@@ -1,35 +1,27 @@
-import type { View } from "@/app";
+import type { ReactNode } from "react";
 
 import { colors } from "@/lib/colors";
 
 interface HeaderProps {
-  currentView: View;
-  postCount?: number;
-  hasMore?: boolean;
-  unreadNotificationCount?: number;
-}
-
-function getCountLabel(view: View, count: number, hasMore: boolean): string {
-  // Only show "+" if we have a full page (30+) and there are more to load
-  // If count < 30, we know we have all items regardless of hasMore
-  const suffix = hasMore && count >= 30 ? "+" : "";
-  if (view === "notifications") {
-    return `${count} notifications`;
-  }
-  if (view === "bookmarks") {
-    return `${count}${suffix} bookmarked`;
-  }
-  return `${count} posts`;
+  /** The main title to display (e.g., "Timeline", "Bookmarks") */
+  title: string;
+  /** Optional subtitle shown in parentheses (e.g., "30+ bookmarked") */
+  subtitle?: string;
+  /** Optional badge count shown with bell icon (e.g., unread notifications) */
+  badge?: number;
+  /** Optional content for the left slot (defaults to "xfeed" brand) */
+  leftContent?: ReactNode;
+  /** Optional content for the right slot */
+  rightContent?: ReactNode;
 }
 
 export function Header({
-  currentView,
-  postCount,
-  hasMore = false,
-  unreadNotificationCount,
+  title,
+  subtitle,
+  badge,
+  leftContent,
+  rightContent,
 }: HeaderProps) {
-  const viewLabel = currentView.charAt(0).toUpperCase() + currentView.slice(1);
-
   return (
     <box
       style={{
@@ -40,18 +32,14 @@ export function Header({
         flexDirection: "row",
       }}
     >
-      <text fg={colors.primary}>xfeed</text>
-      {unreadNotificationCount !== undefined && unreadNotificationCount > 0 && (
-        <text fg={colors.error}> 🔔 {unreadNotificationCount}</text>
+      {leftContent ?? <text fg={colors.primary}>xfeed</text>}
+      {badge !== undefined && badge > 0 && (
+        <text fg={colors.error}> 🔔 {badge}</text>
       )}
       <text fg={colors.dim}> | </text>
-      <text fg="#ffffff">{viewLabel}</text>
-      {postCount !== undefined && postCount > 0 && (
-        <text fg={colors.dim}>
-          {" "}
-          ({getCountLabel(currentView, postCount, hasMore)})
-        </text>
-      )}
+      <text fg="#ffffff">{title}</text>
+      {subtitle && <text fg={colors.dim}> ({subtitle})</text>}
+      {rightContent}
     </box>
   );
 }

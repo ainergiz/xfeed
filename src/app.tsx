@@ -49,6 +49,31 @@ import { ThreadScreen } from "@/screens/ThreadScreen";
 
 const SPLASH_MIN_DISPLAY_MS = 500;
 
+/** Generates header subtitle based on view type and item count */
+function getHeaderSubtitle(
+  view: View,
+  count: number,
+  hasMore: boolean
+): string | undefined {
+  if (count <= 0) return undefined;
+
+  // Only show "+" if we have a full page (30+) and there are more to load
+  const suffix = hasMore && count >= 30 ? "+" : "";
+
+  if (view === "notifications") {
+    return `${count} notifications`;
+  }
+  if (view === "bookmarks") {
+    return `${count}${suffix} bookmarked`;
+  }
+  return `${count} posts`;
+}
+
+/** Capitalizes the first letter of a view name for display */
+function getViewTitle(view: View): string {
+  return view.charAt(0).toUpperCase() + view.slice(1);
+}
+
 export type View =
   | "timeline"
   | "bookmarks"
@@ -782,16 +807,17 @@ function AppContent({ client, user }: AppProps) {
         <SplashScreen />
       ) : isMainView ? (
         <Header
-          currentView={currentView}
-          postCount={
+          title={getViewTitle(currentView)}
+          subtitle={getHeaderSubtitle(
+            currentView,
             currentView === "bookmarks"
               ? bookmarkCount
               : currentView === "notifications"
                 ? notificationCount
-                : postCount
-          }
-          hasMore={currentView === "bookmarks" ? bookmarkHasMore : false}
-          unreadNotificationCount={unreadNotificationCount}
+                : postCount,
+            currentView === "bookmarks" ? bookmarkHasMore : false
+          )}
+          badge={unreadNotificationCount}
         />
       ) : null}
 
