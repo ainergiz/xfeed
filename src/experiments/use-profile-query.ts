@@ -148,7 +148,11 @@ export function useProfileQuery({
     queryKey: queryKeys.user.replies(profileData?.id ?? ""),
     queryFn: async () => {
       if (!profileData?.id) return [];
-      const result = await client.getUserReplies(profileData.id, 20);
+      const result = await client.getUserReplies(
+        profileData.id,
+        20,
+        profileData.username
+      );
       if (!result.success) {
         throw new Error(result.error ?? "Failed to load replies");
       }

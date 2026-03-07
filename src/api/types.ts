@@ -115,6 +115,16 @@ export interface TweetData {
   bookmarked?: boolean;
   /** First nested reply preview (display-only, not navigable) */
   nestedReplyPreview?: TweetData;
+  /** Whether this tweet is a long-form article/blog post */
+  isArticle?: boolean;
+  /** Article title (distinct from tweet text) */
+  articleTitle?: string;
+  /** Short preview text for the article */
+  articlePreviewText?: string;
+  /** Article REST ID (different from tweet ID) */
+  articleId?: string;
+  /** Cover image URL for the article */
+  articleCoverImageUrl?: string;
 }
 
 /**
@@ -347,12 +357,19 @@ interface ContentWithItems extends TextContent {
 interface ArticleResult {
   title?: string;
   plain_text?: string;
+  preview_text?: string;
+  rest_id?: string;
   text?: string;
   richtext?: { text?: string };
   rich_text?: { text?: string };
   body?: TextContent;
   content?: ContentWithItems;
   sections?: Array<{ items?: ContentItem[] }>;
+  cover_media?: {
+    media_info?: {
+      original_img_url?: string;
+    };
+  };
 }
 
 /**

@@ -1023,12 +1023,16 @@ export class XClient {
       return undefined;
     }
 
+    const isArticle = !!result.article;
     const rawText = this.extractTweetText(result);
     if (!rawText) {
       return undefined;
     }
-    // Strip all URLs (t.co links) and decode HTML entities for display
-    const strippedText = this.stripUrlsFromText(rawText, result);
+    // Article text comes from plain_text field, not legacy.full_text,
+    // so legacy URL indices don't apply — skip stripping for articles
+    const strippedText = isArticle
+      ? rawText
+      : this.stripUrlsFromText(rawText, result);
     const text = this.decodeHtmlEntities(strippedText);
 
     // Handle quoted tweets recursively
@@ -1062,6 +1066,36 @@ export class XClient {
       mentions: this.extractMentions(result),
       favorited: result.legacy?.favorited ?? false,
       bookmarked: result.legacy?.bookmarked ?? false,
+      ...this.extractArticleMetadata(result),
+    };
+  }
+
+  private extractArticleMetadata(
+    result: GraphqlTweetResult
+  ): Pick<
+    import("./types").TweetData,
+    | "isArticle"
+    | "articleTitle"
+    | "articlePreviewText"
+    | "articleId"
+    | "articleCoverImageUrl"
+  > {
+    const article = result.article;
+    if (!article) {
+      return {};
+    }
+    const ar = article.article_results?.result;
+    const title = this.firstText(ar?.title, article.title);
+    const previewText = ar?.preview_text;
+    const articleId = ar?.rest_id;
+    const coverImageUrl = ar?.cover_media?.media_info?.original_img_url;
+
+    return {
+      isArticle: true,
+      articleTitle: title,
+      articlePreviewText: previewText,
+      articleId,
+      articleCoverImageUrl: coverImageUrl,
     };
   }
 
@@ -1309,6 +1343,16 @@ export class XClient {
       interactive_text_enabled: true,
       longform_notetweets_richtext_consumption_enabled: true,
       responsive_web_media_download_video_enabled: false,
+      responsive_web_twitter_article_plain_text_enabled: true,
+      responsive_web_twitter_article_seed_tweet_detail_enabled: true,
+      responsive_web_twitter_article_seed_tweet_summary_enabled: true,
+    };
+  }
+
+  private buildTimelineFieldToggles(): Record<string, boolean> {
+    return {
+      withArticlePlainText: true,
+      withArticleRichContentState: false,
     };
   }
 
@@ -2037,12 +2081,16 @@ export class XClient {
   /**
    * Search for tweets matching a query
    */
-  async search(query: string, count = 20): Promise<SearchResult> {
+  async search(
+    query: string,
+    count = 20,
+    product: "Latest" | "Top" = "Latest"
+  ): Promise<SearchResult> {
     const variables = {
       rawQuery: query,
       count,
       querySource: "typed_query",
-      product: "Latest",
+      product,
     };
 
     const features = this.buildSearchFeatures();
@@ -2646,6 +2694,7 @@ export class XClient {
         const params = new URLSearchParams({
           variables: JSON.stringify(variables),
           features: JSON.stringify(features),
+          fieldToggles: JSON.stringify(this.buildTimelineFieldToggles()),
         });
         const url = `${X_API_BASE}/${queryId}/HomeTimeline?${params.toString()}`;
 
@@ -2782,6 +2831,7 @@ export class XClient {
         const params = new URLSearchParams({
           variables: JSON.stringify(variables),
           features: JSON.stringify(features),
+          fieldToggles: JSON.stringify(this.buildTimelineFieldToggles()),
         });
         const url = `${X_API_BASE}/${queryId}/HomeLatestTimeline?${params.toString()}`;
 
@@ -4036,22 +4086,15 @@ export class XClient {
    * Get user's tweets and replies (includes reply tweets)
    * @param userId Target user's ID
    * @param count Number of tweets to fetch (default 20)
+   * @param screenName Optional screen name for search fallback when GraphQL fails
    *
-   * @note This endpoint currently returns 404 errors consistently.
-   * The UserTweetsAndReplies API may require:
-   * - Additional authentication headers
-   * - Different feature flags
-   * - Client-specific transaction IDs
-   *
-   * Working example URL (from browser):
-   * https://x.com/i/api/graphql/_P1zJA2kS9W1PLHKdThsrg/UserTweetsAndReplies?
-   * variables={"userId":"...","count":20,"includePromotedContent":true,"withCommunity":true,"withVoice":true}
-   *
-   * TODO: Investigate why this endpoint fails while UserTweets works with similar parameters.
+   * Uses the UserTweetsAndReplies GraphQL endpoint with a search-based
+   * fallback (from:screenName) since the GraphQL endpoint is unreliable.
    */
   async getUserReplies(
     userId: string,
-    count = 20
+    count = 20,
+    screenName?: string
   ): Promise<import("./types").UserTweetsResult> {
     const variables = {
       userId,
@@ -4088,9 +4131,6 @@ export class XClient {
           if (response.status === 404) {
             had404 = true;
             lastError = `HTTP ${response.status}`;
-            console.error(
-              `[DEBUG] UserTweetsAndReplies 404 for queryId: ${queryId}`
-            );
             continue;
           }
 
@@ -4156,11 +4196,89 @@ export class XClient {
       }
     }
 
+    // Fallback: use search API with screenName
+    const searchResult = await this.getUserRepliesViaSearch(
+      userId,
+      count,
+      screenName
+    );
+    if (searchResult.success) {
+      return searchResult;
+    }
+
     return {
       success: firstAttempt.success,
       tweets: firstAttempt.success ? firstAttempt.tweets : undefined,
       error: firstAttempt.success ? undefined : firstAttempt.error,
     };
+  }
+
+  /**
+   * Fallback for getUserReplies using the search API.
+   * Uses provided screenName or resolves it from userId.
+   */
+  private async getUserRepliesViaSearch(
+    userId: string,
+    count: number,
+    screenName?: string
+  ): Promise<import("./types").UserTweetsResult> {
+    const name = screenName ?? (await this.resolveScreenName(userId));
+    if (!name) {
+      return {
+        success: false,
+        error:
+          "Could not resolve userId to screenName for search fallback. Pass screenName to getUserReplies().",
+      };
+    }
+
+    const searchResult = await this.search(`from:${name}`, count);
+    if (!searchResult.success || !searchResult.tweets) {
+      return {
+        success: false,
+        error: searchResult.error ?? "Search fallback failed",
+      };
+    }
+
+    return { success: true, tweets: searchResult.tweets };
+  }
+
+  /**
+   * Resolve a userId to a screenName using the UserByRestId GraphQL endpoint.
+   */
+  private async resolveScreenName(userId: string): Promise<string | null> {
+    const queryId = "FJ17ptkJuQAZGWilcySi5w";
+    const variables = { userId, withSafetyModeUserFields: true };
+    const features = this.buildUserProfileFeatures();
+
+    const params = new URLSearchParams({
+      variables: JSON.stringify(variables),
+      features: JSON.stringify(features),
+    });
+    const url = `${X_API_BASE}/${queryId}/UserByRestId?${params.toString()}`;
+
+    try {
+      const response = await this.fetchWithTimeout(url, {
+        method: "GET",
+        headers: this.getBaseHeaders(),
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      // biome-ignore lint/suspicious/noExplicitAny: X API response varies
+      const data = (await response.json()) as any;
+      const result = data?.data?.user?.result;
+      return (
+        ((result?.legacy?.screen_name ?? result?.core?.screen_name) as
+          | string
+          | undefined) ?? null
+      );
+    } catch {
+      // Give up
+    }
+
+    return null;
   }
 
   /**
