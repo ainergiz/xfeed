@@ -168,7 +168,6 @@ export function UrlInputContent({
             handleSubmit();
           }}
           width={50}
-          height={1}
           backgroundColor={dialogColors.bgInput}
           textColor={dialogColors.textPrimary}
           placeholderColor={dialogColors.textMuted}
