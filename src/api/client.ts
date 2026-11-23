@@ -920,11 +920,28 @@ export class XClient {
 
   /**
    * Extract URL entities from legacy.entities.urls
+   * Long posts also carry the links of their full text in note_tweet's entity_set
    * Filters out media URLs (t.co links that point to pic.twitter.com)
    */
   private extractUrls(result: GraphqlTweetResult): UrlEntity[] | undefined {
-    const rawUrls = result.legacy?.entities?.urls;
-    if (!rawUrls || rawUrls.length === 0) {
+    const legacyUrls = result.legacy?.entities?.urls ?? [];
+    const noteUrls =
+      result.note_tweet?.note_tweet_results?.result?.entity_set?.urls ?? [];
+
+    // legacy.entities only covers the truncated text of a long post, so the
+    // note's own links come first; each t.co link is listed once
+    let rawUrls = legacyUrls;
+    if (noteUrls.length > 0) {
+      const seen = new Set<string>();
+      rawUrls = [...noteUrls, ...legacyUrls].filter((u) => {
+        if (seen.has(u.url)) {
+          return false;
+        }
+        seen.add(u.url);
+        return true;
+      });
+    }
+    if (rawUrls.length === 0) {
       return undefined;
     }
 
@@ -969,6 +986,12 @@ export class XClient {
    * External URLs are stripped but still available in TweetData.urls for rendering
    */
   private stripUrlsFromText(text: string, result: GraphqlTweetResult): string {
+    // Long posts take their text from note_tweet, while the legacy indices
+    // below refer to the truncated legacy.full_text
+    if (this.extractNoteTweetText(result) !== undefined) {
+      return this.stripNoteTweetUrls(text, result);
+    }
+
     const allIndices: [number, number][] = [];
 
     // Collect ALL URL indices from entities.urls (both media and external)
@@ -1004,6 +1027,41 @@ export class XClient {
       }
       result_text =
         result_text.substring(0, trimStart) + result_text.substring(end);
+    }
+
+    return result_text.trim();
+  }
+
+  /**
+   * Strip t.co links from the note_tweet text of a long post
+   * Removes the links by matching them in the text instead of cutting by index:
+   * legacy indices would delete real text around char 280, and X counts
+   * indices in code points rather than UTF-16 units
+   */
+  private stripNoteTweetUrls(text: string, result: GraphqlTweetResult): string {
+    const shortUrls = [
+      ...(result.note_tweet?.note_tweet_results?.result?.entity_set?.urls ??
+        []),
+      ...(result.legacy?.entities?.urls ?? []),
+      ...(result.legacy?.entities?.media ?? []),
+    ].map((entity) => entity.url);
+
+    let result_text = text;
+    for (const shortUrl of shortUrls) {
+      if (!shortUrl) {
+        continue;
+      }
+      let start = result_text.indexOf(shortUrl);
+      while (start !== -1) {
+        const end = start + shortUrl.length;
+        // Also trim trailing whitespace before the URL
+        while (start > 0 && result_text[start - 1] === " ") {
+          start--;
+        }
+        result_text =
+          result_text.substring(0, start) + result_text.substring(end);
+        start = result_text.indexOf(shortUrl, start);
+      }
     }
 
     return result_text.trim();
@@ -2094,6 +2152,9 @@ export class XClient {
     };
 
     const features = this.buildSearchFeatures();
+    // Without withArticlePlainText X returns only the title and preview of
+    // article posts, which leaves them with title-only text
+    const fieldToggles = this.buildTimelineFieldToggles();
 
     const params = new URLSearchParams({
       variables: JSON.stringify(variables),
@@ -2111,7 +2172,7 @@ export class XClient {
           const response = await this.fetchWithTimeout(url, {
             method: "POST",
             headers: this.getHeaders(),
-            body: JSON.stringify({ features, queryId }),
+            body: JSON.stringify({ features, fieldToggles, queryId }),
           });
 
           if (response.status === 404) {
