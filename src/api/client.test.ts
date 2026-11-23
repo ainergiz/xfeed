@@ -854,6 +854,81 @@ describe("XClient", () => {
       const result = await client.search("test", 50);
       expect(result.success).toBe(true);
     });
+
+    it("requests article plain text so article posts are not title-only", async () => {
+      const client = new XClient({ cookies: validCookies });
+      let requestBody: Record<string, unknown> | undefined;
+      globalThis.fetch = mock((_url: string, init: RequestInit) => {
+        requestBody = JSON.parse(String(init.body));
+        return Promise.resolve(
+          mockResponse({
+            data: {
+              search_by_raw_query: {
+                search_timeline: {
+                  timeline: {
+                    instructions: [
+                      {
+                        entries: [
+                          {
+                            content: {
+                              itemContent: {
+                                tweet_results: {
+                                  result: {
+                                    rest_id: "search-article-1",
+                                    legacy: {
+                                      full_text: "https://t.co/ARTICLE001",
+                                    },
+                                    article: {
+                                      article_results: {
+                                        result: {
+                                          title: "Article Title",
+                                          preview_text: "The article body",
+                                          // Only returned when the request
+                                          // asks for withArticlePlainText
+                                          plain_text:
+                                            "The article body, in full.",
+                                        },
+                                      },
+                                    },
+                                    core: {
+                                      user_results: {
+                                        result: {
+                                          rest_id: "user1",
+                                          legacy: {
+                                            screen_name: "user1",
+                                            name: "User 1",
+                                          },
+                                        },
+                                      },
+                                    },
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          })
+        );
+      });
+
+      const result = await client.search("test");
+      expect(requestBody?.fieldToggles).toEqual({
+        withArticlePlainText: true,
+        withArticleRichContentState: false,
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.tweets?.[0]?.text).toBe(
+          "Article Title\n\nThe article body, in full."
+        );
+      }
+    });
   });
 
   describe("getCurrentUser", () => {
@@ -3021,6 +3096,254 @@ describe("XClient", () => {
       const result = await client.getHomeTimeline();
       expect(result.success).toBe(true);
       // Should not crash even when isMediaUrl is called with undefined
+    });
+  });
+
+  describe("long post (note_tweet) URL handling", () => {
+    // What legacy.full_text keeps of a long post: ~280 chars, then it is cut
+    const truncatedPart = "The first part of a long post. ".repeat(9).trim();
+    const author = {
+      user_results: {
+        result: {
+          rest_id: "user1",
+          legacy: { screen_name: "user1", name: "User 1" },
+        },
+      },
+    };
+    const mockTweetDetail = (result: Record<string, unknown>) => {
+      globalThis.fetch = mock(() =>
+        Promise.resolve(mockResponse({ data: { tweetResult: { result } } }))
+      );
+    };
+
+    it("keeps the full text when legacy media indices point into the truncated text", async () => {
+      const client = new XClient({ cookies: validCookies });
+      const noteText = `${truncatedPart}\n\nWhat came next:\n\n- 42 entries made it onto the list\n- and the post keeps going well past the cut`;
+      mockTweetDetail({
+        rest_id: "long-1",
+        legacy: {
+          // Truncated text ends with the media link; its indices (279-302)
+          // land in the middle of the note text
+          full_text: `${truncatedPart} https://t.co/MEDIA00001`,
+          entities: {
+            media: [{ url: "https://t.co/MEDIA00001", indices: [279, 302] }],
+          },
+        },
+        note_tweet: {
+          note_tweet_results: {
+            result: { text: noteText, entity_set: { urls: [] } },
+          },
+        },
+        core: author,
+      });
+
+      const result = await client.getTweet("long-1");
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.tweet?.text).toBe(noteText);
+        expect(result.tweet?.text).toContain("- 42 entries made it");
+        expect(result.tweet?.urls).toBeUndefined();
+      }
+    });
+
+    it("keeps the full text when legacy url indices point near 280 and lists the note's own links", async () => {
+      const client = new XClient({ cookies: validCookies });
+      const noteText = `${truncatedPart}\n\nThe details are in https://t.co/NOTE000001 for anyone curious.\n\nSource: https://t.co/NOTE000002`;
+      const firstLinkStart = noteText.indexOf("https://t.co/NOTE000001");
+      const secondLinkStart = noteText.indexOf("https://t.co/NOTE000002");
+      mockTweetDetail({
+        rest_id: "long-2",
+        legacy: {
+          full_text: `${truncatedPart} https://t.co/LEGACY0001`,
+          entities: {
+            urls: [
+              {
+                url: "https://t.co/LEGACY0001",
+                expanded_url: "https://example.com/legacy",
+                display_url: "example.com/legacy",
+                indices: [279, 302],
+              },
+            ],
+          },
+        },
+        note_tweet: {
+          note_tweet_results: {
+            result: {
+              text: noteText,
+              entity_set: {
+                urls: [
+                  {
+                    url: "https://t.co/NOTE000001",
+                    expanded_url: "https://example.com/details",
+                    display_url: "example.com/details",
+                    indices: [firstLinkStart, firstLinkStart + 23],
+                  },
+                  {
+                    url: "https://t.co/NOTE000002",
+                    expanded_url: "https://example.com/source",
+                    display_url: "example.com/source",
+                    indices: [secondLinkStart, secondLinkStart + 23],
+                  },
+                ],
+              },
+            },
+          },
+        },
+        core: author,
+      });
+
+      const result = await client.getTweet("long-2");
+      expect(result.success).toBe(true);
+      if (result.success) {
+        // Nothing is cut around char 280; only the t.co links are removed,
+        // together with the spaces before them (same as short posts)
+        expect(result.tweet?.text).toBe(
+          `${truncatedPart}\n\nThe details are in for anyone curious.\n\nSource:`
+        );
+        // The note's links come first, links only legacy knows about are kept
+        expect(result.tweet?.urls).toEqual([
+          {
+            url: "https://t.co/NOTE000001",
+            expandedUrl: "https://example.com/details",
+            displayUrl: "example.com/details",
+            indices: [firstLinkStart, firstLinkStart + 23],
+          },
+          {
+            url: "https://t.co/NOTE000002",
+            expandedUrl: "https://example.com/source",
+            displayUrl: "example.com/source",
+            indices: [secondLinkStart, secondLinkStart + 23],
+          },
+          {
+            url: "https://t.co/LEGACY0001",
+            expandedUrl: "https://example.com/legacy",
+            displayUrl: "example.com/legacy",
+            indices: [279, 302],
+          },
+        ]);
+      }
+    });
+
+    it("lists a link once when legacy and the note both report it", async () => {
+      const client = new XClient({ cookies: validCookies });
+      const opening = "Early link https://t.co/EARLY00001 in a long post.";
+      const noteText = `${opening} ${truncatedPart}\n\nLate link: https://t.co/LATE000001`;
+      const lateLinkStart = noteText.indexOf("https://t.co/LATE000001");
+      const earlyLink = {
+        url: "https://t.co/EARLY00001",
+        expanded_url: "https://example.com/early",
+        display_url: "example.com/early",
+        indices: [11, 34],
+      };
+      mockTweetDetail({
+        rest_id: "long-3",
+        legacy: {
+          full_text: noteText.slice(0, 280),
+          entities: { urls: [earlyLink] },
+        },
+        note_tweet: {
+          note_tweet_results: {
+            result: {
+              text: noteText,
+              entity_set: {
+                urls: [
+                  earlyLink,
+                  {
+                    url: "https://t.co/LATE000001",
+                    expanded_url: "https://example.com/late",
+                    display_url: "example.com/late",
+                    indices: [lateLinkStart, lateLinkStart + 23],
+                  },
+                ],
+              },
+            },
+          },
+        },
+        core: author,
+      });
+
+      const result = await client.getTweet("long-3");
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.tweet?.text).toBe(
+          `Early link in a long post. ${truncatedPart}\n\nLate link:`
+        );
+        expect(result.tweet?.urls?.map((u) => u.expandedUrl)).toEqual([
+          "https://example.com/early",
+          "https://example.com/late",
+        ]);
+      }
+    });
+
+    it("falls back to legacy links when the note has no entity_set", async () => {
+      const client = new XClient({ cookies: validCookies });
+      const noteText = `Read https://t.co/EARLY00001 first. ${truncatedPart}\n\nThen the rest of the long post.`;
+      mockTweetDetail({
+        rest_id: "long-4",
+        legacy: {
+          full_text: noteText.slice(0, 280),
+          entities: {
+            urls: [
+              {
+                url: "https://t.co/EARLY00001",
+                expanded_url: "https://example.com/early",
+                display_url: "example.com/early",
+                indices: [5, 28],
+              },
+            ],
+          },
+        },
+        note_tweet: { note_tweet_results: { result: { text: noteText } } },
+        core: author,
+      });
+
+      const result = await client.getTweet("long-4");
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.tweet?.text).toBe(
+          `Read first. ${truncatedPart}\n\nThen the rest of the long post.`
+        );
+        expect(result.tweet?.urls?.map((u) => u.expandedUrl)).toEqual([
+          "https://example.com/early",
+        ]);
+      }
+    });
+
+    it("leaves short posts unchanged", async () => {
+      const client = new XClient({ cookies: validCookies });
+      mockTweetDetail({
+        rest_id: "short-1",
+        legacy: {
+          full_text:
+            "Check https://t.co/LINK000001 out &amp; enjoy https://t.co/MEDIA00001",
+          entities: {
+            urls: [
+              {
+                url: "https://t.co/LINK000001",
+                expanded_url: "https://example.com/page",
+                display_url: "example.com/page",
+                indices: [6, 29],
+              },
+            ],
+            media: [{ url: "https://t.co/MEDIA00001", indices: [46, 69] }],
+          },
+        },
+        core: author,
+      });
+
+      const result = await client.getTweet("short-1");
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.tweet?.text).toBe("Check out & enjoy");
+        expect(result.tweet?.urls).toEqual([
+          {
+            url: "https://t.co/LINK000001",
+            expandedUrl: "https://example.com/page",
+            displayUrl: "example.com/page",
+            indices: [6, 29],
+          },
+        ]);
+      }
     });
   });
 

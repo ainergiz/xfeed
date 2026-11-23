@@ -303,6 +303,18 @@ export interface GraphqlTweetResult {
     note_tweet_results?: {
       result?: {
         text?: string;
+        /**
+         * Entities of the full long-post text. legacy.entities only covers
+         * the truncated legacy.full_text, so its indices do not apply here.
+         */
+        entity_set?: {
+          urls?: Array<{
+            url: string;
+            expanded_url: string;
+            display_url: string;
+            indices: [number, number];
+          }>;
+        };
         richtext?: { text?: string };
         rich_text?: { text?: string };
         content?: {
